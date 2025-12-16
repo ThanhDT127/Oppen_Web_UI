@@ -188,13 +188,22 @@ def health():
 
 
 @app.get("/v1/models")
-def models():
-    available: List[str] = []
-    for user in _load_users():
-        for model in user.get("allowed_models", []):
-            if model != "*":
-                available.append(model)
-    return {"data": [{"id": m, "object": "model"} for m in sorted(set(available))]}
+async def models():
+    """List available models from LiteLLM"""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"{LITELLM_BASE}/models",
+                headers={"Authorization": f"Bearer {LITELLM_KEY}"}
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                # Fallback to empty list
+                return {"data": []}
+    except Exception:
+        # Fallback to empty list if LiteLLM is down
+        return {"data": []}
 
 
 @app.post("/v1/chat/completions")
@@ -244,19 +253,27 @@ async def chat_proxy(request: Request):
         _append_pending(request_id, user["user_id"])
 
         async def _iter():
-            async with httpx.AsyncClient(timeout=None) as client:
-                async with client.stream(
-                    "POST",
-                    f"{LITELLM_BASE}/chat/completions",
-                    headers=headers,
-                    json=body,
-                ) as resp:
-                    if resp.status_code >= 400:
-                        error_text = await resp.aread()
-                        _remove_pending(request_id)
-                        raise HTTPException(resp.status_code, error_text.decode("utf-8", errors="ignore"))
-                    async for chunk in resp.aiter_bytes():
-                        yield chunk
+            try:
+                async with httpx.AsyncClient(timeout=600) as client:
+                    async with client.stream(
+                        "POST",
+                        f"{LITELLM_BASE}/chat/completions",
+                        headers=headers,
+                        json=body,
+                    ) as resp:
+                        if resp.status_code >= 400:
+                            error_text = await resp.aread()
+                            _remove_pending(request_id)
+                            error_msg = error_text.decode("utf-8", errors="ignore")
+                            yield f"data: {json.dumps({'error': error_msg})}\n\n".encode()
+                            return
+                        
+                        async for chunk in resp.aiter_bytes():
+                            yield chunk
+            except Exception as e:
+                _remove_pending(request_id)
+                yield f"data: {json.dumps({'error': str(e)})}\n\n".encode()
+                
         return StreamingResponse(_iter(), media_type="text/event-stream")
 
     limits = httpx.Limits(max_connections=200, max_keepalive_connections=100)
