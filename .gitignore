@@ -19,8 +19,11 @@ openwebui_data/
 *.sqlite
 
 # Logs
+logs/
 litellm/*.log
 *.log
+*.out.txt
+*.err.txt
 
 # Middleware runtime artifacts
 llm-mw/pending.csv
