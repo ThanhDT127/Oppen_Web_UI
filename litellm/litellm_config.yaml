@@ -1,34 +1,62 @@
 model_list:
-  - model_name: llama-3.1-8b-instant
+  - model_name: gpt-4o
     litellm_params:
-      provider: groq
-      model: llama-3.1-8b-instant
-      api_key: ${GROQ_API_KEY}
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
 
-  - model_name: gpt-oss-120b
+  - model_name: gpt-4o-mini
     litellm_params:
-      provider: groq
-      model: openai/gpt-oss-120b
-      api_key: ${GROQ_API_KEY}
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
 
-  - model_name: gpt-oss-20b
+  - model_name: gpt-4.1
     litellm_params:
-      provider: groq
-      model: openai/gpt-oss-20b
-      api_key: ${GROQ_API_KEY}
+      model: openai/gpt-4.1
+      api_key: os.environ/OPENAI_API_KEY
 
-server_settings:
+  - model_name: gpt-4.1-mini
+    litellm_params:
+      model: openai/gpt-4.1-mini
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: gpt-4.1-nano
+    litellm_params:
+      model: openai/gpt-4.1-nano
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: gemini-2.5-pro
+    litellm_params:
+      model: gemini/gemini-2.5-pro
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: gemini-2.0-flash
+    litellm_params:
+      model: gemini/gemini-2.0-flash
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: gemini-2.0-flash-lite
+    litellm_params:
+      model: gemini/gemini-2.0-flash-lite
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: gemini-3-pro-preview
+    litellm_params:
+      model: gemini/gemini-3-pro-preview
+      api_key: os.environ/GEMINI_API_KEY
+
+
+litellm_settings:
+  drop_params: false  
   host: "0.0.0.0"
   port: 4000
-  api_base: "/v1"
   telemetry: false
 
 general_settings:
   enable_spend_logging: true
   verbose: true
-  master_key: "super_admin_key_123"
+  master_key: os.environ/LITELLM_MASTER_KEY
   log_level: "info"
 
 logging:
-  file: "/workspace/Oppen_Web_UI/litellm/litellm.log"
+  file: "D:\\Works\\Open_Web_UI\\Oppen_Web_UI\\litellm\\litellm.log"
   level: INFO

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+
+# Environment / secrets
+.env
+llm-mw/.env
+.webui_secret_key
+
+# Middleware user registry (local)
+llm-mw/users.json
+llm-mw/users.local.json
+
+# Runtime dataa / data
+openwebui_data/
+*.db
+*.db-*
+*.sqlite
+
+# Logs
+litellm/*.log
+*.log
+
+# Middleware runtime artifacts
+llm-mw/pending.csv
+
+# OS
+.DS_Store
+Thumbs.db
