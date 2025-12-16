@@ -55,16 +55,24 @@ Hệ thống chat LLM 3 tầng với xác thực, quản lý quota và tracking 
 & D:/Works/.venv/Scripts/Activate.ps1
 
 # Install dependencies
-pip install litellm open-webui fastapi uvicorn httpx python-dotenv
+pip install "litellm[proxy]" open-webui fastapi uvicorn httpx python-dotenv
 ```
 
 ### Bước 2: Chạy 3 services (3 PowerShell terminals)
+
+**Quan trọng (YAML dùng env vars):** LiteLLM config đang dùng dạng `os.environ/VAR_NAME` nên bạn phải set các biến môi trường trước khi chạy LiteLLM.
+
+- File local: `llm-mw/.env` (đã bị `.gitignore`, không commit)
+- Cần có tối thiểu:
+  - `LITELLM_KEY` (master key của LiteLLM)
+  - `OPENAI_API_KEY`
+  - `GEMINI_API_KEY`
 
 **Terminal 1 - LiteLLM (Port 4000)**
 ```powershell
 & D:/Works/.venv/Scripts/Activate.ps1
 cd D:\Works\Open_Web_UI\Oppen_Web_UI
-litellm --config .\litellm\litellm_config.yaml --port 4000
+./scripts/run_litellm_with_env.ps1 -Port 4000
 ```
 
 **Terminal 2 - Middleware (Port 5000)**
@@ -110,7 +118,7 @@ open-webui serve --port 3000
 **Cấu hình quan trọng:**
 ```yaml
 general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY  # Key dùng cho middleware gọi LiteLLM
+  master_key: os.environ/LITELLM_KEY  # Key dùng cho middleware gọi LiteLLM
   verbose: true
   enable_spend_logging: true
 
@@ -322,7 +330,7 @@ curl -X POST "http://localhost:5000/admin/reset?username=user1&reset_type=cost" 
 curl http://localhost:5000/v1/models -H "Authorization: Bearer <SUBKEY_ADMIN>"
 
 # Kiểm tra LiteLLM
-curl http://localhost:4000/v1/models -H "Authorization: Bearer <LITELLM_MASTER_KEY>"
+curl http://localhost:4000/v1/models -H "Authorization: Bearer <LITELLM_MASTER_KEY>"  # (= LITELLM_KEY)
 
 # Kiểm tra OpenWebUI Settings → Connections
 # Base URL phải là: http://127.0.0.1:5000/v1
@@ -655,7 +663,7 @@ FastAPI Application
 1. **`.env`** - Environment variables
 ```bash
 LITELLM_BASE=http://127.0.0.1:4000/v1    # LiteLLM proxy URL
-LITELLM_KEY=<LITELLM_MASTER_KEY>          # Master key to call LiteLLM
+LITELLM_KEY=<LITELLM_MASTER_KEY>          # Master key to call LiteLLM (LiteLLM uses this)
 ADMIN_KEY=<MW_ADMIN_KEY>                  # Admin API key
 ```
 
@@ -808,7 +816,7 @@ server_settings:
 general_settings:
   enable_spend_logging: true             # Log token usage
   verbose: true                          # Detailed logs
-  master_key: os.environ/LITELLM_MASTER_KEY # Required for /v1/models, etc.
+  master_key: os.environ/LITELLM_KEY # Required for /v1/models, etc.
   log_level: "info"
 
 logging:
@@ -1404,7 +1412,7 @@ server_settings:
 general_settings:
   enable_spend_logging: true   # Log token usage
   verbose: true                # Detailed logs
-  master_key: os.environ/LITELLM_MASTER_KEY
+  master_key: os.environ/LITELLM_KEY
   log_level: "info"            # debug, info, warning, error
   # fallbacks: []              # Fallback models on error
   # retry_policy:              # Retry configuration

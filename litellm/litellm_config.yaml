@@ -54,7 +54,7 @@ litellm_settings:
 general_settings:
   enable_spend_logging: true
   verbose: true
-  master_key: os.environ/LITELLM_MASTER_KEY
+  master_key: os.environ/LITELLM_KEY
   log_level: "info"
 
 logging:
