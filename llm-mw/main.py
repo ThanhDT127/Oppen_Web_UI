@@ -8,6 +8,7 @@ import re
 import csv
 import asyncio
 import logging
+import base64
 from logging.handlers import RotatingFileHandler
 from typing import Dict, Any, List, Optional
 
@@ -17,8 +18,6 @@ from fastapi.responses import JSONResponse, StreamingResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from dotenv import load_dotenv
-
-load_dotenv()
 
 app = FastAPI(title="LLM Middleware (Quota+Auth+Stream+Reconcile)", version="3.0")
 
@@ -32,6 +31,20 @@ app.add_middleware(
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Prefer a single .env at the repo root (D:\ktlt\Works\oppenwebui2\.env),
+# but keep compatibility if someone uses llm-mw/.env.
+_env_candidates = [
+    os.path.join(BASE_DIR, ".env"),
+    os.path.abspath(os.path.join(BASE_DIR, "..", ".env")),
+]
+for _env_path in _env_candidates:
+    if os.path.exists(_env_path):
+        load_dotenv(_env_path)
+        break
+else:
+    load_dotenv()
+
 USERS_FILE = os.path.join(BASE_DIR, "users.json")
 PRICES_FILE = os.path.join(BASE_DIR, "prices.json")
 PENDING_CSV = os.path.join(BASE_DIR, "pending.csv")
@@ -40,6 +53,10 @@ LITELLM_LOG_FILE = os.path.abspath(os.path.join(BASE_DIR, "..", "litellm", "lite
 LOG_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "logs"))
 os.makedirs(LOG_DIR, exist_ok=True)
 MW_LOG_FILE = os.path.join(LOG_DIR, "middleware.log")
+MW_DETAIL_LOG_FILE = os.path.join(LOG_DIR, "middleware.requests.log")
+
+MW_MEDIA_DIR = os.path.join(LOG_DIR, "mw_media")
+os.makedirs(MW_MEDIA_DIR, exist_ok=True)
 
 logger = logging.getLogger("llm_mw")
 if not logger.handlers:
@@ -48,11 +65,257 @@ if not logger.handlers:
     _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
     logger.addHandler(_h)
 
+detail_logger = logging.getLogger("llm_mw_detail")
+if not detail_logger.handlers:
+    detail_logger.setLevel(logging.INFO)
+    _dh = RotatingFileHandler(MW_DETAIL_LOG_FILE, maxBytes=20_000_000, backupCount=5, encoding="utf-8")
+    _dh.setFormatter(logging.Formatter("%(message)s"))
+    detail_logger.addHandler(_dh)
+
 _lock = threading.Lock()
 
 LITELLM_BASE = os.getenv("LITELLM_BASE", "http://127.0.0.1:4000/v1")
 LITELLM_KEY = os.getenv("LITELLM_KEY", "")
 ADMIN_KEY = os.getenv("ADMIN_KEY", "")
+
+
+def _env_truthy(name: str, default: bool = False) -> bool:
+    val = os.getenv(name)
+    if val is None:
+        return default
+    return str(val).strip().lower() in ("1", "true", "yes", "y", "on")
+
+
+_RESTRICTED_MODELS = {"gpt-image-1", "sora-2", "sora-2-pro"}
+
+
+_SENSITIVE_KEYS = {
+    "authorization",
+    "api_key",
+    "apikey",
+    "access_token",
+    "token",
+    "secret",
+    "password",
+    "openai_api_key",
+    "gemini_api_key",
+    "litellm_key",
+}
+
+
+def _truncate_text(text: Any, limit: int = 2000) -> Any:
+    if not isinstance(text, str):
+        return text
+    t = text.strip("\n")
+    if len(t) <= limit:
+        return t
+    return t[:limit] + f"…(truncated {len(t) - limit} chars)"
+
+
+def _redact(obj: Any, *, depth: int = 0, max_depth: int = 6) -> Any:
+    if depth > max_depth:
+        return "<max_depth>"
+
+    if isinstance(obj, dict):
+        out: Dict[str, Any] = {}
+        for k, v in obj.items():
+            ks = str(k).lower()
+            if ks in _SENSITIVE_KEYS:
+                out[k] = "[REDACTED]"
+                continue
+            # Avoid logging huge base64 payloads.
+            if ks in ("b64_json", "image", "audio") and isinstance(v, str):
+                out[k] = f"<omitted len={len(v)}>"
+                continue
+            out[k] = _redact(v, depth=depth + 1, max_depth=max_depth)
+        return out
+
+    if isinstance(obj, list):
+        return [_redact(v, depth=depth + 1, max_depth=max_depth) for v in obj[:50]]
+
+    if isinstance(obj, str):
+        # Avoid logging giant data URLs.
+        if obj.startswith("data:"):
+            return f"<data_url len={len(obj)}>"
+        return _truncate_text(obj, limit=4000)
+
+    return obj
+
+
+def _safe_headers(headers: Any) -> Dict[str, Any]:
+    if not isinstance(headers, dict):
+        return {}
+    out: Dict[str, Any] = {}
+    for k, v in headers.items():
+        ks = str(k).lower()
+        if ks in _SENSITIVE_KEYS:
+            out[k] = "[REDACTED]"
+        else:
+            out[k] = _truncate_text(str(v), limit=400)
+    return out
+
+
+def _detail(event: str, *, request: Optional[Request] = None, rid: Optional[str] = None, user_id: Optional[str] = None, **fields: Any):
+    if not _env_truthy("MW_DETAILED_LOG", default=True):
+        return
+    try:
+        payload: Dict[str, Any] = {
+            "ts": dt.datetime.now(tz=ZoneInfo("Asia/Ho_Chi_Minh")).isoformat(),
+            "event": event,
+        }
+        if request is not None:
+            payload.update(
+                {
+                    "method": request.method,
+                    "path": request.url.path,
+                    "client": getattr(request.client, "host", None),
+                }
+            )
+        rid_val = rid or (getattr(request.state, "mw_request_id", None) if request is not None else None)
+        if rid_val:
+            payload["rid"] = rid_val
+        uid_val = user_id or (getattr(request.state, "mw_user_id", None) if request is not None else None)
+        if uid_val:
+            payload["user"] = uid_val
+
+        for k, v in fields.items():
+            payload[k] = _redact(v)
+
+        detail_logger.info(json.dumps(payload, ensure_ascii=False))
+    except Exception:
+        # Never break API behavior due to logging failures.
+        return
+
+
+def _mime_to_ext(mime: str) -> str:
+    m = (mime or "").lower().strip()
+    if m == "image/png":
+        return "png"
+    if m in ("image/jpeg", "image/jpg"):
+        return "jpg"
+    if m == "image/webp":
+        return "webp"
+    if m == "image/gif":
+        return "gif"
+    return "bin"
+
+
+def _save_bytes_to_media(data: bytes, *, mime: str) -> str:
+    ext = _mime_to_ext(mime)
+    name = f"{uuid.uuid4().hex}.{ext}"
+    path = os.path.join(MW_MEDIA_DIR, name)
+    with open(path, "wb") as f:
+        f.write(data)
+    return name
+
+
+def _public_media_url(request: Request, name: str) -> str:
+    base = str(request.base_url).rstrip("/")
+    return f"{base}/v1/_mw/media/{name}"
+
+
+def _maybe_materialize_image_url(request: Request, *, url: str, fallback_mime: str = "image/png") -> str:
+    if not isinstance(url, str) or not url:
+        return url
+    if not url.startswith("data:"):
+        return url
+
+    # Format: data:<mime>;base64,<b64>
+    try:
+        header, b64 = url.split(",", 1)
+        mime = fallback_mime
+        m = re.match(r"^data:([^;]+);base64$", header)
+        if m:
+            mime = m.group(1)
+        raw = base64.b64decode(b64)
+        name = _save_bytes_to_media(raw, mime=mime)
+        return _public_media_url(request, name)
+    except Exception:
+        return url
+
+
+def _maybe_materialize_image_items(request: Request, items: Any, *, fallback_mime: str = "image/png"):
+    if not isinstance(items, list):
+        return
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        url = item.get("url")
+        b64 = item.get("b64_json")
+
+        if isinstance(url, str) and url.startswith("data:"):
+            item["url"] = _maybe_materialize_image_url(request, url=url, fallback_mime=fallback_mime)
+            continue
+
+        if b64 and (not url):
+            try:
+                raw = base64.b64decode(b64)
+                name = _save_bytes_to_media(raw, mime=fallback_mime)
+                item["url"] = _public_media_url(request, name)
+            except Exception:
+                # Leave as-is; callers may still use b64_json.
+                pass
+
+
+@app.get("/v1/_mw/media/{name}")
+async def mw_media_get(name: str):
+    # Constrain to our generated filenames.
+    if not re.fullmatch(r"[a-f0-9]{32}\.(png|jpg|jpeg|webp|gif|bin)", name, flags=re.IGNORECASE):
+        raise HTTPException(404, "Not found")
+    path = os.path.join(MW_MEDIA_DIR, name)
+    if not os.path.exists(path):
+        raise HTTPException(404, "Not found")
+
+    ext = name.rsplit(".", 1)[-1].lower()
+    mime = {
+        "png": "image/png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "webp": "image/webp",
+        "gif": "image/gif",
+    }.get(ext, "application/octet-stream")
+    with open(path, "rb") as f:
+        data = f.read()
+    return Response(content=data, media_type=mime, headers={"Cache-Control": "public, max-age=31536000"})
+
+
+def _is_image_model(model: Optional[str]) -> bool:
+    if not isinstance(model, str) or not model:
+        return False
+    # Keep this conservative: only treat obvious image models as image generators.
+    if model in ("gpt-image-1", "gemini-2.5-flash-image"):
+        return True
+    return "-image" in model or model.endswith("image")
+
+
+def _extract_text_prompt_from_messages(messages: Any) -> str:
+    if not isinstance(messages, list):
+        return ""
+
+    parts: List[str] = []
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("role") != "user":
+            continue
+        content = msg.get("content")
+        if isinstance(content, str):
+            if content.strip():
+                parts.append(content.strip())
+            continue
+        if isinstance(content, list):
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") == "text" and isinstance(item.get("text"), str):
+                    txt = item.get("text").strip()
+                    if txt:
+                        parts.append(txt)
+                elif isinstance(item.get("text"), str):
+                    txt = item.get("text").strip()
+                    if txt:
+                        parts.append(txt)
+    return "\n".join(parts).strip()
 
 
 @app.on_event("startup")
@@ -78,6 +341,7 @@ async def _shutdown_http_client():
 async def _log_requests(request: Request, call_next):
     t0 = time.perf_counter()
     status_code: int = 500
+    _detail("inbound", request=request)
     try:
         response = await call_next(request)
         status_code = getattr(response, "status_code", 200)
@@ -95,6 +359,7 @@ async def _log_requests(request: Request, call_next):
             status_code,
             dt_ms,
         )
+        _detail("outbound", request=request, status=status_code, ms=round(dt_ms, 1))
 
 
 def _require_user(request: Request) -> Dict[str, Any]:
@@ -105,6 +370,7 @@ def _require_user(request: Request) -> Dict[str, Any]:
     user = _find_user(subkey)
     if not user or not user.get("active", True):
         raise HTTPException(403, "Invalid or inactive sub-key")
+    request.state.mw_user_id = user.get("user_id")
     return user
 
 
@@ -484,7 +750,20 @@ async def models(request: Request):
             timeout=10,
         )
         if resp.status_code == 200:
-            return resp.json()
+            payload = resp.json() or {}
+            if not _env_truthy("MW_EXPOSE_RESTRICTED_MODELS", default=False):
+                data = payload.get("data")
+                if isinstance(data, list):
+                    filtered = []
+                    for item in data:
+                        if not isinstance(item, dict):
+                            continue
+                        mid = item.get("id") or item.get("model") or item.get("name")
+                        if isinstance(mid, str) and mid in _RESTRICTED_MODELS:
+                            continue
+                        filtered.append(item)
+                    payload["data"] = filtered
+            return payload
         return {"data": []}
     except Exception:
         # Fallback to empty list if LiteLLM is down
@@ -499,6 +778,216 @@ async def chat_proxy(request: Request):
     model = body.get("model")
     if not model:
         raise HTTPException(400, "Missing model")
+
+    prompt_preview = _extract_text_prompt_from_messages(body.get("messages"))
+    _detail(
+        "chat.request",
+        request=request,
+        user_id=user.get("user_id"),
+        model=model,
+        stream=bool(body.get("stream")),
+        prompt=_truncate_text(prompt_preview, limit=2000),
+        body=body,
+    )
+
+    # OpenWebUI sometimes routes image generation through chat/completions.
+    # To keep the UI functional, detect image models here and translate to an
+    # image generation call, returning a chat response containing a Markdown image.
+    if _is_image_model(model):
+        prompt = _extract_text_prompt_from_messages(body.get("messages"))
+        if not prompt:
+            prompt = body.get("prompt") if isinstance(body.get("prompt"), str) else ""
+        if not prompt:
+            raise HTTPException(400, "Missing prompt/messages for image generation")
+
+        request_id = f"mw_{uuid.uuid4().hex}"
+        request.state.mw_request_id = request_id
+
+        # Enforce count quotas before provider call (do not charge unless call succeeds).
+        _maybe_reset_quota(user)
+        _enforce_and_bump_task_quota(user["user_id"], apply=False, add_image_requests=1)
+
+        actual_model = model
+        _assert_model_allowed(user, actual_model)
+        forward_body = {
+            "model": actual_model,
+            "prompt": prompt,
+            "n": int(body.get("n", 1) or 1),
+            "size": body.get("size"),
+            "quality": body.get("quality"),
+            "background": body.get("background"),
+            "output_format": body.get("output_format"),
+        }
+
+        headers = {
+            "Authorization": f"Bearer {LITELLM_KEY}",
+            "Content-Type": "application/json",
+            "X-Request-ID": request_id,
+        }
+
+        # Drop None values (some providers reject unknown/null params)
+        forward_body = {k: v for k, v in forward_body.items() if v is not None}
+
+        def _looks_like_org_verification_error(text: str) -> bool:
+            t = (text or "").lower()
+            return "organization must be verified" in t or "verify organization" in t
+
+        client: httpx.AsyncClient = request.app.state.http_client
+        try:
+            _detail(
+                "upstream.request",
+                request=request,
+                rid=request_id,
+                user_id=user.get("user_id"),
+                upstream=f"{LITELLM_BASE}/images/generations",
+                method="POST",
+                headers=_safe_headers(headers),
+                body=forward_body,
+            )
+            resp = await client.post(f"{LITELLM_BASE}/images/generations", headers=headers, json=forward_body, timeout=600)
+        except httpx.RequestError as e:
+            _detail(
+                "upstream.error",
+                request=request,
+                rid=request_id,
+                user_id=user.get("user_id"),
+                upstream=f"{LITELLM_BASE}/images/generations",
+                error=f"{e.__class__.__name__}",
+            )
+            raise HTTPException(503, f"Upstream LiteLLM unavailable: {e.__class__.__name__}")
+        if resp.status_code >= 400 and actual_model == "gpt-image-1":
+            # Fallback to Gemini if OpenAI image access is restricted.
+            error_text = ""
+            try:
+                error_text = json.dumps(resp.json())
+            except Exception:
+                try:
+                    error_text = resp.text
+                except Exception:
+                    error_text = ""
+
+            if _looks_like_org_verification_error(error_text):
+                actual_model = "gemini-2.5-flash-image"
+                _assert_model_allowed(user, actual_model)
+                forward_body["model"] = actual_model
+                try:
+                    resp = await client.post(f"{LITELLM_BASE}/images/generations", headers=headers, json=forward_body, timeout=600)
+                except httpx.RequestError as e:
+                    raise HTTPException(503, f"Upstream LiteLLM unavailable: {e.__class__.__name__}")
+
+        if resp.status_code >= 400:
+            try:
+                raise HTTPException(resp.status_code, resp.json())
+            except Exception:
+                raise HTTPException(resp.status_code, resp.text)
+
+        data = resp.json() or {}
+
+        _detail(
+            "upstream.response",
+            request=request,
+            rid=request_id,
+            user_id=user.get("user_id"),
+            status=resp.status_code,
+            headers=dict(resp.headers),
+            body=data,
+        )
+
+        # Materialize image outputs into HTTP URLs that OpenWebUI can render.
+        try:
+            output_format = (data.get("output_format") or forward_body.get("output_format") or "png").lower()
+            mime = "image/png" if output_format in ("png", "") else f"image/{output_format}"
+            items = data.get("data")
+            _maybe_materialize_image_items(request, items, fallback_mime=mime)
+        except Exception:
+            pass
+
+        litellm_cost = _get_litellm_cost_from_headers(resp.headers)
+        _enforce_and_bump_task_quota(user["user_id"], add_image_requests=1)
+        cost_usd = litellm_cost if litellm_cost > 0 else _calc_image_cost_usd(actual_model, forward_body)
+        if cost_usd > 0:
+            _enforce_and_bump_task_quota(user["user_id"], add_cost_usd=cost_usd)
+
+        url = ""
+        try:
+            items = data.get("data")
+            if isinstance(items, list) and items and isinstance(items[0], dict):
+                url = items[0].get("url") or ""
+        except Exception:
+            url = ""
+        if not url:
+            raise HTTPException(502, "Image generated but no URL/b64 returned")
+
+        markdown = f"![image]({url})"
+        created = int(time.time())
+        chat_id = f"chatcmpl_{uuid.uuid4().hex}"
+
+        _detail(
+            "chat.image.result",
+            request=request,
+            rid=request_id,
+            user_id=user.get("user_id"),
+            model=actual_model,
+            image_url=url,
+            markdown=_truncate_text(markdown, limit=500),
+        )
+
+        # OpenWebUI often streams chat; for image shims, a non-stream response is more reliable
+        # (large payloads + markdown/image rendering can be flaky in SSE).
+        if bool(body.get("stream")):
+            async def _iter_sse():
+                # Match OpenAI streaming style: role first, then content.
+                chunk_role = {
+                    "id": chat_id,
+                    "object": "chat.completion.chunk",
+                    "created": created,
+                    "model": actual_model,
+                    "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
+                }
+                yield ("data: " + json.dumps(chunk_role) + "\n\n").encode("utf-8")
+
+                chunk_content = {
+                    "id": chat_id,
+                    "object": "chat.completion.chunk",
+                    "created": created,
+                    "model": actual_model,
+                    "choices": [{"index": 0, "delta": {"content": markdown}, "finish_reason": None}],
+                }
+                yield ("data: " + json.dumps(chunk_content) + "\n\n").encode("utf-8")
+
+                chunk2 = {
+                    "id": chat_id,
+                    "object": "chat.completion.chunk",
+                    "created": created,
+                    "model": actual_model,
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                }
+                yield ("data: " + json.dumps(chunk2) + "\n\n").encode("utf-8")
+                yield b"data: [DONE]\n\n"
+
+            return StreamingResponse(
+                _iter_sse(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "X-Accel-Buffering": "no",
+                    "X-Request-ID": request_id,
+                },
+            )
+
+        payload = {
+            "id": chat_id,
+            "object": "chat.completion",
+            "created": created,
+            "model": actual_model,
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": markdown}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "_mw_user": user["user_id"],
+            "_mw_request_id": request_id,
+        }
+        if cost_usd > 0:
+            payload["_mw_added_cost_usd"] = round(cost_usd, 6)
+        return JSONResponse(status_code=200, content=payload)
 
     _assert_model_allowed(user, model)
 
@@ -528,11 +1017,11 @@ async def chat_proxy(request: Request):
             current = int(body.get(token_limit_key, 0) or 0)
         except Exception:
             current = 0
-        if current < 512:
-            body[token_limit_key] = 512
+        if current < 10000:
+            body[token_limit_key] = 10000
 
-    if body.get(token_limit_key, 999999) > 512:
-        body[token_limit_key] = 512
+    if body.get(token_limit_key, 100009) > 10000:
+        body[token_limit_key] = 10000
 
     request_id = f"mw_{uuid.uuid4().hex}"
     request.state.mw_request_id = request_id
@@ -558,6 +1047,16 @@ async def chat_proxy(request: Request):
         logger.info("stream_start rid=%s model=%s", request_id, model)
 
         client = httpx.AsyncClient(timeout=600)
+        _detail(
+            "upstream.request",
+            request=request,
+            rid=request_id,
+            user_id=user.get("user_id"),
+            upstream=f"{LITELLM_BASE}/chat/completions",
+            method="POST",
+            headers=_safe_headers(headers),
+            body=body,
+        )
         req = client.build_request("POST", f"{LITELLM_BASE}/chat/completions", headers=headers, json=body)
         resp = await client.send(req, stream=True)
 
@@ -575,8 +1074,11 @@ async def chat_proxy(request: Request):
             raise HTTPException(resp.status_code, error_text)
 
         async def _iter_bytes():
+            sampled: bytearray = bytearray()
             try:
                 async for chunk in resp.aiter_bytes():
+                    if len(sampled) < 8192:
+                        sampled.extend(chunk[: max(0, 8192 - len(sampled))])
                     yield chunk
             except (httpx.StreamClosed, httpx.RemoteProtocolError, asyncio.CancelledError):
                 return
@@ -587,6 +1089,15 @@ async def chat_proxy(request: Request):
                 finally:
                     await client.aclose()
                 logger.info("stream_end rid=%s", request_id)
+                if sampled:
+                    _detail(
+                        "chat.stream.sample",
+                        request=request,
+                        rid=request_id,
+                        user_id=user.get("user_id"),
+                        sample_bytes=len(sampled),
+                        sample=_truncate_text(sampled.decode("utf-8", errors="ignore"), limit=4000),
+                    )
 
         return StreamingResponse(
             _iter_bytes(),
@@ -599,6 +1110,16 @@ async def chat_proxy(request: Request):
         )
 
     client: httpx.AsyncClient = request.app.state.http_client
+    _detail(
+        "upstream.request",
+        request=request,
+        rid=request_id,
+        user_id=user.get("user_id"),
+        upstream=f"{LITELLM_BASE}/chat/completions",
+        method="POST",
+        headers=_safe_headers(headers),
+        body=body,
+    )
     resp = await client.post(f"{LITELLM_BASE}/chat/completions", headers=headers, json=body)
     if resp.status_code >= 400:
         try:
@@ -606,6 +1127,20 @@ async def chat_proxy(request: Request):
         except Exception:
             raise HTTPException(resp.status_code, resp.text)
     data = resp.json()
+    try:
+        content_preview = (((data.get("choices") or [{}])[0].get("message") or {}).get("content"))
+    except Exception:
+        content_preview = None
+    _detail(
+        "chat.response",
+        request=request,
+        rid=request_id,
+        user_id=user.get("user_id"),
+        status=resp.status_code,
+        model=model,
+        content=_truncate_text(content_preview, limit=2000),
+        usage=data.get("usage"),
+    )
     litellm_cost = _get_litellm_cost_from_headers(resp.headers)
 
     usage = data.get("usage", {}) or {}
@@ -637,6 +1172,15 @@ async def images_generations(request: Request):
     model = body.get("model") or "gemini-2.5-flash-image"
     _assert_model_allowed(user, model)
 
+    _detail(
+        "images.request",
+        request=request,
+        user_id=user.get("user_id"),
+        model=model,
+        prompt=_truncate_text(body.get("prompt"), limit=2000),
+        body=body,
+    )
+
     _maybe_reset_quota(user)
     request_id = f"mw_{uuid.uuid4().hex}"
     request.state.mw_request_id = request_id
@@ -664,14 +1208,83 @@ async def images_generations(request: Request):
         forward_body.pop("user", None)
         forward_body.pop("metadata", None)
 
+    def _looks_like_org_verification_error(text: str) -> bool:
+        t = (text or "").lower()
+        return "organization must be verified" in t or "verify organization" in t
+
     client: httpx.AsyncClient = request.app.state.http_client
-    resp = await client.post(f"{LITELLM_BASE}/images/generations", headers=headers, json=forward_body, timeout=600)
+    try:
+        _detail(
+            "upstream.request",
+            request=request,
+            rid=request_id,
+            user_id=user.get("user_id"),
+            upstream=f"{LITELLM_BASE}/images/generations",
+            method="POST",
+            headers=_safe_headers(headers),
+            body=forward_body,
+        )
+        resp = await client.post(f"{LITELLM_BASE}/images/generations", headers=headers, json=forward_body, timeout=600)
+    except httpx.RequestError as e:
+        _detail(
+            "upstream.error",
+            request=request,
+            rid=request_id,
+            user_id=user.get("user_id"),
+            upstream=f"{LITELLM_BASE}/images/generations",
+            error=f"{e.__class__.__name__}",
+        )
+        raise HTTPException(503, f"Upstream LiteLLM unavailable: {e.__class__.__name__}")
+    if resp.status_code >= 400 and isinstance(model, str) and model == "gpt-image-1":
+        # If OpenAI image access is restricted, transparently fall back to Gemini.
+        error_text = ""
+        try:
+            error_text = json.dumps(resp.json())
+        except Exception:
+            try:
+                error_text = resp.text
+            except Exception:
+                error_text = ""
+
+        if _looks_like_org_verification_error(error_text):
+            fallback_model = "gemini-2.5-flash-image"
+            _assert_model_allowed(user, fallback_model)
+            model = fallback_model
+            forward_body["model"] = fallback_model
+            # Gemini image models reject the OpenAI `user` parameter.
+            forward_body.pop("user", None)
+            forward_body.pop("metadata", None)
+            try:
+                resp = await client.post(f"{LITELLM_BASE}/images/generations", headers=headers, json=forward_body, timeout=600)
+            except httpx.RequestError as e:
+                raise HTTPException(503, f"Upstream LiteLLM unavailable: {e.__class__.__name__}")
+
     if resp.status_code >= 400:
         try:
             raise HTTPException(resp.status_code, resp.json())
         except Exception:
             raise HTTPException(resp.status_code, resp.text)
     data = resp.json()
+
+    _detail(
+        "upstream.response",
+        request=request,
+        rid=request_id,
+        user_id=user.get("user_id"),
+        status=resp.status_code,
+        headers=dict(resp.headers),
+        body=data,
+    )
+
+    # Help UIs that only know how to render image URLs by synthesizing a data URL
+    # when the provider returns only base64.
+    try:
+        output_format = (data.get("output_format") or body.get("output_format") or "png").lower()
+        mime = "image/png" if output_format in ("png", "") else f"image/{output_format}"
+        items = data.get("data")
+        _maybe_materialize_image_items(request, items, fallback_mime=mime)
+    except Exception:
+        pass
     litellm_cost = _get_litellm_cost_from_headers(resp.headers)
 
     _enforce_and_bump_task_quota(user["user_id"], add_image_requests=1)

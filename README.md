@@ -45,14 +45,14 @@ Hệ thống chat LLM 3 tầng với xác thực, quản lý quota và tracking 
 
 ### Yêu cầu
 - Python 3.11+
-- Virtual environment: `D:\Works\.venv`
+- Virtual environment (khuyến nghị): `D:\ktlt\venv` (hoặc set `$env:VIRTUAL_ENV`)
 - Windows PowerShell
 
 ### Bước 1: Cài đặt (chỉ lần đầu)
 
 ```powershell
 # Activate venv
-& D:/Works/.venv/Scripts/Activate.ps1
+& D:/ktlt/venv/Scripts/Activate.ps1
 
 # Install dependencies
 pip install "litellm[proxy]" open-webui fastapi uvicorn httpx python-dotenv
@@ -63,6 +63,7 @@ pip install "litellm[proxy]" open-webui fastapi uvicorn httpx python-dotenv
 **Quan trọng (YAML dùng env vars):** LiteLLM config đang dùng dạng `os.environ/VAR_NAME` nên bạn phải set các biến môi trường trước khi chạy LiteLLM.
 
 - File local: `llm-mw/.env` (đã bị `.gitignore`, không commit)
+- File local (khuyến nghị dùng 1 chỗ): `.env` ở project root (đã bị `.gitignore`, không commit)
 - Cần có tối thiểu:
   - `LITELLM_KEY` (master key của LiteLLM)
   - `OPENAI_API_KEY`
@@ -70,23 +71,29 @@ pip install "litellm[proxy]" open-webui fastapi uvicorn httpx python-dotenv
 
 **Terminal 1 - LiteLLM (Port 4000)**
 ```powershell
-& D:/Works/.venv/Scripts/Activate.ps1
-cd D:\Works\Open_Web_UI\Oppen_Web_UI
+& D:/ktlt/venv/Scripts/Activate.ps1
+cd D:\ktlt\Works\oppenwebui2
 ./scripts/run_litellm_with_env.ps1 -Port 4000
 ```
 
 **Terminal 2 - Middleware (Port 5000)**
 ```powershell
-& D:/Works/.venv/Scripts/Activate.ps1
-cd D:\Works\Open_Web_UI\Oppen_Web_UI\llm-mw
+& D:/ktlt/venv/Scripts/Activate.ps1
+cd D:\ktlt\Works\oppenwebui2\llm-mw
 uvicorn main:app --host 0.0.0.0 --port 5000
 ```
 
 **Terminal 3 - OpenWebUI (Port 3000)**
 ```powershell
-& D:/Works/.venv/Scripts/Activate.ps1
-cd D:\Works\Open_Web_UI\Oppen_Web_UI
+& D:/ktlt/venv/Scripts/Activate.ps1
+cd D:\ktlt\Works\oppenwebui2
 open-webui serve --port 3000
+```
+
+### Chạy nhanh 1 lệnh (tự mở 3 services + logs)
+```powershell
+cd D:\ktlt\Works\oppenwebui2
+./scripts/start_stack.ps1
 ```
 
 ### Bước 3: Truy cập & Cấu hình
@@ -123,7 +130,7 @@ general_settings:
   enable_spend_logging: true
 
 logging:
-  file: "D:\\Works\\Open_Web_UI\\Oppen_Web_UI\\litellm\\litellm.log"
+  file: "litellm/litellm.log"
 ```
 
 **Thêm model mới:**
@@ -820,7 +827,7 @@ general_settings:
   log_level: "info"
 
 logging:
-  file: "D:\\Works\\Open_Web_UI\\Oppen_Web_UI\\litellm\\litellm.log"
+  file: "litellm/litellm.log"
   level: INFO
 ```
 
@@ -1420,7 +1427,7 @@ general_settings:
   #   base_delay: 1.0
 
 logging:
-  file: "D:\\Works\\Open_Web_UI\\Oppen_Web_UI\\litellm\\litellm.log"
+  file: "litellm/litellm.log"
   level: INFO
   # max_bytes: 10485760        # 10MB
   # backup_count: 5            # Keep 5 old logs
@@ -1488,7 +1495,7 @@ CORS_ALLOW_ORIGIN=*
 & D:/Works/.venv/Scripts/Activate.ps1
 
 # 2. Install dependencies (one-time)
-pip install -r D:\Works\Open_Web_UI\Oppen_Web_UI\requirements.txt
+pip install -r D:\ktlt\Works\oppenwebui2\requirements.txt
 pip install open-webui email-validator fastapi-sso litellm-enterprise litellm-proxy-extras
 ```
 
@@ -1496,19 +1503,19 @@ pip install open-webui email-validator fastapi-sso litellm-enterprise litellm-pr
 
 **Terminal 1: LiteLLM**
 ```powershell
-cd D:\Works\Open_Web_UI\Oppen_Web_UI
+cd D:\ktlt\Works\oppenwebui2
 litellm --config litellm\litellm_config.yaml --port 4000
 ```
 
 **Terminal 2: Middleware**
 ```powershell
-cd D:\Works\Open_Web_UI\Oppen_Web_UI\llm-mw
+cd D:\ktlt\Works\oppenwebui2\llm-mw
 uvicorn main:app --host 0.0.0.0 --port 5000
 ```
 
 **Terminal 3: OpenWebUI**
 ```powershell
-cd D:\Works\Open_Web_UI\Oppen_Web_UI
+cd D:\ktlt\Works\oppenwebui2
 open-webui serve --port 3000
 ```
 
