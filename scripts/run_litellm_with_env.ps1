@@ -1,15 +1,26 @@
 param(
-  [string]$EnvFile = "$PSScriptRoot\..\llm-mw\.env",
+  [string]$EnvFile = "$PSScriptRoot\..\.env",
   [int]$Port = 4000
 )
 
-$venvActivate = Join-Path $PSScriptRoot "..\..\..\.venv\Scripts\Activate.ps1"
-if (Test-Path -LiteralPath $venvActivate) {
+$root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+
+$venvActivateCandidates = @()
+if ($env:VIRTUAL_ENV) {
+  $venvActivateCandidates += (Join-Path $env:VIRTUAL_ENV 'Scripts\Activate.ps1')
+}
+$venvActivateCandidates += @(
+  (Join-Path $root '.venv\Scripts\Activate.ps1'),
+  (Join-Path $root '..\..\venv\Scripts\Activate.ps1')
+)
+
+$venvActivate = $venvActivateCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if ($venvActivate) {
   . $venvActivate
   Write-Host "Activated venv: $venvActivate" -ForegroundColor Green
 }
 else {
-  Write-Warning "Venv activate script not found at $venvActivate. LiteLLM may run from a different Python environment."
+  Write-Warning "No venv activate script found (checked: $($venvActivateCandidates -join '; ')). LiteLLM may run from a different Python environment."
 }
 
 if (-not (Test-Path -LiteralPath $EnvFile)) {
@@ -72,7 +83,7 @@ if ([string]::IsNullOrWhiteSpace($gemini)) {
   Write-Warning "GEMINI_API_KEY is not set. Gemini models (gemini-*) will fail until you set it."
 }
 
-Push-Location (Join-Path $PSScriptRoot '..')
+Push-Location $root
 try {
   $litellmCmd = Get-Command litellm -ErrorAction SilentlyContinue
   if ($litellmCmd) {
