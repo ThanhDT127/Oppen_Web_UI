@@ -12,6 +12,7 @@ from config import LITELLM_BASE, LITELLM_KEY
 from core.auth import require_user, assert_model_allowed
 from core.quota import maybe_reset_quota, enforce_and_bump_quota
 from core.cost import load_prices, calc_image_cost_from_body
+from core.audit_state import init_audit_state, set_usage_state, set_counters, set_error_state
 from services.litellm import get_cost_from_headers
 from utils.helpers import truncate_text, safe_headers
 from utils.logging import detail_log
@@ -28,6 +29,9 @@ async def generate_images(request: Request):
     # Default to Gemini image model to avoid OpenAI org-verification restrictions in many accounts.
     model = body.get("model") or "gemini-2.5-flash-image"
     assert_model_allowed(user, model)
+    
+    # Initialize audit state
+    rid = init_audit_state(request, user["user_id"], "/v1/images/generations", model)
 
     detail_log(
         "images.request",
@@ -39,8 +43,8 @@ async def generate_images(request: Request):
     )
 
     maybe_reset_quota(user)
-    request_id = f"mw_{uuid.uuid4().hex}"
-    request.state.mw_request_id = request_id
+    # Use rid from audit_state (already generated)
+    request_id = rid
     body["user"] = user["user_id"]
     metadata = body.get("metadata") or {}
     metadata["mw_request_id"] = request_id
@@ -151,6 +155,11 @@ async def generate_images(request: Request):
     cost_usd = litellm_cost if litellm_cost > 0 else calc_image_cost_from_body(model, body, prices)
     if cost_usd > 0:
         enforce_and_bump_quota(user["user_id"], add_cost_usd=cost_usd)
+    
+    # Set usage state for audit
+    image_count = body.get("n", 1)
+    set_usage_state(request, 0, 0, 0, cost_usd)
+    set_counters(request, image_count=image_count)
 
     data["_mw_user"] = user["user_id"]
     data["_mw_request_id"] = request_id

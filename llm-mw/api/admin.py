@@ -2,6 +2,7 @@
 Admin endpoints for user management and usage reconciliation.
 """
 
+import json
 from fastapi import Request, HTTPException
 
 from config import ADMIN_KEY
@@ -51,15 +52,35 @@ async def reconcile_usage(request: Request):
     """
     Admin endpoint to manually reconcile usage from LiteLLM logs.
     Searches LiteLLM log for request_id and updates user usage accordingly.
+    Idempotent: Returns early if already reconciled.
     """
-    if request.headers.get("X-Admin-Key", "") != ADMIN_KEY:
-        raise HTTPException(403, "Invalid admin key")
+    from utils.auth_guard import require_admin_or_session
+    require_admin_or_session(request)
 
     body = await request.json()
     request_id = body.get("request_id")
     user_id = body.get("user_id")
     if not request_id or not user_id:
         raise HTTPException(400, "Missing request_id or user_id")
+    
+    # Check if already reconciled (idempotent)
+    import os
+    from config import AUDIT_LOG_FILE
+    if os.path.exists(AUDIT_LOG_FILE):
+        with open(AUDIT_LOG_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    try:
+                        entry = json.loads(line)
+                        if entry.get("rid") == request_id and entry.get("status") == "reconciled":
+                            return {
+                                "ok": True,
+                                "message": "Already reconciled",
+                                "request_id": request_id,
+                                "reconciled_at": entry.get("ts")
+                            }
+                    except Exception:
+                        continue
 
     usage = find_usage_in_log(request_id)
     if not usage:
@@ -95,7 +116,32 @@ async def reconcile_usage(request: Request):
         save_users(users)
 
     from core.cost import remove_pending
+    from utils.logging import write_audit_line
+    from datetime import datetime, timezone
+    
     remove_pending(request_id)
+    
+    # Write reconciled audit line
+    write_audit_line({
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "rid": request_id,
+        "user_id": user_id,
+        "endpoint": "/v1/chat/completions",
+        "model": model,
+        "status": "reconciled",
+        "status_code": 200,
+        "latency_ms": None,
+        "tokens_in": prompt_tokens,
+        "tokens_out": completion_tokens,
+        "tokens_total": total_tokens,
+        "cost_usd": cost_usd,
+        "image_count": None,
+        "tts_chars": None,
+        "stt_seconds": None,
+        "video_count": None,
+        "error_type": None,
+        "error_message": None
+    })
 
     return {
         "ok": True,

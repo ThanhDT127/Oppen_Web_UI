@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 
 from config import logger
-from utils.logging import detail_log, audit_log
+from utils.logging import detail_log, audit_log, audit_from_request
+from core.audit_state import set_error_state, should_skip_audit, has_audit_state
 
 # Import route handlers
 from api.health import health_check
@@ -21,6 +22,10 @@ from api.audio import transcribe_audio
 from api.media import serve_media
 from api.admin import get_usage, reset_quota, reconcile_usage
 from api.summary import get_summary
+from api.stream import stream_audit
+from api.dashboard_login import dashboard_login, dashboard_logout
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 
 @asynccontextmanager
@@ -68,15 +73,20 @@ async def log_requests(request: Request, call_next):
     t0 = time.perf_counter()
     status_code: int = 500
     detail_log("inbound", request=request)
+    
     try:
         response = await call_next(request)
         status_code = getattr(response, "status_code", 200)
         return response
-    except Exception:
+    except Exception as e:
+        # Set error state if audit state was initialized
+        if has_audit_state(request):
+            set_error_state(request, "system", str(e))
         raise
     finally:
         dt_ms = (time.perf_counter() - t0) * 1000.0
         rid = getattr(request.state, "mw_request_id", None) or request.headers.get("X-Request-ID") or "-"
+        
         logger.info(
             "req rid=%s method=%s path=%s status=%s ms=%.1f",
             rid,
@@ -87,16 +97,9 @@ async def log_requests(request: Request, call_next):
         )
         detail_log("outbound", request=request, status=status_code, ms=round(dt_ms, 1))
         
-        # Audit log: record completion if user authenticated
-        user_id = getattr(request.state, "mw_user_id", None)
-        if user_id and request.url.path.startswith("/v1/"):
-            audit_log(
-                user_id=user_id,
-                request_id=rid,
-                endpoint=request.url.path,
-                duration_ms=int(dt_ms),
-                status="success" if status_code < 400 else "error",
-            )
+        # New audit logic: write structured audit from request.state
+        if has_audit_state(request) and not should_skip_audit(request):
+            audit_from_request(request, rid, status_code, dt_ms)
 
 
 # Register routes
@@ -117,8 +120,21 @@ app.add_api_route("/admin/usage", get_usage, methods=["GET"])
 app.add_api_route("/admin/reset", reset_quota, methods=["POST"])
 app.add_api_route("/admin/reconcile", reconcile_usage, methods=["POST"])
 
-# Summary endpoint
+# Summary & Stream endpoints
 app.add_api_route("/v1/_mw/summary", get_summary, methods=["GET"])
+app.add_api_route("/v1/_mw/stream", stream_audit, methods=["GET"])
+
+# Dashboard auth endpoints
+app.add_api_route("/v1/_mw/dashboard/login", dashboard_login, methods=["POST"])
+app.add_api_route("/v1/_mw/dashboard/logout", dashboard_logout, methods=["POST"])
+
+# Serve dashboard HTML
+@app.get("/dashboard")
+async def serve_dashboard():
+    """Serve dashboard HTML"""
+    import os
+    dashboard_path = os.path.join(os.path.dirname(__file__), "dashboard", "index.html")
+    return FileResponse(dashboard_path)
 
 
 if __name__ == "__main__":

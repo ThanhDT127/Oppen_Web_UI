@@ -11,27 +11,30 @@ Write-Host ""
 # Function to stop processes on specific ports
 function Stop-ServiceOnPort {
     param([int]$Port, [string]$ServiceName)
-    
+
     Write-Host "[*] Stopping $ServiceName (Port $Port)..." -ForegroundColor Yellow
-    
-    try {
-        $connections = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue
-        if ($connections) {
-            $pids = $connections | Select-Object -ExpandProperty OwningProcess -Unique
-            foreach ($pid in $pids) {
-                $process = Get-Process -Id $pid -ErrorAction SilentlyContinue
-                if ($process) {
-                    Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-                    Write-Host "  [+] Stopped PID: $pid" -ForegroundColor Green
-                }
+
+    $pids = netstat -ano | findstr ":$Port" | ForEach-Object {
+        ($_ -split "\s+")[-1]
+    } | Sort-Object -Unique
+
+    if (-not $pids) {
+        Write-Host "  [-] No process found on port $Port" -ForegroundColor Gray
+        return
+    }
+
+    foreach ($pid in $pids) {
+        if ($pid -match '^\d+$') {
+            try {
+                Stop-Process -Id $pid -Force -ErrorAction Stop
+                Write-Host "  [+] Killed PID: $pid" -ForegroundColor Green
+            } catch {
+                Write-Host "  [!] Failed to kill PID $pid : $_" -ForegroundColor Red
             }
-        } else {
-            Write-Host "  [-] No process found on port $Port" -ForegroundColor Gray
         }
-    } catch {
-        Write-Host "  [!] Error: $_" -ForegroundColor Red
     }
 }
+
 
 # Stop services
 Stop-ServiceOnPort -Port 4000 -ServiceName "LiteLLM"
