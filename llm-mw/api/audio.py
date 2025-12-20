@@ -11,6 +11,7 @@ import httpx
 from config import LITELLM_BASE, LITELLM_KEY
 from core.auth import require_user, assert_model_allowed
 from core.quota import enforce_and_bump_quota
+from core.audit_state import init_audit_state, set_usage_state, set_counters
 from services.litellm import get_cost_from_headers
 
 
@@ -27,12 +28,15 @@ async def transcribe_audio(request: Request):
 
     model = form.get("model") or "gpt-4o-mini-transcribe"
     assert_model_allowed(user, str(model))
+    
+    # Initialize audit state
+    rid = init_audit_state(request, user["user_id"], "/v1/audio/transcriptions", model)
 
     # Enforce request quotas before provider call (do not charge unless call succeeds).
     enforce_and_bump_quota(user["user_id"], apply=False, add_stt_requests=1)
 
-    request_id = f"mw_{uuid.uuid4().hex}"
-    request.state.mw_request_id = request_id
+    # Use rid from audit_state (already generated)
+    request_id = rid
 
     # Build multipart
     filename = getattr(file_obj, "filename", "audio")
@@ -72,6 +76,11 @@ async def transcribe_audio(request: Request):
     # STT fallback (minutes) is hard to compute from raw audio here; only charge cost if LiteLLM provides it.
     if litellm_cost > 0:
         enforce_and_bump_quota(user["user_id"], add_cost_usd=litellm_cost)
+    
+    # Set usage state for audit (approximate duration from file size if possible)
+    # For now, just set cost and stt_requests counter
+    set_usage_state(request, 0, 0, 0, litellm_cost if litellm_cost > 0 else 0.0)
+    set_counters(request, stt_seconds=None)  # TODO: Calculate from audio file duration
 
     out["_mw_user"] = user["user_id"]
     out["_mw_request_id"] = request_id

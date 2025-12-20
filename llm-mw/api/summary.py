@@ -21,8 +21,8 @@ def get_summary(request: Request, minutes: int = 60):
     
     Returns aggregated metrics by user and model for the specified time window.
     """
-    if request.headers.get("Authorization", "") != f"Bearer {ADMIN_KEY}":
-        raise HTTPException(403, "Invalid admin key")
+    from utils.auth_guard import require_admin_or_session
+    require_admin_or_session(request)
     
     if not os.path.exists(AUDIT_LOG_FILE):
         return {"error": "audit.jsonl not found", "data": []}
@@ -30,8 +30,15 @@ def get_summary(request: Request, minutes: int = 60):
     # Calculate cutoff time
     cutoff = dt.datetime.now(tz=ZoneInfo("Asia/Ho_Chi_Minh")) - dt.timedelta(minutes=minutes)
     
-    # Aggregate data: key = (user_id, model), value = metrics
-    aggregates: Dict[tuple, Dict[str, Any]] = {}
+    # Aggregate data
+    requests_total = 0
+    pending_count = 0
+    error_count = 0
+    latencies = []
+    tokens_total = 0
+    cost_total = 0.0
+    user_costs: Dict[str, float] = {}  # user_id -> cost
+    model_costs: Dict[str, float] = {}  # model -> cost
     
     try:
         with open(AUDIT_LOG_FILE, "r", encoding="utf-8") as f:
@@ -40,7 +47,7 @@ def get_summary(request: Request, minutes: int = 60):
                     continue
                 try:
                     entry = json.loads(line)
-                    timestamp_str = entry.get("timestamp", "")
+                    timestamp_str = entry.get("ts", "")
                     if not timestamp_str:
                         continue
                     
@@ -49,62 +56,72 @@ def get_summary(request: Request, minutes: int = 60):
                     if entry_time < cutoff:
                         continue
                     
-                    user_id = entry.get("user_id", "unknown")
-                    model = entry.get("model") or "unknown"
-                    key = (user_id, model)
+                    # Aggregate by status
+                    status = entry.get("status", "ok")
+                    if status in ["ok", "error", "reconciled"]:
+                        requests_total += 1
+                    if status == "pending":
+                        pending_count += 1
+                    if status == "error":
+                        error_count += 1
                     
-                    if key not in aggregates:
-                        aggregates[key] = {
-                            "user_id": user_id,
-                            "model": model,
-                            "total_requests": 0,
-                            "success_requests": 0,
-                            "error_requests": 0,
-                            "tokens_in": 0,
-                            "tokens_out": 0,
-                            "cost_usd": 0.0,
-                            "image_requests": 0,
-                            "stt_requests": 0,
-                            "tts_chars": 0,
-                            "total_duration_ms": 0,
-                        }
+                    # Aggregate latency (exclude pending)
+                    if status != "pending":
+                        latency = entry.get("latency_ms")
+                        if latency is not None and latency > 0:
+                            latencies.append(latency)
                     
-                    agg = aggregates[key]
-                    agg["total_requests"] += 1
-                    if entry.get("status") == "success":
-                        agg["success_requests"] += 1
-                    else:
-                        agg["error_requests"] += 1
-                    
-                    agg["tokens_in"] += entry.get("tokens_in", 0)
-                    agg["tokens_out"] += entry.get("tokens_out", 0)
-                    agg["cost_usd"] += entry.get("cost_usd", 0.0)
-                    agg["image_requests"] += entry.get("image_requests", 0)
-                    agg["stt_requests"] += entry.get("stt_requests", 0)
-                    agg["tts_chars"] += entry.get("tts_chars", 0)
-                    agg["total_duration_ms"] += entry.get("duration_ms", 0)
+                    # Aggregate tokens and cost (exclude pending)
+                    if status in ["ok", "reconciled"]:
+                        tokens = entry.get("tokens_total", 0)
+                        cost = entry.get("cost_usd", 0.0)
+                        tokens_total += tokens
+                        cost_total += cost
+                        
+                        # Top users by cost
+                        user_id = entry.get("user_id", "unknown")
+                        user_costs[user_id] = user_costs.get(user_id, 0.0) + cost
+                        
+                        # Top models by cost
+                        model = entry.get("model", "unknown")
+                        model_costs[model] = model_costs.get(model, 0.0) + cost
                     
                 except json.JSONDecodeError:
                     continue
                 except Exception:
                     continue
         
-        # Convert to list and round costs
-        result = []
-        for agg in aggregates.values():
-            agg["cost_usd"] = round(agg["cost_usd"], 6)
-            agg["avg_duration_ms"] = int(agg["total_duration_ms"] / agg["total_requests"]) if agg["total_requests"] > 0 else 0
-            result.append(agg)
+        # Calculate P95 latency
+        p95_latency = None
+        if latencies:
+            latencies.sort()
+            p95_idx = int(len(latencies) * 0.95)
+            p95_latency = latencies[p95_idx] if p95_idx < len(latencies) else latencies[-1]
         
-        # Sort by cost descending
-        result.sort(key=lambda x: x["cost_usd"], reverse=True)
+        # Calculate error rate
+        error_rate = (error_count / requests_total * 100) if requests_total > 0 else 0.0
+        
+        # Top 10 users by cost
+        top_users = sorted(user_costs.items(), key=lambda x: x[1], reverse=True)[:10]
+        top_users_list = [{"user_id": uid, "cost_usd": round(cost, 6)} for uid, cost in top_users]
+        
+        # Top 10 models by cost
+        top_models = sorted(model_costs.items(), key=lambda x: x[1], reverse=True)[:10]
+        top_models_list = [{"model": m, "cost_usd": round(cost, 6)} for m, cost in top_models]
         
         return {
             "time_window_minutes": minutes,
             "cutoff_time": cutoff.isoformat(),
-            "total_entries": len(result),
-            "data": result
+            "requests_total": requests_total,
+            "pending_count": pending_count,
+            "error_count": error_count,
+            "error_rate_percent": round(error_rate, 2),
+            "p95_latency_ms": round(p95_latency, 2) if p95_latency else None,
+            "tokens_total": tokens_total,
+            "cost_total_usd": round(cost_total, 6),
+            "top_users": top_users_list,
+            "top_models": top_models_list
         }
     
     except Exception as e:
-        return {"error": str(e), "data": []}
+        return {"error": str(e)}

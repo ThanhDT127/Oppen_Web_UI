@@ -12,6 +12,7 @@ from config import LITELLM_BASE, LITELLM_KEY, logger
 from core.auth import require_user, assert_model_allowed
 from core.quota import maybe_reset_quota, enforce_and_bump_quota
 from core.cost import calc_cost_usd, append_pending, remove_pending
+from core.audit_state import init_audit_state, set_usage_state, set_error_state
 from services.litellm import get_cost_from_headers
 from utils.helpers import truncate_text, extract_text_from_messages, safe_headers
 from utils.logging import detail_log
@@ -28,6 +29,9 @@ async def chat_completions(request: Request):
     model = body.get("model")
     if not model:
         raise HTTPException(400, "Missing model")
+    
+    # Initialize audit state early
+    rid = init_audit_state(request, user["user_id"], "/v1/chat/completions", model)
 
     # Process multimodal content (images, documents, and other file attachments in messages)
     messages = body.get("messages")
@@ -98,8 +102,8 @@ async def chat_completions(request: Request):
             body["max_completion_tokens"] = body.get("max_tokens")
             body.pop("max_tokens", None)
 
-    request_id = f"mw_{uuid.uuid4().hex}"
-    request.state.mw_request_id = request_id
+    # Use rid from audit_state (already generated)
+    request_id = rid
     body["user"] = user["user_id"]
     metadata = body.get("metadata") or {}
     metadata["mw_request_id"] = request_id
@@ -121,6 +125,35 @@ async def chat_completions(request: Request):
 
 async def _handle_streaming(request: Request, user: dict, model: str, body: dict, headers: dict, request_id: str):
     """Handle streaming chat completions"""
+    from utils.logging import write_audit_line
+    from core.audit_state import mark_audit_logged
+    from datetime import datetime, timezone
+    
+    # Write pending audit line immediately before streaming
+    write_audit_line({
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "rid": request_id,
+        "user_id": user["user_id"],
+        "endpoint": "/v1/chat/completions",
+        "model": model,
+        "status": "pending",
+        "status_code": None,
+        "latency_ms": None,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "tokens_total": 0,
+        "cost_usd": 0.0,
+        "image_count": None,
+        "tts_chars": None,
+        "stt_seconds": None,
+        "video_count": None,
+        "error_type": None,
+        "error_message": None
+    })
+    
+    # Mark as logged to prevent middleware from logging again
+    mark_audit_logged(request)
+    
     append_pending(request_id, user["user_id"])
 
     # Important: like TTS, don't create the upstream stream inside an `async with` that
@@ -237,10 +270,15 @@ async def _handle_non_streaming(request: Request, user: dict, model: str, body: 
     from core.cost import load_prices
     prices = load_prices()
     cost_usd = litellm_cost if litellm_cost > 0 else calc_cost_usd(model, prompt_tokens, completion_tokens, prices)
+    
+    # Set usage state for audit (BEFORE quota check - will be logged even if quota fails)
+    set_usage_state(request, prompt_tokens, completion_tokens, total_tokens, cost_usd)
 
     if limit_tokens > 0 and used_tokens + total_tokens > limit_tokens:
+        set_error_state(request, "quota", f"Token quota exceeded")
         raise HTTPException(403, f"Token quota exceeded for {user['user_id']} ({used_tokens + total_tokens}/{limit_tokens})")
     if limit_cost > 0 and used_cost + cost_usd > limit_cost + 1e-9:
+        set_error_state(request, "quota", f"Cost quota exceeded")
         raise HTTPException(403, f"Cost quota exceeded for {user['user_id']} (${used_cost + cost_usd:.2f}/${limit_cost:.2f})")
 
     enforce_and_bump_quota(user["user_id"], add_tokens=total_tokens, add_cost_usd=cost_usd)
