@@ -30,10 +30,28 @@ def get_summary(request: Request, minutes: int = 60):
     # Calculate cutoff time
     cutoff = dt.datetime.now(tz=ZoneInfo("Asia/Ho_Chi_Minh")) - dt.timedelta(minutes=minutes)
     
+    # Define LLM endpoints
+    LLM_ENDPOINTS = {
+        "/v1/chat/completions": "chat",
+        "/v1/images/generations": "image",
+        "/v1/audio/transcriptions": "audio",
+        "/v1/audio/speech": "audio",
+        "/v1/video/generations": "video",
+    }
+    
     # Aggregate data
     requests_total = 0
+    llm_calls_total = 0
+    admin_ops_total = 0
     pending_count = 0
     error_count = 0
+    
+    # Breakdown by type
+    chat_calls = 0
+    image_calls = 0
+    audio_calls = 0
+    video_calls = 0
+    
     latencies = []
     tokens_total = 0
     cost_total = 0.0
@@ -56,8 +74,35 @@ def get_summary(request: Request, minutes: int = 60):
                     if entry_time < cutoff:
                         continue
                     
-                    # Aggregate by status
+                    # Get endpoint and status
+                    endpoint = entry.get("endpoint", "")
                     status = entry.get("status", "ok")
+                    
+                    # Classify request type
+                    is_llm_call = endpoint in LLM_ENDPOINTS
+                    is_admin_op = endpoint in ["/admin/reconcile", "/admin/usage", "/admin/reset"]
+                    
+                    # Count by type (including pending for breakdown)
+                    if is_llm_call:
+                        call_type = LLM_ENDPOINTS[endpoint]
+                        
+                        # Count completed LLM calls only
+                        if status in ["ok", "error", "reconciled"]:
+                            llm_calls_total += 1
+                            
+                            if call_type == "chat":
+                                chat_calls += 1
+                            elif call_type == "image":
+                                image_calls += 1
+                            elif call_type == "audio":
+                                audio_calls += 1
+                            elif call_type == "video":
+                                video_calls += 1
+                    
+                    if is_admin_op:
+                        admin_ops_total += 1
+                    
+                    # Aggregate by status
                     if status in ["ok", "error", "reconciled"]:
                         requests_total += 1
                     if status == "pending":
@@ -112,13 +157,27 @@ def get_summary(request: Request, minutes: int = 60):
         return {
             "time_window_minutes": minutes,
             "cutoff_time": cutoff.isoformat(),
+            
+            # Overall metrics
             "requests_total": requests_total,
+            "llm_calls_total": llm_calls_total,
+            "admin_ops_total": admin_ops_total,
             "pending_count": pending_count,
             "error_count": error_count,
             "error_rate_percent": round(error_rate, 2),
+            
+            # Breakdown by LLM type
+            "chat_calls": chat_calls,
+            "image_calls": image_calls,
+            "audio_calls": audio_calls,
+            "video_calls": video_calls,
+            
+            # Performance metrics
             "p95_latency_ms": round(p95_latency, 2) if p95_latency else None,
             "tokens_total": tokens_total,
             "cost_total_usd": round(cost_total, 6),
+            
+            # Top lists
             "top_users": top_users_list,
             "top_models": top_models_list
         }
