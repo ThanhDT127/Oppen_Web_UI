@@ -1,353 +1,448 @@
-# OpenWebUI + Middleware + LiteLLM - Hệ Thống Chat LLM (Baseline)
+# 🎯 OPPEN WEB UI - Multi-Model LLM Chat Platform
 
-Hệ thống chat LLM 3 tầng với xác thực, quản lý quota và tracking usage cho ChatGPT & Gemini.
+Professional 3-tier LLM chat system with authentication, quota management, and usage tracking for OpenAI, Gemini, and other providers.
 
-> **⚠️ PHIÊN BẢN BASELINE:** Phiên bản này tập trung vào **chat completions (streaming)** và **image generation**. Video/Audio generation sẽ được bổ sung qua OpenWebUI Tool/Pipe trong các phiên bản sau.
+[![Architecture](https://img.shields.io/badge/Architecture-FastAPI_+_LiteLLM-blue)](docs/ARCHITECTURE.md)
+[![API Reference](https://img.shields.io/badge/API-OpenAI_Compatible-green)](docs/API_REFERENCE.md)
+[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 ---
 
-## 📋 MỤC LỤC
+## 📋 TABLE OF CONTENTS
 
-- [Tổng Quan](#-tổng-quan)
-- [Kiến Trúc](#-kiến-trúc)  
-- [Khởi Động Nhanh](#-khởi-động-nhanh)
-- [Cấu Trúc Project](#-cấu-trúc-project)
-- [Endpoints API](#-endpoints-api)
-- [Cấu Hình](#-cấu-hình)
-- [Sử Dụng](#-sử-dụng)
+- [Overview](#-overview)
+- [Quick Start](#-quick-start)
+- [Features](#-features)
+- [Architecture](#-architecture)
+- [Documentation](#-documentation)
+- [Configuration](#-configuration)
+- [Deployment](#-deployment)
 - [Troubleshooting](#-troubleshooting)
 
 ---
 
-## 📋 TỔNG QUAN
+## 🎯 OVERVIEW
 
-**Kiến trúc:** `OpenWebUI (UI) → Middleware (Auth/Quota) → LiteLLM (Proxy) → ChatGPT/Gemini`
+**Oppen Web UI** is a production-ready LLM chat platform that provides:
 
-### Luồng Request
+- **Multi-User Support:** Secure subkey-based authentication with per-user quotas
+- **Multi-Model Access:** Unified API for OpenAI, Gemini, Anthropic, and other providers
+- **Real-Time Streaming:** Server-Sent Events for fast, responsive chat
+- **Usage Tracking:** Detailed audit logs and dashboard analytics
+- **Admin Dashboard:** Web-based UI for subkey management and monitoring
+
+### System Architecture
 
 ```
 ┌─────────────────┐
-│   OpenWebUI     │  Port 3000 - Web chat interface
-│                 │  - Chat với LLM models
-│                 │  - Lưu chat history
+│   OpenWebUI     │  Port 3000 - Web Chat Interface
+│  (User Layer)   │  • Rich chat UI with history
+│                 │  • File uploads & multimodal
 └────────┬────────┘
-         │ 
-         │ POST /v1/chat/completions
-         │ Header: Authorization: Bearer <subkey>
-         ▼
+         │ OpenAI API Format
+         ↓
 ┌─────────────────┐
-│   Middleware    │  Port 5000 - Auth & Quota Management
-│   (FastAPI)     │  - Xác thực subkey từ users.json
-│                 │  - Kiểm tra quota (tokens/cost)
-│                 │  - Track usage real-time
-│                 │  - Logging & monitoring
+│  LLM Middleware │  Port 5000 - Auth & Quota Layer
+│    (FastAPI)    │  • Subkey validation
+│                 │  • Quota enforcement
+│                 │  • Audit logging
+│                 │  • Admin dashboard
+└────────┬────────┘
+         │ LiteLLM Proxy Format
+         ↓
+┌─────────────────┐
+│  LiteLLM Proxy  │  Port 4000 - Model Router
+│                 │  • Multi-provider routing
+│                 │  • Load balancing
+│                 │  • Cost tracking
 └────────┬────────┘
          │
-         │ POST /chat/completions
-         │ Header: Authorization: Bearer <LITELLM_KEY>
-         ▼
-┌─────────────────┐
-│    LiteLLM      │  Port 4000 - Unified LLM Proxy
-│                 │  - Chuẩn hóa API OpenAI-compatible
-│                 │  - Route requests đến providers
-└────────┬────────┘
-         │
-         ├──────────────────┐
-         ▼                  ▼
-    ┌─────────┐       ┌──────────┐
-    │ ChatGPT │       │  Gemini  │
-    │ OpenAI  │       │  Google  │
-    └─────────┘       └──────────┘
+    ┌────┴────┬──────────┐
+    ↓         ↓          ↓
+ OpenAI   Gemini   Other Providers
 ```
 
-### Đặc Điểm Chính
+### Request Flow
 
-✅ **Authentication:** Xác thực multi-user qua subkey  
-✅ **Quota Management:** Giới hạn tokens & cost per user/period  
-✅ **Streaming Support:** Real-time streaming responses  
-✅ **Usage Tracking:** Theo dõi chi tiết usage & cost  
-✅ **Multi-Provider:** Hỗ trợ OpenAI & Gemini qua một API  
-✅ **Image Generation:** Tích hợp image generation với quota tracking  
+```
+User Message → OpenWebUI → Middleware (Subkey Auth + Quota Check) → LiteLLM → Provider API → Response Stream
+```
 
 ---
 
-## 🏗 KIẾN TRÚC
+## 🚀 QUICK START
 
-### 1. LiteLLM (Port 4000)
-- **Chức năng:** Proxy thống nhất cho nhiều LLM providers
-- **Input:** OpenAI-compatible API requests với LITELLM_KEY
-- **Output:** Chuẩn hóa responses từ ChatGPT/Gemini
-- **Config:** `litellm/litellm_config.yaml`
+### Prerequisites
 
-### 2. Middleware (Port 5000)
-- **Chức năng:** Authentication, Authorization & Quota Management
-- **Input:** API requests với subkey
-- **Output:** Validated & tracked requests to LiteLLM
-- **Code:** `llm-mw/main.py` (FastAPI)
-- **Database:** `llm-mw/users.json` (flat-file)
+- **Python 3.10+** with virtual environment
+- **Windows PowerShell** (for scripts)
+- **API Keys:** OpenAI and/or Gemini API keys
 
-### 3. OpenWebUI (Port 3000)
-- **Chức năng:** Web-based chat interface
-- **Input:** User interactions
-- **Output:** API calls to Middleware
-- **Storage:** SQLite database in `openwebui_data/`
-
----
-
-## 🚀 KHỞI ĐỘNG HỆ THỐNG
-
-### Yêu cầu
-
-- Python 3.11+
-- Virtual environment: `D:\Works\.venv`
-- Windows PowerShell
-- API Keys: OpenAI & Gemini
-
-### Bước 1: Cài đặt dependencies (chỉ lần đầu)
+### 1. Clone & Setup
 
 ```powershell
-# Activate virtual environment
-& D:/Works/.venv/Scripts/Activate.ps1
-
-# Install packages
-pip install "litellm[proxy]" open-webui fastapi uvicorn httpx python-dotenv
+git clone <repository_url>
+cd Oppen_Web_UI_fresh
+D:\Works\.venv\Scripts\Activate.ps1  # Activate your venv
 ```
 
-### Bước 2: Cấu hình Environment Variables
+### 2. Configure Environment
 
-File `.env` đã có sẵn trong project root:
+Copy `.env.example` to `.env` and set your keys:
 
 ```bash
-# D:\Works\Oppen_Web_UI_fresh\.env
+# .env
+LITELLM_KEY=your-litellm-admin-key
+ADMIN_KEY=your-admin-master-key
 
-LITELLM_BASE=http://127.0.0.1:4000/v1
-LITELLM_KEY=super_admin_key_123
-ADMIN_KEY=admin_master_key_456
-DATA_DIR=D:\Works\Oppen_Web_UI_fresh\openwebui_data
+# Security Keys (REQUIRED - Generate random strings)
+JWT_SECRET=your-jwt-secret-min-32-chars
+MW_SECRET=your-middleware-secret-min-32-chars
 
 # Provider API Keys
-OPENAI_API_KEY=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
-GEMINI_API_KEY=AIzaSyBAi-8cEXkSwEavXrA1tCVbtzdg9dGgphk
+OPENAI_API_KEY=sk-your-openai-key
+GEMINI_API_KEY=your-gemini-key
 ```
 
-### Bước 3: Chạy 3 services (3 terminals riêng biệt)
-
-#### Terminal 1 - LiteLLM (Port 4000)
+### 3. Start All Services (One Command)
 
 ```powershell
-cd D:\Works\Oppen_Web_UI_fresh
+.\scripts\start.ps1
+```
 
-# Load environment variables
-$env:OPENAI_API_KEY=(Get-Content .env | Select-String 'OPENAI_API_KEY' | ForEach-Object { $_ -replace 'OPENAI_API_KEY=', '' })
-$env:GEMINI_API_KEY=(Get-Content .env | Select-String 'GEMINI_API_KEY' | ForEach-Object { $_ -replace 'GEMINI_API_KEY=', '' })
-$env:LITELLM_KEY=(Get-Content .env | Select-String 'LITELLM_KEY' | ForEach-Object { $_ -replace 'LITELLM_KEY=', '' })
+This starts:
+1. **LiteLLM Proxy** (Port 4000)
+2. **Middleware** (Port 5000)
+3. **OpenWebUI** (Port 3000)
 
-# Start LiteLLM
-& D:/Works/.venv/Scripts/Activate.ps1
+### 4. Access the Platform
+
+- **Chat Interface:** http://localhost:3000
+- **Admin Dashboard:** http://localhost:5000/dashboard
+- **Health Check:** http://localhost:5000/health
+
+### 5. Create Your First Subkey
+
+```bash
+curl -X POST http://localhost:5000/v1/_mw/subkey \
+  -H "Authorization: Bearer your-admin-master-key" \
+  -H "Content-Type: application/json" \
+  -d '{"quota": 100, "note": "My first user"}'
+```
+
+Response:
+```json
+{
+  "subkey": "sk_user_abc123def456",
+  "quota": 100,
+  "enabled": true
+}
+```
+
+Use this subkey in OpenWebUI settings (API Key field).
+
+---
+
+## ✨ FEATURES
+
+### Core Capabilities
+
+✅ **Multi-User Authentication**
+- Subkey-based access control
+- Per-user quota enforcement
+- Enable/disable users dynamically
+
+✅ **Real-Time Chat**
+- Streaming responses via Server-Sent Events
+- Support for all OpenAI-compatible models
+- Multimodal support (text, images, audio)
+
+✅ **Admin Dashboard**
+- Web-based UI at `/dashboard`
+- Live metrics: total calls, pending requests, breakdowns
+- Subkey management: create, update, delete, reset
+
+✅ **Usage Tracking**
+- JSONL audit logs (`logs/audit.jsonl`)
+- Per-subkey counters (LLM calls, admin ops, pending)
+- Real-time SSE stream for monitoring
+
+✅ **Security**
+- JWT authentication for dashboard (4-hour sessions)
+- HTTP-only cookies prevent XSS attacks
+- Environment-based secret management
+- Warnings for default/missing secrets
+
+✅ **Multi-Provider Support**
+- OpenAI (GPT-4, GPT-3.5, DALL-E)
+- Google Gemini (Gemini Pro, Gemini Pro Vision)
+- Anthropic Claude (via LiteLLM)
+- Custom model aliases
+
+---
+
+## 🏗️ ARCHITECTURE
+
+Detailed architecture documentation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+### Service Responsibilities
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| **OpenWebUI** | 3000 | Web chat interface, user profiles, history |
+| **Middleware** | 5000 | Auth, quota, audit, dashboard, streaming proxy |
+| **LiteLLM** | 4000 | Multi-provider routing, load balancing, cost tracking |
+
+### Middleware Modules (Refactored)
+
+```
+llm-mw/
+├── api/              # Endpoint handlers (15 modules)
+│   ├── chat.py       # /v1/chat/completions (main proxy)
+│   ├── admin.py      # /v1/_mw/subkey/* (CRUD)
+│   ├── models.py     # /v1/models (list)
+│   └── dashboard_login.py  # /dashboard/login|logout
+├── core/             # Business logic
+│   ├── subkey_manager.py   # In-memory quota tracking
+│   ├── subkey_store.py     # Persistent JSON storage
+│   ├── auth_guard.py       # JWT validation decorator
+│   └── jwt_auth.py         # JWT token generation
+├── utils/            # Helpers
+│   ├── audit_logger.py     # JSONL audit writer
+│   ├── stream_processor.py # SSE parsing & forwarding
+│   ├── audio_handler.py    # Whisper transcription
+│   └── image_processor.py  # Vision API requests
+├── dashboard/        # Static HTML/CSS/JS
+├── main.py           # FastAPI app entry point
+└── config.py         # Environment variable loader
+```
+
+---
+
+## 📚 DOCUMENTATION
+
+| Document | Description |
+|----------|-------------|
+| [README.md](README.md) | **This file** - Project overview & quick start |
+| [docs/QUICKSTART.md](docs/QUICKSTART.md) | Installation guide & startup commands |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, security architecture |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Complete endpoint documentation with examples |
+| [docs/DASHBOARD.md](docs/DASHBOARD.md) | Admin dashboard usage & metrics explained |
+
+---
+
+## ⚙️ CONFIGURATION
+
+### Environment Variables
+
+All configuration is in `.env` file:
+
+```bash
+# LiteLLM Configuration
+LITELLM_BASE=http://127.0.0.1:4000/v1
+LITELLM_KEY=super_admin_key_123
+
+# Middleware Security
+ADMIN_KEY=admin_master_key_456
+JWT_SECRET=<generate-secure-random-32-chars>
+MW_SECRET=<generate-secure-random-32-chars>
+
+# OpenWebUI
+DATA_DIR=D:\Works\Oppen_Web_UI_fresh\openwebui_data
+WEBUI_SECRET_KEY=your-secret-key-here
+
+# Provider API Keys
+OPENAI_API_KEY=sk-your-openai-key
+GEMINI_API_KEY=your-gemini-key
+```
+
+### Security Best Practices
+
+⚠️ **NEVER commit `.env` to version control**
+
+✅ **Use strong random values for:**
+- `JWT_SECRET` (min 32 characters)
+- `MW_SECRET` (min 32 characters)
+- `ADMIN_KEY` (min 20 characters)
+
+✅ **File permissions:** Set `.env` to owner read-only (chmod 600)
+
+✅ **Production deployment:**
+- Use HTTPS (reverse proxy)
+- Rotate secrets regularly
+- Monitor audit logs
+- Implement IP whitelisting
+
+---
+
+## 🛠️ DEPLOYMENT
+
+### Local Development
+
+```powershell
+# Start all services
+.\scripts\start.ps1
+
+# Stop all services
+.\scripts\stop.ps1
+```
+
+### Manual Startup (3 Terminals)
+
+**Terminal 1 - LiteLLM:**
+```powershell
+D:\Works\.venv\Scripts\Activate.ps1
 litellm --config litellm/litellm_config.yaml --port 4000
 ```
 
-**Verify:**
+**Terminal 2 - Middleware:**
 ```powershell
-Invoke-WebRequest -Uri "http://localhost:4000/health" `
-  -Headers @{"Authorization"="Bearer super_admin_key_123"}
-# Should return: {"healthy_endpoints": [...]}
+D:\Works\.venv\Scripts\Activate.ps1
+cd llm-mw
+python main.py
 ```
 
-#### Terminal 2 - Middleware (Port 5000)
-
+**Terminal 3 - OpenWebUI:**
 ```powershell
-cd D:\Works\Oppen_Web_UI_fresh\llm-mw
-
-& D:/Works/.venv/Scripts/Activate.ps1
-uvicorn main:app --host 0.0.0.0 --port 5000
-```
-
-**Verify:**
-```powershell
-Invoke-WebRequest -Uri "http://localhost:5000/health"
-# Should return: {"ok": true, "time": 1234567890}
-```
-
-#### Terminal 3 - OpenWebUI (Port 3000)
-
-```powershell
-& D:/Works/.venv/Scripts/Activate.ps1
+D:\Works\.venv\Scripts\Activate.ps1
 open-webui serve --port 3000
 ```
 
-**Truy cập:** http://localhost:3000
+### Production Deployment
 
-### Bước 4: Cấu hình OpenWebUI
-
-1. Mở browser: `http://localhost:3000`
-2. Đăng ký/đăng nhập tài khoản đầu tiên (sẽ là admin)
-3. Vào **Settings** (⚙️) **→ Connections**
-4. Cấu hình:
-   ```
-   OpenAI API
-   - API Base URL: http://127.0.0.1:5000/v1
-   - API Key: subkey_admin_123
-   ```
-5. Click **Save**
-6. Chọn model từ dropdown (vd: `gpt-4o-mini`, `gemini-2.0-flash`)
-7. Bắt đầu chat! 🎉
+1. **Use systemd/supervisor** for process management
+2. **Set up Nginx** as reverse proxy with SSL
+3. **Configure firewall** (only expose port 3000)
+4. **Enable log rotation** (10MB files, 5 backups)
+5. **Monitor** via Prometheus/Grafana (TODO)
 
 ---
 
-## 🔌 ENDPOINTS API
+## 🐛 TROUBLESHOOTING
 
-### Endpoints được hỗ trợ (Baseline)
+### Common Issues
 
-#### ✅ Core Endpoints
+**1. Service won't start - "Address already in use"**
+```powershell
+# Check what's using the port
+netstat -ano | findstr :5000
 
-| Endpoint | Method | Auth | Streaming | Description |
-|----------|--------|------|-----------|-------------|
-| `/health` | GET | ❌ | ❌ | Health check with system status |
-| `/v1/models` | GET | ✅ | ❌ | Liệt kê models (cần subkey) |
-| `/v1/chat/completions` | POST | ✅ | ✅ | Chat với streaming support |
-| `/v1/images/generations` | POST | ✅ | ❌ | Image generation |
+# Kill the process
+taskkill /PID <PID> /F
 
-#### ✅ Admin Endpoints
-
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/admin/usage` | GET | 🔑 Admin | Xem usage statistics (scrubbed sensitive data) |
-| `/admin/reset` | POST | 🔑 Admin | Reset quota counters |
-| `/admin/reconcile` | POST | 🔑 Admin | Reconcile streaming usage |
-| `/v1/_mw/summary` | GET | 🔑 Admin | Aggregate usage stats from audit log |
-
-### 🚧 Planned Features (Future)
-
-Các tính năng sau sẽ được implement qua **OpenWebUI Tool/Pipe**:
-
-- **Video Generation** (`/v1/video/generations`)
-- **Text-to-Speech** (`/v1/audio/speech`)
-- **Speech-to-Text** (`/v1/audio/transcriptions`)
-
----
-
-## 📝 CHI TIẾT ENDPOINTS
-
-### GET /health
-
-Enhanced health check endpoint with comprehensive system status (không cần auth).
-
-**Request:**
-```bash
-GET http://localhost:5000/health
+# Restart services
+.\scripts\start.ps1
 ```
 
-**Response:**
-```json
-{
-  "ok": true,
-  "time": 1766047478,
-  "uptime_seconds": 3600,
-  "litellm": "ok",
-  "disk_free_gb": 125.45,
-  "active_users": 3
-}
+**2. Dashboard login fails - "Invalid credentials"**
+- Verify `ADMIN_KEY` in `.env` matches your login password
+- Check middleware logs: `logs/middleware.log`
+- Clear browser cookies and try again
+
+**3. LiteLLM proxy returns 502 errors**
+- Verify LiteLLM is running: `curl http://localhost:4000/health`
+- Check `LITELLM_KEY` matches in `.env` and `litellm_config.yaml`
+- Review LiteLLM logs: `litellm/litellm.log`
+
+**4. Quota exceeded errors**
+- Check subkey quota: `GET /v1/_mw/subkey/<subkey>` (admin auth)
+- Increase quota: `PUT /v1/_mw/subkey/<subkey>` with `{"quota": 200}`
+- Reset usage counters: `POST /v1/_mw/subkey/<subkey>/reset`
+
+**5. JWT token expired on dashboard**
+- Default expiry: 4 hours
+- Re-login at http://localhost:5000/dashboard
+- Tokens stored in HTTP-only cookies
+
+**6. Missing environment variables warnings**
+```
+⚠️  JWT_SECRET is using default value - CHANGE IN PRODUCTION!
+```
+- Edit `.env` file and add secure random values
+- Restart middleware to reload configuration
+- Verify no warnings in `logs/middleware.log`
+
+### Health Check Commands
+
+```powershell
+# Check all services
+curl http://localhost:4000/health  # LiteLLM
+curl http://localhost:5000/health  # Middleware
+curl http://localhost:3000         # OpenWebUI
+
+# Check middleware with admin auth
+curl http://localhost:5000/v1/_mw/summary `
+  -H "Authorization: Bearer admin_master_key_456"
 ```
 
-**Status Codes:**
-- `200`: System healthy
-- `503`: System degraded (LiteLLM unavailable or low disk space)
+### Log Locations
 
----
+| Service | Log File | Purpose |
+|---------|----------|---------|
+| Middleware | `logs/middleware.log` | Main application log |
+| Middleware | `logs/middleware.requests.log` | Detailed request/response (JSON) |
+| Middleware | `logs/audit.jsonl` | Audit trail (JSONL format) |
+| LiteLLM | `litellm/litellm.log` | Proxy operations |
+| OpenWebUI | `openwebui_data/webui.log` | Web interface logs |
 
-### GET /v1/models
+### Reset Everything
 
-Liệt kê các models khả dụng. **Yêu cầu authentication.**
+```powershell
+# Stop all services
+.\scripts\stop.ps1
 
-**Request:**
-```bash
-GET http://localhost:5000/v1/models
-Authorization: Bearer subkey_admin_123
-```
+# Clear logs (optional)
+Remove-Item logs\* -Recurse -Force
 
-**Response:**
-```json
-{
-  "data": [
-    {
-      "id": "gpt-5",
-      "object": "model",
-      "created": 1234567890,
-      "owned_by": "openai"
-    },
-    {
-      "id": "gpt-4o-mini",
-      "object": "model",
-      "created": 1234567890,
-      "owned_by": "openai"
-    },
-    {
-      "id": "gemini-2.0-flash",
-      "object": "model",
-      "created": 1234567890,
-      "owned_by": "google"
-    }
-  ]
-}
+# Clear OpenWebUI database (⚠️ DELETES ALL CHAT HISTORY)
+Remove-Item openwebui_data\webui.db
+
+# Clear subkey storage
+Remove-Item logs\subkeys.json
+
+# Restart fresh
+.\scripts\start.ps1
 ```
 
 ---
 
-### POST /v1/chat/completions
+## 🤝 CONTRIBUTING
 
-Chat completions với streaming support.
+Contributions welcome! Please:
 
-**Request (Non-streaming):**
-```json
-POST http://localhost:5000/v1/chat/completions
-Authorization: Bearer subkey_admin_123
-Content-Type: application/json
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
 
-{
-  "model": "gpt-4o-mini",
-  "messages": [
-    {
-      "role": "user",
-      "content": "Hello in Vietnamese"
-    }
-  ],
-  "stream": false
-}
-```
+---
 
-**Response:**
-```json
-{
-  "id": "chatcmpl-123",
-  "object": "chat.completion",
-  "created": 1766047478,
-  "model": "gpt-4o-mini",
-  "choices": [
-    {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "Xin chào!"
-      },
-      "finish_reason": "stop"
-    }
-  ],
-  "usage": {
-    "prompt_tokens": 5,
-    "completion_tokens": 3,
-    "total_tokens": 8
-  },
-  "_mw_user": "admin",
-  "_mw_request_id": "mw_abc123",
-  "_mw_added_tokens": 8,
-  "_mw_added_cost_usd": 0.000012
-}
-```
+## 📄 LICENSE
 
-**Special Handling:**
-- **GPT-5 models:** Auto-convert `max_tokens` → `max_completion_tokens`
-- **Streaming:** Usage tracking qua log reconciliation
+MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 ACKNOWLEDGMENTS
+
+Built with:
+- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
+- [LiteLLM](https://github.com/BerriAI/litellm) - Multi-provider LLM proxy
+- [OpenWebUI](https://github.com/open-webui/open-webui) - Beautiful chat interface
+
+---
+
+## 📞 SUPPORT
+
+- **Documentation:** [docs/](docs/)
+- **Issues:** [GitHub Issues](https://github.com/your-repo/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/your-repo/discussions)
+
+---
+
+**Last Updated:** December 22, 2025  
+**Version:** 2.0 (Refactored Architecture)
 
 ---
 

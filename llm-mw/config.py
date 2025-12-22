@@ -60,7 +60,16 @@ os.makedirs(MW_MEDIA_DIR, exist_ok=True)
 LITELLM_BASE = os.getenv("LITELLM_BASE", "http://127.0.0.1:4000/v1").strip()
 LITELLM_KEY = os.getenv("LITELLM_KEY", "").strip()
 ADMIN_KEY = os.getenv("ADMIN_KEY", "").strip()
+JWT_SECRET = os.getenv("JWT_SECRET", "default-jwt-secret-CHANGE-IN-PRODUCTION").strip()
 MW_SECRET = os.getenv("MW_SECRET", "default-secret-CHANGE-IN-PRODUCTION").strip()
+
+# Security warnings for default values
+if JWT_SECRET == "default-jwt-secret-CHANGE-IN-PRODUCTION":
+    logger.warning("⚠️  JWT_SECRET is using default value - CHANGE IN PRODUCTION!")
+if MW_SECRET == "default-secret-CHANGE-IN-PRODUCTION":
+    logger.warning("⚠️  MW_SECRET is using default value - CHANGE IN PRODUCTION!")
+if not ADMIN_KEY:
+    logger.warning("⚠️  ADMIN_KEY is empty - Admin endpoints will be inaccessible!")
 
 # ============================================================================
 # LOGGING SETUP
