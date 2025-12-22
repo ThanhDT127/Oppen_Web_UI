@@ -121,25 +121,46 @@ This starts:
 - **Admin Dashboard:** http://localhost:5000/dashboard
 - **Health Check:** http://localhost:5000/health
 
-### 5. Create Your First Subkey
+### 5. Configure Your Subkey
 
-```bash
-curl -X POST http://localhost:5000/v1/_mw/subkey \
-  -H "Authorization: Bearer your-admin-master-key" \
-  -H "Content-Type: application/json" \
-  -d '{"quota": 100, "note": "My first user"}'
-```
+**Option A: Use existing user**
 
-Response:
+Edit `llm-mw/data/users.json` and add your subkey. Example:
+
 ```json
-{
-  "subkey": "sk_user_abc123def456",
-  "quota": 100,
-  "enabled": true
-}
+[
+  {
+    "user_id": "your_username",
+    "subkey": "sk_your_actual_subkey_here",
+    "active": true,
+    "allowed_models": ["*"],
+    "used_tokens": 0,
+    "used_cost_usd": 0.0,
+    "quota": {
+      "period": "monthly",
+      "timezone": "Asia/Bangkok",
+      "limit_tokens": 1000000,
+      "limit_cost_usd": 50.0,
+      "period_start": 0,
+      "used_tokens": 0,
+      "used_cost_usd": 0.0
+    }
+  }
+]
 ```
 
-Use this subkey in OpenWebUI settings (API Key field).
+**Option B: Use example file**
+
+Copy `llm-mw/users.example.json` to `llm-mw/data/users.json` and customize.
+
+**Then configure OpenWebUI:**
+1. Open http://localhost:3000
+2. Register/login (first user becomes admin)
+3. Go to **Settings** → **Connections**
+4. Set:
+   - **API Base URL:** `http://127.0.0.1:5000/v1`
+   - **API Key:** `sk_your_actual_subkey_here`
+5. Save and start chatting!
 
 ---
 
@@ -148,9 +169,9 @@ Use this subkey in OpenWebUI settings (API Key field).
 ### Core Capabilities
 
 ✅ **Multi-User Authentication**
-- Subkey-based access control
-- Per-user quota enforcement
-- Enable/disable users dynamically
+- Subkey-based access control with HMAC-SHA256 hashing
+- Per-user period-based quota (weekly/monthly)
+- Active/inactive user management
 
 ✅ **Real-Time Chat**
 - Streaming responses via Server-Sent Events
@@ -159,13 +180,14 @@ Use this subkey in OpenWebUI settings (API Key field).
 
 ✅ **Admin Dashboard**
 - Web-based UI at `/dashboard`
-- Live metrics: total calls, pending requests, breakdowns
-- Subkey management: create, update, delete, reset
+- Live metrics from audit.jsonl
+- JWT authentication (4-hour sessions)
 
 ✅ **Usage Tracking**
 - JSONL audit logs (`logs/audit.jsonl`)
-- Per-subkey counters (LLM calls, admin ops, pending)
-- Real-time SSE stream for monitoring
+- Per-user quota tracking (tokens & cost)
+- Period-based limits with auto-reset
+- Pending request reconciliation
 
 ✅ **Security**
 - JWT authentication for dashboard (4-hour sessions)
@@ -197,24 +219,37 @@ Detailed architecture documentation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md
 
 ```
 llm-mw/
-├── api/              # Endpoint handlers (15 modules)
+├── api/              # Endpoint handlers (11 modules)
 │   ├── chat.py       # /v1/chat/completions (main proxy)
-│   ├── admin.py      # /v1/_mw/subkey/* (CRUD)
+│   ├── admin.py      # /admin/* (usage, reset, reconcile)
 │   ├── models.py     # /v1/models (list)
-│   └── dashboard_login.py  # /dashboard/login|logout
+│   ├── dashboard_login.py  # /dashboard/login|logout
+│   ├── summary.py    # /v1/_mw/summary (dashboard metrics)
+│   ├── stream.py     # /v1/_mw/stream (SSE audit)
+│   ├── health.py     # /health (system check)
+│   ├── images.py     # /v1/images/generations
+│   ├── audio.py      # /v1/audio/transcriptions
+│   └── media.py      # /media/* (file serving)
 ├── core/             # Business logic
-│   ├── subkey_manager.py   # In-memory quota tracking
-│   ├── subkey_store.py     # Persistent JSON storage
-│   ├── auth_guard.py       # JWT validation decorator
-│   └── jwt_auth.py         # JWT token generation
+│   ├── auth.py       # User authentication & management
+│   ├── quota.py      # Quota tracking & enforcement
+│   ├── cost.py       # Cost calculation & pricing
+│   └── audit_state.py # Request state management
 ├── utils/            # Helpers
-│   ├── audit_logger.py     # JSONL audit writer
-│   ├── stream_processor.py # SSE parsing & forwarding
-│   ├── audio_handler.py    # Whisper transcription
-│   └── image_processor.py  # Vision API requests
-├── dashboard/        # Static HTML/CSS/JS
+│   ├── auth_guard.py # JWT validation decorator
+│   ├── jwt_auth.py   # JWT token generation
+│   ├── logging.py    # Structured logging
+│   ├── helpers.py    # Utility functions
+│   └── media.py      # Media file handling
+├── services/         # External service clients
+│   └── litellm.py    # LiteLLM proxy client
+├── dashboard/        # Admin UI (HTML/CSS/JS)
+├── data/             # Data storage
+│   ├── users.json    # User & quota database
+│   ├── prices.json   # Model pricing data
+│   └── pending.csv   # Streaming requests tracking
 ├── main.py           # FastAPI app entry point
-└── config.py         # Environment variable loader
+└── config.py         # Environment & logging setup
 ```
 
 ---

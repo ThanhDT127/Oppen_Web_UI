@@ -312,189 +312,130 @@ Cookie: mw_dashboard_token=<jwt_token>
 
 ---
 
-### Create Subkey
+### Get Usage Statistics
 
 ```http
-POST /v1/_mw/subkey
-Content-Type: application/json
-Authorization: Bearer <admin_key>
+GET /admin/usage
+X-Admin-Key: <admin_key>
 ```
 
-**Request Body:**
-```json
-{
-  "quota": 100,
-  "note": "Test user subkey"
-}
-```
+**Description:** View all user usage statistics (subkeys scrubbed for security).
 
 **Response:**
 ```json
-{
-  "subkey": "sk_user_abc123def456",
-  "quota": 100,
-  "enabled": true,
-  "created_at": "2025-12-22T10:30:00Z"
-}
-```
-
-**Status Codes:**
-- `200 OK` - Subkey created
-- `401 Unauthorized` - Invalid admin key
-- `400 Bad Request` - Invalid quota value
-
----
-
-### List All Subkeys
-
-```http
-GET /v1/_mw/subkeys
-Authorization: Bearer <admin_key>
-```
-
-**Response:**
-```json
-{
-  "subkeys": [
-    {
-      "subkey": "sk_user_abc123",
-      "enabled": true,
-      "quota": 100,
-      "llm_calls": 45,
-      "admin_ops": 2,
-      "pending": 0,
-      "created_at": "2025-12-22T10:30:00Z"
-    },
-    {
-      "subkey": "sk_user_xyz789",
-      "enabled": false,
-      "quota": 50,
-      "llm_calls": 50,
-      "admin_ops": 0,
-      "pending": 0,
-      "created_at": "2025-12-21T15:20:00Z"
+[
+  {
+    "user_id": "admin",
+    "active": true,
+    "allowed_models": ["*"],
+    "used_tokens": 45000,
+    "used_cost_usd": 0.125,
+    "quota": {
+      "period": "monthly",
+      "timezone": "Asia/Bangkok",
+      "limit_tokens": 0,
+      "limit_cost_usd": 0,
+      "period_start": 1735027200000,
+      "used_tokens": 12000,
+      "used_cost_usd": 0.035
     }
-  ]
-}
+  },
+  {
+    "user_id": "user1",
+    "active": true,
+    "allowed_models": ["gpt-4", "gpt-3.5-turbo"],
+    "used_tokens": 89500,
+    "used_cost_usd": 0.245,
+    "quota": {
+      "period": "weekly",
+      "timezone": "Asia/Bangkok",
+      "limit_tokens": 200000,
+      "limit_cost_usd": 10.0,
+      "period_start": 1734912000000,
+      "used_tokens": 25000,
+      "used_cost_usd": 0.065
+    }
+  }
+]
 ```
 
 **Status Codes:**
-- `200 OK` - Subkeys retrieved
-- `401 Unauthorized` - Invalid admin key
+- `200 OK` - Usage retrieved
+- `403 Forbidden` - Invalid admin key
 
 ---
 
-### Get Subkey Details
+### Reset Quota
 
 ```http
-GET /v1/_mw/subkey/<subkey>
-Authorization: Bearer <admin_key>
-```
-
-**Example:**
-```
-GET /v1/_mw/subkey/sk_user_abc123
-```
-
-**Response:**
-```json
-{
-  "subkey": "sk_user_abc123",
-  "enabled": true,
-  "quota": 100,
-  "llm_calls": 45,
-  "admin_ops": 2,
-  "pending": 0,
-  "created_at": "2025-12-22T10:30:00Z"
-}
-```
-
-**Status Codes:**
-- `200 OK` - Subkey found
-- `404 Not Found` - Subkey does not exist
-- `401 Unauthorized` - Invalid admin key
-
----
-
-### Update Subkey
-
-```http
-PUT /v1/_mw/subkey/<subkey>
+POST /admin/reset
 Content-Type: application/json
-Authorization: Bearer <admin_key>
+X-Admin-Key: <admin_key>
 ```
+
+**Description:** Reset period-based quota for specific user or all users.
 
 **Request Body:**
 ```json
 {
-  "quota": 200,
-  "enabled": true
+  "user_id": "user1"
 }
+```
+
+**Omit `user_id` to reset all users:**
+```json
+{}
 ```
 
 **Response:**
 ```json
 {
-  "subkey": "sk_user_abc123",
-  "enabled": true,
-  "quota": 200,
-  "llm_calls": 45,
-  "admin_ops": 2,
-  "pending": 0
+  "ok": true
 }
 ```
 
 **Status Codes:**
-- `200 OK` - Subkey updated
-- `404 Not Found` - Subkey does not exist
-- `401 Unauthorized` - Invalid admin key
+- `200 OK` - Quota reset successfully
+- `403 Forbidden` - Invalid admin key
 
 ---
 
-### Delete Subkey
+### Reconcile Usage
 
 ```http
-DELETE /v1/_mw/subkey/<subkey>
-Authorization: Bearer <admin_key>
+POST /admin/reconcile
+Content-Type: application/json
+X-Admin-Key: <admin_key>
+```
+
+**Description:** Manually reconcile streaming request usage from LiteLLM logs.
+
+**Request Body:**
+```json
+{
+  "request_id": "mw_abc123def456",
+  "user_id": "user1"
+}
 ```
 
 **Response:**
 ```json
 {
-  "success": true,
-  "message": "Subkey deleted successfully"
+  "ok": true,
+  "request_id": "mw_abc123def456",
+  "user_id": "user1",
+  "model": "gpt-4-turbo",
+  "prompt_tokens": 250,
+  "completion_tokens": 180,
+  "total_tokens": 430,
+  "cost_usd": 0.00215
 }
 ```
 
 **Status Codes:**
-- `200 OK` - Subkey deleted
-- `404 Not Found` - Subkey does not exist
-- `401 Unauthorized` - Invalid admin key
-
----
-
-### Reset Subkey Usage
-
-```http
-POST /v1/_mw/subkey/<subkey>/reset
-Authorization: Bearer <admin_key>
-```
-
-**Response:**
-```json
-{
-  "subkey": "sk_user_abc123",
-  "llm_calls": 0,
-  "admin_ops": 0,
-  "pending": 0,
-  "message": "Usage counters reset successfully"
-}
-```
-
-**Status Codes:**
-- `200 OK` - Counters reset
-- `404 Not Found` - Subkey does not exist
-- `401 Unauthorized` - Invalid admin key
+- `200 OK` - Usage reconciled
+- `403 Forbidden` - Invalid admin key
+- `404 Not Found` - Request ID or user not found
 
 ---
 
