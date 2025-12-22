@@ -111,11 +111,13 @@ POST /v1/chat/completions
     ↓
 Middleware (chat.py)
     ├─ Extracts subkey from Authorization header
-    ├─ Validates quota (subkey_manager.py)
-    ├─ Increments pending count
+    ├─ Validates user & quota (core/auth.py + core/quota.py)
+    ├─ Checks period-based limits (tokens/cost)
+    ├─ Records pending request to data/pending.csv
     ├─ Proxies to LiteLLM → POST http://localhost:4000/v1/chat/completions
     ├─ Receives response (stream or non-stream)
-    ├─ Decrements pending, increments completed
+    ├─ Calculates cost (core/cost.py)
+    ├─ Updates user quota in data/users.json
     └─ Returns to OpenWebUI
     ↓
 LiteLLM Proxy
@@ -137,8 +139,8 @@ JavaScript loads
     ↓
 GET /v1/_mw/summary
     ├─ Includes JWT cookie
-    ├─ auth_guard.py validates JWT
-    ├─ admin.py aggregates metrics from subkey_store
+    ├─ utils/auth_guard.py validates JWT
+    ├─ api/summary.py aggregates metrics from logs/audit.jsonl
     └─ Returns JSON: {llm_calls_total, admin_ops_total, pending_count, breakdown}
     ↓
 Dashboard displays metrics
@@ -148,25 +150,40 @@ Dashboard displays metrics
 
 ## 💾 Persistence Layer
 
-### Subkey Storage (`logs/subkeys.json`)
+### User Database (`llm-mw/data/users.json`)
 
 ```json
-{
-  "sk_user_abc123": {
-    "enabled": true,
-    "quota": 100,
-    "llm_calls": 45,
-    "admin_ops": 2,
-    "pending": 0,
-    "created_at": "2025-12-22T10:30:00Z"
+[
+  {
+    "user_id": "admin",
+    "subkey": "sk_admin_hashed_...",
+    "active": true,
+    "allowed_models": ["*"],
+    "used_tokens": 45000,
+    "used_cost_usd": 0.125,
+    "quota": {
+      "period": "monthly",
+      "timezone": "Asia/Bangkok",
+      "limit_tokens": 0,
+      "limit_cost_usd": 0,
+      "period_start": 1735027200000,
+      "used_tokens": 12000,
+      "used_cost_usd": 0.035
+    }
   }
-}
+]
 ```
 
+**Features:**
+- Subkeys stored as HMAC-SHA256 hashes
+- Period-based quota (weekly/monthly) with auto-reset
+- Lifetime tracking (used_tokens, used_cost_usd)
+- Per-period tracking (quota.used_tokens, quota.used_cost_usd)
+
 **Operations:**
-- Read: `subkey_store.py` loads on startup
-- Write: Auto-saves after every quota change (debounced 1 second)
-- Atomic: Uses temp file + rename for crash safety
+- Read: `core/auth.py` → load_users()
+- Write: `core/auth.py` → save_users() with thread lock
+- Quota enforcement: `core/quota.py` → maybe_reset_quota()
 
 ### Audit Log (`logs/audit.jsonl`)
 
@@ -190,10 +207,15 @@ Dashboard displays metrics
 ```
 1. Request Validation (10ms)
    ├─ Extract Authorization header
-   ├─ Lookup subkey in subkey_store
-   └─ Check quota availability
+   ├─ Hash subkey and lookup user in data/users.json
+   ├─ Check user.active status
+   └─ Enforce period-based quota limits
 
-2. Proxy to LiteLLM (50-200ms first token)
+2. Record Pending (5ms)
+   ├─ Write to data/pending.csv (request_id, timestamp, model)
+   └─ Used for reconciling streaming requests
+
+3. Proxy to LiteLLM (50-200ms first token)
    ├─ Forward request to http://localhost:4000/v1/chat/completions
    ├─ Set stream=true in request body
    └─ Receive Server-Sent Events (SSE) stream
@@ -230,27 +252,40 @@ Dashboard displays metrics
 | Module | Endpoints | Purpose |
 |--------|-----------|---------|
 | `chat.py` | `/v1/chat/completions` | Main chat proxy with quota enforcement |
-| `admin.py` | `/v1/_mw/subkey/*`, `/v1/_mw/summary` | Subkey CRUD & metrics |
+| `admin.py` | `/admin/usage`, `/admin/reset`, `/admin/reconcile` | Usage stats & quota management |
 | `models.py` | `/v1/models` | Model list aggregation from LiteLLM |
 | `dashboard_login.py` | `/dashboard/login`, `/dashboard/logout` | JWT authentication |
+| `summary.py` | `/v1/_mw/summary` | Dashboard metrics from audit.jsonl |
+| `stream.py` | `/v1/_mw/stream` | Real-time SSE audit events |
+| `health.py` | `/health` | System health check |
+| `images.py` | `/v1/images/generations` | Image generation proxy |
+| `audio.py` | `/v1/audio/transcriptions` | Audio transcription proxy |
+| `media.py` | `/media/*` | Static file serving |
 
 ### Core Logic (`core/`)
 
 | Module | Purpose |
 |--------|---------|
-| `subkey_manager.py` | In-memory quota tracking & validation |
-| `subkey_store.py` | Persistent JSON storage with atomic writes |
-| `auth_guard.py` | JWT validation decorator for protected endpoints |
-| `jwt_auth.py` | JWT token generation & cookie management |
+| `auth.py` | User authentication, subkey hashing, users.json management |
+| `quota.py` | Period-based quota tracking (weekly/monthly), auto-reset |
+| `cost.py` | Token cost calculation, pricing data (prices.json) |
+| `audit_state.py` | Request state management for audit logging |
 
 ### Utilities (`utils/`)
 
 | Module | Purpose |
 |--------|---------|
-| `audit_logger.py` | JSONL audit trail writer |
-| `stream_processor.py` | SSE parsing & forwarding |
-| `audio_handler.py` | Whisper transcription via LiteLLM |
-| `image_processor.py` | Vision API requests (GPT-4V, Gemini Pro Vision) |
+| `auth_guard.py` | JWT validation decorator for protected endpoints |
+| `jwt_auth.py` | JWT token generation & cookie management |
+| `logging.py` | Structured logging (detail_log, audit_log) |
+| `helpers.py` | Utility functions (rate limiting, request parsing) |
+| `media.py` | Media file handling (upload, storage) |
+
+### Services (`services/`)
+
+| Module | Purpose |
+|--------|---------|
+| `litellm.py` | LiteLLM proxy client (HTTP communication) |
 
 ---
 

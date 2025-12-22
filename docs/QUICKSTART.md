@@ -89,14 +89,41 @@ GEMINI_API_KEY=your-gemini-key
 
 See [.env.example](.env.example) for full template.
 
-### 2. Create Your First Subkey
+### 2. Create Your First User
 
-```bash
-curl -X POST http://localhost:5000/v1/_mw/subkey \
-  -H "Authorization: Bearer your-admin-master-key" \
-  -H "Content-Type: application/json" \
-  -d '{"quota": 100, "note": "First user"}'
+**Method A: Use example file**
+```powershell
+Copy-Item llm-mw\users.example.json llm-mw\data\users.json
 ```
+
+Then edit `llm-mw\data\users.json` with your subkey:
+```json
+[
+  {
+    "user_id": "myuser",
+    "subkey": "sk_my_secure_subkey_12345",
+    "active": true,
+    "allowed_models": ["*"],
+    "used_tokens": 0,
+    "used_cost_usd": 0.0,
+    "quota": {
+      "period": "monthly",
+      "timezone": "Asia/Bangkok",
+      "limit_tokens": 1000000,
+      "limit_cost_usd": 50.0,
+      "period_start": 0,
+      "used_tokens": 0,
+      "used_cost_usd": 0.0
+    }
+  }
+]
+```
+
+**Method B: Manually create users.json**
+
+Create file at `llm-mw\data\users.json` with the structure above.
+
+**Important:** Subkey is stored in plaintext here. System will hash it on first use.
 
 ### 3. Configure OpenWebUI
 
@@ -105,7 +132,7 @@ curl -X POST http://localhost:5000/v1/_mw/subkey \
 3. Go to **Settings** → **Connections**
 4. Set:
    - **API Base URL:** `http://127.0.0.1:5000/v1`
-   - **API Key:** `<subkey_from_step_2>`
+   - **API Key:** `sk_my_secure_subkey_12345` (your subkey from users.json)
 5. Save and start chatting!
 
 ---
@@ -125,19 +152,21 @@ Oppen_Web_UI_fresh/
 │   ├── ARCHITECTURE.md # System design & data flow
 │   ├── API_REFERENCE.md# Complete endpoint docs
 │   └── DASHBOARD.md    # Admin dashboard guide
-├── llm-mw/             # Middleware (15 refactored modules)
-│   ├── api/            # Endpoint handlers
-│   ├── core/           # Business logic
-│   ├── utils/          # Helper modules
+├── llm-mw/             # Middleware (modular architecture)
+│   ├── api/            # 11 endpoint handlers
+│   ├── core/           # Business logic (auth, quota, cost)
+│   ├── utils/          # Helpers (jwt, logging, guards)
+│   ├── services/       # External clients (litellm)
 │   ├── dashboard/      # Admin UI (HTML/CSS/JS)
+│   ├── data/           # Runtime data (users.json, prices.json)
 │   ├── main.py         # FastAPI entry point
-│   └── config.py       # Environment loader
+│   └── config.py       # Environment & logging setup
 ├── litellm/            # LiteLLM proxy config
 │   └── litellm_config.yaml
 ├── logs/               # Application logs
 │   ├── middleware.log  # Main log
 │   ├── audit.jsonl     # Audit trail
-│   └── subkeys.json    # Subkey storage
+│   └── mw_media/       # Uploaded media
 └── openwebui_data/     # OpenWebUI database & files
 ```
 
