@@ -63,14 +63,6 @@ ADMIN_KEY = os.getenv("ADMIN_KEY", "").strip()
 JWT_SECRET = os.getenv("JWT_SECRET", "default-jwt-secret-CHANGE-IN-PRODUCTION").strip()
 MW_SECRET = os.getenv("MW_SECRET", "default-secret-CHANGE-IN-PRODUCTION").strip()
 
-# Security warnings for default values
-if JWT_SECRET == "default-jwt-secret-CHANGE-IN-PRODUCTION":
-    logger.warning("⚠️  JWT_SECRET is using default value - CHANGE IN PRODUCTION!")
-if MW_SECRET == "default-secret-CHANGE-IN-PRODUCTION":
-    logger.warning("⚠️  MW_SECRET is using default value - CHANGE IN PRODUCTION!")
-if not ADMIN_KEY:
-    logger.warning("⚠️  ADMIN_KEY is empty - Admin endpoints will be inaccessible!")
-
 # ============================================================================
 # LOGGING SETUP
 # ============================================================================
@@ -98,6 +90,14 @@ if not audit_logger.handlers:
     _ah = RotatingFileHandler(AUDIT_LOG_FILE, maxBytes=50_000_000, backupCount=5, encoding="utf-8")
     _ah.setFormatter(logging.Formatter("%(message)s"))
     audit_logger.addHandler(_ah)
+
+# Security warnings for default values (AFTER logger initialization)
+if JWT_SECRET == "default-jwt-secret-CHANGE-IN-PRODUCTION":
+    logger.warning("⚠️  JWT_SECRET is using default value - CHANGE IN PRODUCTION!")
+if MW_SECRET == "default-secret-CHANGE-IN-PRODUCTION":
+    logger.warning("⚠️  MW_SECRET is using default value - CHANGE IN PRODUCTION!")
+if not ADMIN_KEY:
+    logger.warning("⚠️  ADMIN_KEY is empty - Admin endpoints will be inaccessible!")
 
 # ============================================================================
 # CONSTANTS

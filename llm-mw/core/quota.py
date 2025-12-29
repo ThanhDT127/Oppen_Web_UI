@@ -50,7 +50,6 @@ def maybe_reset_quota(user: Dict[str, Any]):
         quota["used_cost_usd"] = 0.0
         quota["used_image_requests"] = 0
         # DO NOT reset user["used_*"] - those are lifetime counters
-        user["used_cost_usd"] = 0.0
 
 
 def enforce_and_bump_quota(
@@ -58,6 +57,7 @@ def enforce_and_bump_quota(
     *,
     apply: bool = True,
     add_image_requests: int = 0,
+    add_stt_requests: int = 0,
     add_tokens: int = 0,
     add_cost_usd: float = 0.0,
 ):
@@ -68,6 +68,7 @@ def enforce_and_bump_quota(
         user_id: User identifier
         apply: Whether to actually increment counters
         add_image_requests: Image requests to add
+        add_stt_requests: Speech-to-text requests to add
         add_tokens: Tokens to add
         add_cost_usd: Cost to add
         
@@ -99,6 +100,8 @@ def enforce_and_bump_quota(
             # Enforce task-specific quotas (best-effort; costs may be unknown until after provider call).
             if add_image_requests:
                 _enforce_limit("limit_image_requests", "used_image_requests", float(add_image_requests), "Image requests")
+            if add_stt_requests:
+                _enforce_limit("limit_stt_requests", "used_stt_requests", float(add_stt_requests), "STT requests")
 
             # Existing token/cost quotas.
             if add_tokens:
@@ -112,6 +115,8 @@ def enforce_and_bump_quota(
             # Apply increments.
             if add_image_requests:
                 quota["used_image_requests"] = int(quota.get("used_image_requests", 0) or 0) + int(add_image_requests)
+            if add_stt_requests:
+                quota["used_stt_requests"] = int(quota.get("used_stt_requests", 0) or 0) + int(add_stt_requests)
 
             if add_tokens:
                 stored_user["used_tokens"] = int(stored_user.get("used_tokens", 0) or 0) + int(add_tokens)

@@ -95,6 +95,7 @@ async def generate_images(request: Request):
             upstream=f"{LITELLM_BASE}/images/generations",
             error=f"{e.__class__.__name__}",
         )
+        set_error_state(request, "provider", f"Upstream LiteLLM unavailable: {e.__class__.__name__}")
         raise HTTPException(503, f"Upstream LiteLLM unavailable: {e.__class__.__name__}")
     
     if resp.status_code >= 400 and isinstance(model, str) and model == "gpt-image-1":
@@ -119,9 +120,11 @@ async def generate_images(request: Request):
             try:
                 resp = await client.post(f"{LITELLM_BASE}/images/generations", headers=headers, json=forward_body, timeout=600)
             except httpx.RequestError as e:
+                set_error_state(request, "provider", f"Upstream LiteLLM unavailable (fallback): {e.__class__.__name__}")
                 raise HTTPException(503, f"Upstream LiteLLM unavailable: {e.__class__.__name__}")
 
     if resp.status_code >= 400:
+        set_error_state(request, "provider", f"LiteLLM returned {resp.status_code}")
         try:
             raise HTTPException(resp.status_code, resp.json())
         except Exception:
