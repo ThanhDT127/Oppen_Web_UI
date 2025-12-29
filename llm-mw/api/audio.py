@@ -11,7 +11,7 @@ import httpx
 from config import LITELLM_BASE, LITELLM_KEY
 from core.auth import require_user, assert_model_allowed
 from core.quota import enforce_and_bump_quota
-from core.audit_state import init_audit_state, set_usage_state, set_counters
+from core.audit_state import init_audit_state, set_usage_state, set_counters, set_error_state
 from services.litellm import get_cost_from_headers
 
 
@@ -67,6 +67,7 @@ async def transcribe_audio(request: Request):
     client: httpx.AsyncClient = request.app.state.http_client
     resp = await client.post(f"{LITELLM_BASE}/audio/transcriptions", headers=headers, data=data, files=files, timeout=600)
     if resp.status_code >= 400:
+        set_error_state(request, "provider", f"LiteLLM returned {resp.status_code}")
         raise HTTPException(resp.status_code, resp.text)
     out = resp.json()
     litellm_cost = get_cost_from_headers(resp.headers)
