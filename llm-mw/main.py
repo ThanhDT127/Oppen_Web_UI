@@ -25,6 +25,10 @@ from api.summary import get_summary
 from api.summary_v2 import get_summary_v2
 from api.stream import stream_audit
 from api.access_logs import get_access_summary, stream_access
+from api.user_admin import (
+    list_users, create_user, update_user, 
+    rotate_user_key, disable_user, enable_user, get_admin_audit
+)
 from api.dashboard_login import dashboard_login, dashboard_logout
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -129,6 +133,15 @@ app.add_api_route("/v1/_mw/stream", stream_audit, methods=["GET"])
 # Access log endpoints (separate from usage)
 app.add_api_route("/v1/_mw/access_summary", get_access_summary, methods=["GET"])
 app.add_api_route("/v1/_mw/access_stream", stream_access, methods=["GET"])
+
+# User management endpoints (admin only)
+app.add_api_route("/v1/_mw/admin/users", list_users, methods=["GET"])
+app.add_api_route("/v1/_mw/admin/users", create_user, methods=["POST"])
+app.add_api_route("/v1/_mw/admin/users/{user_id}", update_user, methods=["PATCH"])
+app.add_api_route("/v1/_mw/admin/users/{user_id}/rotate_key", rotate_user_key, methods=["POST"])
+app.add_api_route("/v1/_mw/admin/users/{user_id}/disable", disable_user, methods=["POST"])
+app.add_api_route("/v1/_mw/admin/users/{user_id}/enable", enable_user, methods=["POST"])
+app.add_api_route("/v1/_mw/admin/audit", get_admin_audit, methods=["GET"])
 
 # Dashboard auth endpoints
 app.add_api_route("/v1/_mw/dashboard/login", dashboard_login, methods=["POST"])
