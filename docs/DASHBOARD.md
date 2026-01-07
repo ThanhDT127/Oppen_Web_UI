@@ -137,12 +137,14 @@ Dashboard admin giúp giám sát realtime toàn bộ hoạt động của LLM Ga
 
 **Hiển thị:**
 - Label: "Pending"
-- Value: Số request streaming chưa reconcile
+- Value: Số requests đang pending (open)
 - Màu vàng warning
-- **Ý nghĩa**: Các streaming request chưa biết tokens/cost chính xác
+- **Ý nghĩa**: Requests đang xử lý và chưa được reconcile
 
-**Cách tính:**
-- Đếm status `pending` trong audit.jsonl
+**Cách tính (Control-Grade):**
+- Track **last status per rid** từ audit.jsonl
+- Đếm số rid có `last_status = "pending"`
+- Với streaming: có cả pending → reconciled, chỉ đếm pending cuối cùng
 - Cần reconcile để có data đầy đủ
 - Nếu quá cao → cần check LiteLLM logs
 
@@ -525,7 +527,12 @@ for entry in audit_entries:
 
 ### Pending Count
 
-**Chỉ đếm status `pending`** trong time window.
+**Đếm theo rid với last status = `pending`** trong time window.
+
+**Cách hoạt động:**
+- Track last status per rid: `rid_status[rid] = (timestamp, status)`
+- Chỉ đếm rid có last status = "pending"
+- Với streaming pattern: pending → reconciled, chỉ reconciled được đếm
 
 **Khi nào có pending:**
 - Streaming requests chưa hoàn thành

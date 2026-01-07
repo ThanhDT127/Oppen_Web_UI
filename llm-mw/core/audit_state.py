@@ -244,11 +244,12 @@ def has_audit_state(request: Request) -> bool:
     Check if request has audit state initialized.
     
     Used by middleware to determine if request should be audited.
+    Only returns True if init_audit_state() was properly called.
     
     Args:
         request: FastAPI Request object
     
     Returns:
-        bool: True if init_audit_state was called, False otherwise
+        bool: True if init_audit_state was called (has mw_request_id), False otherwise
     """
-    return hasattr(request.state, "mw_user_id")
+    return hasattr(request.state, "mw_request_id")

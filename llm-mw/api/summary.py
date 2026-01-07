@@ -27,8 +27,8 @@ def get_summary(request: Request, minutes: int = 60):
     if not os.path.exists(AUDIT_LOG_FILE):
         return {"error": "audit.jsonl not found", "data": []}
     
-    # Calculate cutoff time
-    cutoff = dt.datetime.now(tz=ZoneInfo("Asia/Ho_Chi_Minh")) - dt.timedelta(minutes=minutes)
+    # Calculate cutoff time (using UTC to match audit timestamps)
+    cutoff = dt.datetime.now(tz=dt.timezone.utc) - dt.timedelta(minutes=minutes)
     
     # Define LLM endpoints
     LLM_ENDPOINTS = {
@@ -43,8 +43,10 @@ def get_summary(request: Request, minutes: int = 60):
     requests_total = 0
     llm_calls_total = 0
     admin_ops_total = 0
-    pending_count = 0
     error_count = 0
+    
+    # Track last status per rid for pending_open calculation (control-grade)
+    rid_status: Dict[str, tuple] = {}  # rid -> (timestamp, status)
     
     # Breakdown by type
     chat_calls = 0
@@ -77,6 +79,13 @@ def get_summary(request: Request, minutes: int = 60):
                     # Get endpoint and status
                     endpoint = entry.get("endpoint", "")
                     status = entry.get("status", "ok")
+                    rid = entry.get("rid", "")
+                    
+                    # Track last status per rid for control-grade pending_open calculation
+                    if rid:
+                        current_ts = entry_time.timestamp()
+                        if rid not in rid_status or current_ts > rid_status[rid][0]:
+                            rid_status[rid] = (current_ts, status)
                     
                     # Classify request type
                     is_llm_call = endpoint in LLM_ENDPOINTS
@@ -105,8 +114,6 @@ def get_summary(request: Request, minutes: int = 60):
                     # Aggregate by status
                     if status in ["ok", "error", "reconciled"]:
                         requests_total += 1
-                    if status == "pending":
-                        pending_count += 1
                     if status == "error":
                         error_count += 1
                     
@@ -136,6 +143,9 @@ def get_summary(request: Request, minutes: int = 60):
                 except Exception:
                     continue
         
+        # Calculate pending_open_count from rid_status (control-grade: last status per rid)
+        pending_open_count = sum(1 for _, (_, status) in rid_status.items() if status == "pending")
+        
         # Calculate P95 latency
         p95_latency = None
         if latencies:
@@ -162,7 +172,7 @@ def get_summary(request: Request, minutes: int = 60):
             "requests_total": requests_total,
             "llm_calls_total": llm_calls_total,
             "admin_ops_total": admin_ops_total,
-            "pending_count": pending_count,
+            "pending_open_count": pending_open_count,
             "error_count": error_count,
             "error_rate_percent": round(error_rate, 2),
             

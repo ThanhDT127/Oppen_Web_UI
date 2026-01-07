@@ -190,7 +190,7 @@ def audit_from_request(
     try:
         # Build audit line from request state
         data = {
-            "ts": dt.datetime.now(tz=ZoneInfo("Asia/Ho_Chi_Minh")).isoformat(),
+            "ts": dt.datetime.now(tz=dt.timezone.utc).isoformat(),
             "rid": rid,
             "user_id": getattr(request.state, "mw_user_id", "unknown"),
             "endpoint": getattr(request.state, "mw_endpoint", request.url.path),
