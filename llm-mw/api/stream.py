@@ -51,7 +51,17 @@ async def stream_audit(request: Request):
             try:
                 current_size = os.path.getsize(AUDIT_LOG_FILE)
                 
-                if current_size > last_size:
+                # Detect log rotation: file shrunk (rotated/truncated)
+                if current_size < last_size:
+                    # File was rotated, reset to beginning and read all
+                    last_size = 0
+                    with open(AUDIT_LOG_FILE, "r", encoding="utf-8") as f:
+                        new_lines = f.readlines()
+                        for line in new_lines:
+                            if line.strip():
+                                yield f"event: audit\ndata: {line.strip()}\n\n"
+                    last_size = current_size
+                elif current_size > last_size:
                     # File has grown, read new content
                     with open(AUDIT_LOG_FILE, "r", encoding="utf-8") as f:
                         f.seek(last_size)

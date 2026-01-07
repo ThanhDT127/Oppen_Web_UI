@@ -178,6 +178,14 @@ Copy `llm-mw/users.example.json` to `llm-mw/data/users.json` and customize.
 - Support for all OpenAI-compatible models
 - Multimodal support (text, images, audio)
 
+✅ **Image Generation** 🎨
+- OpenAI DALL-E 3 (`gpt-image-1`) and Gemini Image (`gemini-2.5-flash-image`)
+- Automatic fallback (OpenAI → Gemini) on org verification errors
+- Per-user quota limits (`limit_image_requests`, `limit_cost_usd`)
+- Control-grade audit logging (provider, size, fallback tracking)
+- Media endpoint for direct image serving: `/v1/_mw/media/<id>.png`
+- See [docs/IMAGE_GENERATION.md](docs/IMAGE_GENERATION.md) for configuration
+
 ✅ **Admin Dashboard**
 - Web-based UI at `/dashboard`
 - Live metrics from audit.jsonl
@@ -197,7 +205,7 @@ Copy `llm-mw/users.example.json` to `llm-mw/data/users.json` and customize.
 
 ✅ **Multi-Provider Support**
 - OpenAI (GPT-4, GPT-3.5, DALL-E)
-- Google Gemini (Gemini Pro, Gemini Pro Vision)
+- Google Gemini (Gemini Pro, Gemini Pro Vision, Gemini Image)
 - Anthropic Claude (via LiteLLM)
 - Custom model aliases
 

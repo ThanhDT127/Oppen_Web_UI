@@ -12,11 +12,95 @@ from config import LITELLM_BASE, LITELLM_KEY
 from core.auth import require_user, assert_model_allowed
 from core.quota import maybe_reset_quota, enforce_and_bump_quota
 from core.cost import load_prices, calc_image_cost_from_body
-from core.audit_state import init_audit_state, set_usage_state, set_counters, set_error_state
+from core.audit_state import init_audit_state, set_usage_state, set_counters, set_error_state, mark_audit_logged
 from services.litellm import get_cost_from_headers
 from utils.helpers import truncate_text, safe_headers
-from utils.logging import detail_log
+from utils.logging import detail_log, write_audit_line
 from utils.media import maybe_materialize_image_items
+from datetime import datetime, timezone as dt_timezone
+
+
+def _extract_provider(model: str) -> str:
+    """
+    Extract provider from model name.
+    
+    Args:
+        model: Model name (e.g., "gemini-2.5-flash-image", "gpt-image-1")
+        
+    Returns:
+        Provider name ("gemini", "openai", "unknown")
+    """
+    model_lower = (model or "").lower()
+    if model_lower.startswith("gemini-"):
+        return "gemini"
+    elif model_lower.startswith("gpt-") or model_lower.startswith("dalle-"):
+        return "openai"
+    return "unknown"
+
+
+def _write_image_audit(
+    request_id: str,
+    user_id: str,
+    model_requested: str,
+    model_effective: str,
+    provider: str,
+    size: str,
+    n: int,
+    response_format: str,
+    status_code: int,
+    cost_usd: float
+):
+    """
+    Write detailed audit log for image generation (control-grade).
+    
+    This provides enhanced tracking beyond standard audit_state:
+    - purpose="image_gen" for filtering
+    - model_requested vs model_effective (tracks fallback)
+    - provider identification
+    - image-specific params (size, n, format)
+    - upstream_status for debugging
+    
+    Args:
+        request_id: Request ID
+        user_id: User identifier
+        model_requested: Originally requested model
+        model_effective: Actually used model (after fallback)
+        provider: Provider name (gemini/openai/unknown)
+        size: Image size (e.g., "1024x1024")
+        n: Number of images
+        response_format: Output format (url/b64_json)
+        status_code: HTTP status code
+        cost_usd: Total cost in USD
+    """
+    try:
+        write_audit_line({
+            "ts": datetime.now(dt_timezone.utc).isoformat(),
+            "rid": request_id,
+            "user_id": user_id,
+            "endpoint": "/v1/images/generations",
+            "purpose": "image_gen",
+            "model": model_effective,
+            "model_requested": model_requested if model_requested != model_effective else None,
+            "provider": provider,
+            "status": "ok",
+            "status_code": status_code,
+            "upstream_status": status_code,
+            "latency_ms": None,  # Set by middleware
+            "tokens_in": 0,
+            "tokens_out": 0,
+            "tokens_total": 0,
+            "cost_usd": cost_usd,
+            "image_count": n,
+            "image_size": size,
+            "image_format": response_format,
+            "tts_chars": None,
+            "stt_seconds": None,
+            "video_count": None,
+            "error_type": None,
+            "error_message": None
+        })
+    except Exception:
+        pass  # Never break request due to audit failure
 
 
 async def generate_images(request: Request):
@@ -163,6 +247,31 @@ async def generate_images(request: Request):
     image_count = body.get("n", 1)
     set_usage_state(request, 0, 0, 0, cost_usd)
     set_counters(request, image_count=image_count)
+    
+    # Store image-specific fields in request state for audit enhancement
+    model_requested = body.get("model") or "gemini-2.5-flash-image"
+    request.state.image_size = body.get("size", "1024x1024")
+    request.state.image_format = body.get("response_format", "url")
+    request.state.provider = _extract_provider(model)
+    request.state.model_requested = model_requested if model_requested != model else None
+    request.state.upstream_status = resp.status_code
+    
+    # Write detailed audit log for control-grade tracking (single source of truth)
+    _write_image_audit(
+        request_id=request_id,
+        user_id=user["user_id"],
+        model_requested=model_requested,
+        model_effective=model,
+        provider=_extract_provider(model),
+        size=body.get("size", "1024x1024"),
+        n=image_count,
+        response_format=body.get("response_format", "url"),
+        status_code=resp.status_code,
+        cost_usd=cost_usd
+    )
+    
+    # Mark audit as logged to prevent middleware from writing duplicate entry
+    mark_audit_logged(request)
 
     data["_mw_user"] = user["user_id"]
     data["_mw_request_id"] = request_id

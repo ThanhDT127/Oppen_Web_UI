@@ -3,19 +3,110 @@ Chat completions endpoint with streaming support.
 """
 
 import uuid
+import json
 import asyncio
+from datetime import datetime, timezone
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
 
 from config import LITELLM_BASE, LITELLM_KEY, logger
-from core.auth import require_user, assert_model_allowed
+from core.auth import require_user, assert_model_allowed, load_users, save_users, get_lock
 from core.quota import maybe_reset_quota, enforce_and_bump_quota
-from core.cost import calc_cost_usd, append_pending, remove_pending
+from core.cost import calc_cost_usd, append_pending, remove_pending, load_prices
 from core.audit_state import init_audit_state, set_usage_state, set_error_state
-from services.litellm import get_cost_from_headers
+from services.litellm import get_cost_from_headers, find_usage_in_log
 from utils.helpers import truncate_text, extract_text_from_messages, safe_headers
-from utils.logging import detail_log
+from utils.logging import detail_log, write_audit_line
+
+
+async def _finalize_streaming(request: Request, user: dict, model: str, request_id: str, usage_data: dict):
+    """
+    Finalize streaming request: Calculate cost, bump quota, write reconciled audit.
+    
+    Args:
+        request: FastAPI Request
+        user: User dict
+        model: Model name
+        request_id: Request ID
+        usage_data: Usage dict from stream (if stream_options.include_usage), or None
+    """
+    try:
+        prompt_tokens = 0
+        completion_tokens = 0
+        total_tokens = 0
+        cost_usd = 0.0
+        
+        # Method 1: Extract from stream (if stream_options.include_usage was set)
+        if usage_data:
+            prompt_tokens = int(usage_data.get("prompt_tokens", 0))
+            completion_tokens = int(usage_data.get("completion_tokens", 0))
+            total_tokens = int(usage_data.get("total_tokens", prompt_tokens + completion_tokens))
+            logger.info("stream_finalize rid=%s tokens=%d (from stream)", request_id, total_tokens)
+        
+        # Method 2: Fallback to LiteLLM log parsing
+        else:
+            await asyncio.sleep(1)  # Wait for LiteLLM to write log
+            usage = find_usage_in_log(request_id)
+            if usage:
+                prompt_tokens = int(usage.get("prompt_tokens", 0))
+                completion_tokens = int(usage.get("completion_tokens", 0))
+                total_tokens = int(usage.get("total_tokens", prompt_tokens + completion_tokens))
+                logged_cost = usage.get("response_cost")
+                if logged_cost:
+                    try:
+                        cost_usd = float(logged_cost)
+                    except Exception:
+                        pass
+                logger.info("stream_finalize rid=%s tokens=%d (from litellm log)", request_id, total_tokens)
+        
+        # Calculate cost if not from LiteLLM
+        if cost_usd == 0.0 and total_tokens > 0:
+            prices = load_prices()
+            cost_usd = calc_cost_usd(model, prompt_tokens, completion_tokens, prices)
+        
+        # Bump quota (CRITICAL for billing)
+        if total_tokens > 0 or cost_usd > 0:
+            lock = get_lock()
+            with lock:
+                users = load_users()
+                for u in users:
+                    if u.get("user_id") == user["user_id"]:
+                        maybe_reset_quota(u)
+                        u["used_tokens"] = u.get("used_tokens", 0) + total_tokens
+                        u["used_cost_usd"] = u.get("used_cost_usd", 0.0) + cost_usd
+                        quota = u.setdefault("quota", {})
+                        quota["used_tokens"] = quota.get("used_tokens", 0) + total_tokens
+                        quota["used_cost_usd"] = quota.get("used_cost_usd", 0.0) + cost_usd
+                        break
+                save_users(users)
+        
+        # Write reconciled audit line
+        write_audit_line({
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "rid": request_id,
+            "user_id": user["user_id"],
+            "endpoint": "/v1/chat/completions",
+            "model": model,
+            "status": "reconciled",
+            "status_code": 200,
+            "latency_ms": None,
+            "tokens_in": prompt_tokens,
+            "tokens_out": completion_tokens,
+            "tokens_total": total_tokens,
+            "cost_usd": cost_usd,
+            "image_count": None,
+            "tts_chars": None,
+            "stt_seconds": None,
+            "video_count": None,
+            "error_type": None,
+            "error_message": None
+        })
+        
+        logger.info("stream_finalize_complete rid=%s tokens=%d cost=$%.6f", request_id, total_tokens, cost_usd)
+    
+    except Exception as e:
+        logger.error("stream_finalize_error rid=%s: %s", request_id, str(e))
 
 
 async def chat_completions(request: Request):
@@ -190,14 +281,33 @@ async def _handle_streaming(request: Request, user: dict, model: str, body: dict
 
     async def _iter_bytes():
         sampled: bytearray = bytearray()
+        usage_data = None  # Track usage from stream_options.include_usage
+        
         try:
             async for chunk in resp.aiter_bytes():
                 if len(sampled) < 8192:
                     sampled.extend(chunk[: max(0, 8192 - len(sampled))])
+                
+                # Try to extract usage from SSE data (stream_options.include_usage)
+                try:
+                    chunk_str = chunk.decode("utf-8", errors="ignore")
+                    if chunk_str.startswith("data: ") and not chunk_str.startswith("data: [DONE]"):
+                        json_str = chunk_str[6:].strip()
+                        if json_str:
+                            chunk_data = json.loads(json_str)
+                            # Extract usage from final chunk
+                            if "usage" in chunk_data:
+                                usage_data = chunk_data["usage"]
+                except Exception:
+                    pass  # Ignore parsing errors
+                
                 yield chunk
         except (httpx.StreamClosed, httpx.RemoteProtocolError, asyncio.CancelledError):
             return
         finally:
+            # Finalize streaming: reconcile usage and bump quota
+            await _finalize_streaming(request, user, model, request_id, usage_data)
+            
             remove_pending(request_id)
             try:
                 await resp.aclose()
