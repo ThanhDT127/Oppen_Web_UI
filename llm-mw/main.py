@@ -22,7 +22,9 @@ from api.audio import transcribe_audio
 from api.media import serve_media
 from api.admin import get_usage, reset_quota, reconcile_usage
 from api.summary import get_summary
+from api.summary_v2 import get_summary_v2
 from api.stream import stream_audit
+from api.access_logs import get_access_summary, stream_access
 from api.dashboard_login import dashboard_login, dashboard_logout
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -121,8 +123,12 @@ app.add_api_route("/admin/reset", reset_quota, methods=["POST"])
 app.add_api_route("/admin/reconcile", reconcile_usage, methods=["POST"])
 
 # Summary & Stream endpoints
-app.add_api_route("/v1/_mw/summary", get_summary, methods=["GET"])
+app.add_api_route("/v1/_mw/summary", get_summary_v2, methods=["GET"])  # Enhanced version with time range
 app.add_api_route("/v1/_mw/stream", stream_audit, methods=["GET"])
+
+# Access log endpoints (separate from usage)
+app.add_api_route("/v1/_mw/access_summary", get_access_summary, methods=["GET"])
+app.add_api_route("/v1/_mw/access_stream", stream_access, methods=["GET"])
 
 # Dashboard auth endpoints
 app.add_api_route("/v1/_mw/dashboard/login", dashboard_login, methods=["POST"])

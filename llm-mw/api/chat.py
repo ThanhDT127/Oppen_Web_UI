@@ -270,12 +270,36 @@ async def _handle_streaming(request: Request, user: dict, model: str, body: dict
         try:
             error_bytes = await resp.aread()
         finally:
+            error_text = error_bytes.decode("utf-8", errors="ignore")
+            
+            # Write error audit to close the pending request
+            write_audit_line({
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "rid": request_id,
+                "user_id": user["user_id"],
+                "endpoint": "/v1/chat/completions",
+                "model": model,
+                "status": "error",
+                "status_code": resp.status_code,
+                "upstream_status": resp.status_code,
+                "latency_ms": 0,
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "tokens_total": 0,
+                "cost_usd": 0.0,
+                "image_count": None,
+                "tts_chars": None,
+                "stt_seconds": None,
+                "video_count": None,
+                "error_type": "upstream_error",
+                "error_message": truncate_text(error_text, 500)
+            })
+            
             remove_pending(request_id)
             try:
                 await resp.aclose()
             finally:
                 await client.aclose()
-        error_text = error_bytes.decode("utf-8", errors="ignore")
         logger.warning("stream_error rid=%s status=%s body=%s", request_id, resp.status_code, error_text[:500])
         raise HTTPException(resp.status_code, error_text)
 
