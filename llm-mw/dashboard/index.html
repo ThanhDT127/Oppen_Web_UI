@@ -172,6 +172,123 @@
             padding: 40px;
             opacity: 0.7;
         }
+        /* Time Filter Controls */
+        .time-filter {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .time-filter-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+        .time-quick-btns {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .time-btn {
+            padding: 8px 16px;
+            background: #334155;
+            border: 2px solid #475569;
+            color: #e2e8f0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .time-btn:hover {
+            background: #475569;
+            border-color: #667eea;
+        }
+        .time-btn.active {
+            background: #667eea;
+            border-color: #667eea;
+            font-weight: 600;
+        }
+        .time-custom {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .time-custom input {
+            padding: 8px 12px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: #e2e8f0;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        .time-custom button {
+            padding: 8px 16px;
+            background: #10b981;
+            border: none;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .time-custom button:hover {
+            background: #059669;
+        }
+        /* Tab System */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #334155;
+        }
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab:hover {
+            color: #e2e8f0;
+            border-bottom-color: #475569;
+        }
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        /* Chart Containers */
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .chart-container {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            height: 300px;
+        }
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #e2e8f0;
+        }
     </style>
 </head>
 <body>
@@ -193,7 +310,35 @@
             <p>Realtime monitoring and usage analytics</p>
         </div>
 
-        <div class="metrics">
+        <!-- Time Filter -->
+        <div class="time-filter">
+            <span class="time-filter-label">Time Range:</span>
+            <div class="time-quick-btns">
+                <button class="time-btn active" onclick="setTimeRange(60)">Last 1h</button>
+                <button class="time-btn" onclick="setTimeRange(360)">Last 6h</button>
+                <button class="time-btn" onclick="setTimeRange(1440)">Last 24h</button>
+                <button class="time-btn" onclick="setTimeRange(10080)">Last 7d</button>
+                <button class="time-btn" onclick="setTimeRange(43200)">Last 30d</button>
+            </div>
+            <div class="time-custom">
+                <span style="font-size: 13px; color: #94a3b8;">or</span>
+                <input type="datetime-local" id="customStart" />
+                <span style="font-size: 13px; color: #94a3b8;">to</span>
+                <input type="datetime-local" id="customEnd" />
+                <button onclick="applyCustomRange()">Apply</button>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('usage')">📈 Usage</button>
+            <button class="tab" onclick="switchTab('access')">🌐 Access</button>
+            <button class="tab" onclick="switchTab('users')">👥 Users</button>
+        </div>
+
+        <!-- Usage Tab -->
+        <div id="usageTab" class="tab-content active">
+            <div class="metrics">
             <div class="metric-card">
                 <div class="metric-label">LLM Calls</div>
                 <div class="metric-value" id="metricLLMCalls">-</div>
@@ -226,6 +371,18 @@
             <div class="metric-card">
                 <div class="metric-label">Total Cost</div>
                 <div class="metric-value" id="metricCost">-</div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="chart-grid">
+            <div class="chart-container">
+                <div class="chart-title">💰 Cost Over Time</div>
+                <canvas id="costChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">🔤 Tokens Over Time</div>
+                <canvas id="tokensChart"></canvas>
             </div>
         </div>
 
@@ -265,10 +422,81 @@
                 <div class="loading">Connecting to event stream...</div>
             </div>
         </div>
+        </div>
+
+        <!-- Access Tab -->
+        <div id="accessTab" class="tab-content">
+            <div class="section">
+                <div class="section-title">🌐 HTTP Access Summary</div>
+                <div class="metrics" style="margin-bottom: 20px;">
+                    <div class="metric-card">
+                        <div class="metric-label">Total Requests</div>
+                        <div class="metric-value" id="accessTotal">-</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Error Rate</div>
+                        <div class="metric-value" id="accessErrorRate">-</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Avg Latency</div>
+                        <div class="metric-value" id="accessLatency">-</div>
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Path</th>
+                            <th>Requests</th>
+                            <th>Errors</th>
+                            <th>Error %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="accessPathsTable">
+                        <tr><td colspan="4" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📡 Access Events Stream</div>
+                <div id="accessEvents" style="max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+                    <div class="loading">Connecting...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users Tab -->
+        <div id="usersTab" class="tab-content">
+            <div class="section">
+                <div class="section-title">👥 User Management</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Cost Used</th>
+                            <th>Limit</th>
+                            <th>Models</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable">
+                        <tr><td colspan="6" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
+    <script src="vendor/chart.umd.min.js"></script>
     <script>
         let eventSource = null;
+        let accessEventSource = null;
+        let costChart = null;
+        let tokensChart = null;
+        
+        // Time range state
+        let currentTimeRange = { minutes: 60 }; // Default: last 1h
 
         function authenticate() {
             const input = document.getElementById('adminKeyInput');
@@ -319,54 +547,225 @@
         }
 
         function startDashboard() {
+            // Initialize charts
+            initCharts();
+            
             // Initial data load
-            updateSummary();
+            loadSummary();
             
-            // Poll summary every 5 seconds
-            setInterval(updateSummary, 5000);
+            // Auto-refresh every 30 seconds
+            setInterval(loadSummary, 30000);
             
-            // Connect to SSE stream
+            // Connect to event stream
             connectEventStream();
         }
 
-        function updateSummary() {
-            fetch('/v1/_mw/summary?minutes=30', {
-                credentials: 'include'  // Send cookie
+        // Time range functions
+        function setTimeRange(minutes) {
+            // Update active button
+            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update state and reload
+            currentTimeRange = { minutes };
+            loadSummary();
+            updateCharts();
+        }
+
+        function applyCustomRange() {
+            const start = document.getElementById('customStart').value;
+            const end = document.getElementById('customEnd').value;
+            
+            if (!start || !end) {
+                alert('Please select both start and end times');
+                return;
+            }
+            
+            // Clear quick button selection
+            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // Update state and reload
+            currentTimeRange = {
+                start: new Date(start).toISOString(),
+                end: new Date(end).toISOString()
+            };
+            loadSummary();
+            updateCharts();
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // Load tab-specific data
+            if (tabName === 'access') {
+                loadAccessData();
+                if (!accessEventSource) connectAccessStream();
+            } else if (tabName === 'users') {
+                loadUsers();
+            }
+        }
+
+        // Initialize Chart.js charts
+        function initCharts() {
+            const chartConfig = {
+                type: 'line',
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' }
+                        },
+                        y: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' }
+                        }
+                    }
+                }
+            };
+
+            costChart = new Chart(
+                document.getElementById('costChart').getContext('2d'),
+                {
+                    ...chartConfig,
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Cost (USD)',
+                            data: [],
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    }
+                }
+            );
+
+            tokensChart = new Chart(
+                document.getElementById('tokensChart').getContext('2d'),
+                {
+                    ...chartConfig,
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Tokens',
+                            data: [],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    }
+                }
+            );
+        }
+
+        function updateCharts() {
+            // Build query params
+            const params = new URLSearchParams();
+            if (currentTimeRange.minutes) {
+                params.append('minutes', currentTimeRange.minutes);
+                params.append('bucket', currentTimeRange.minutes < 120 ? 'minute' : currentTimeRange.minutes < 2880 ? 'hour' : 'day');
+            } else {
+                params.append('start', currentTimeRange.start);
+                params.append('end', currentTimeRange.end);
+                const duration = (new Date(currentTimeRange.end) - new Date(currentTimeRange.start)) / 60000;
+                params.append('bucket', duration < 120 ? 'minute' : duration < 2880 ? 'hour' : 'day');
+            }
+
+            fetch(`/v1/_mw/summary?${params}`, {
+                credentials: 'include'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.timeseries || data.timeseries.length === 0) return;
+
+                // Update cost chart
+                costChart.data.labels = data.timeseries.map(d => formatTimestamp(d.ts));
+                costChart.data.datasets[0].data = data.timeseries.map(d => d.cost_usd);
+                costChart.update();
+
+                // Update tokens chart
+                tokensChart.data.labels = data.timeseries.map(d => formatTimestamp(d.ts));
+                tokensChart.data.datasets[0].data = data.timeseries.map(d => d.tokens_total);
+                tokensChart.update();
+            })
+            .catch(err => console.error('Failed to update charts:', err));
+        }
+
+        function formatTimestamp(ts) {
+            const d = new Date(ts);
+            const bucket = currentTimeRange.minutes < 120 ? 'minute' : currentTimeRange.minutes < 2880 ? 'hour' : 'day';
+            
+            if (bucket === 'minute') {
+                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            } else if (bucket === 'hour') {
+                return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit' });
+            } else {
+                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            }
+        }
+
+        function loadSummary() {
+            // Build query params based on currentTimeRange
+            const params = new URLSearchParams();
+            if (currentTimeRange.minutes) {
+                params.append('minutes', currentTimeRange.minutes);
+            } else {
+                params.append('start', currentTimeRange.start);
+                params.append('end', currentTimeRange.end);
+            }
+
+            fetch(`/v1/_mw/summary?${params}`, {
+                credentials: 'include'
             })
             .then(res => {
                 if (res.status === 403) {
-                    // Session expired, redirect to login
                     window.location.reload();
                     return null;
                 }
                 return res.json();
             })
             .then(data => {
-                if (!data) return;
+                if (!data || !data.totals) return;
+                
+                const t = data.totals;
                 
                 // Update metrics
-                document.getElementById('metricLLMCalls').textContent = data.llm_calls_total || 0;
-                document.getElementById('metricAdminOps').textContent = data.admin_ops_total || 0;
-                document.getElementById('metricPending').textContent = data.pending_count || 0;
+                document.getElementById('metricLLMCalls').textContent = t.requests_llm || 0;
+                document.getElementById('metricAdminOps').textContent = t.requests_admin || 0;
+                document.getElementById('metricPending').textContent = t.pending_open_count || 0;
                 
                 // Update breakdown
-                document.getElementById('metricChat').textContent = data.chat_calls || 0;
-                document.getElementById('metricImage').textContent = data.image_calls || 0;
-                document.getElementById('metricAudio').textContent = data.audio_calls || 0;
+                document.getElementById('metricChat').textContent = t.requests_chat || 0;
+                document.getElementById('metricImage').textContent = t.requests_image || 0;
+                document.getElementById('metricAudio').textContent = t.requests_audio || 0;
                 
                 document.getElementById('metricErrorRate').textContent = 
-                    (data.error_rate_percent || 0).toFixed(1) + '%';
+                    (t.error_rate_percent || 0).toFixed(1) + '%';
                 document.getElementById('metricLatency').textContent = 
-                    data.p95_latency_ms ? data.p95_latency_ms.toFixed(0) + 'ms' : '-';
+                    t.p95_latency_ms ? t.p95_latency_ms.toFixed(0) + 'ms' : '-';
                 document.getElementById('metricTokens').textContent = 
-                    (data.tokens_total || 0).toLocaleString();
+                    (t.tokens_total || 0).toLocaleString();
                 document.getElementById('metricCost').textContent = 
-                    '$' + (data.cost_total_usd || 0).toFixed(4);
+                    '$' + (t.cost_usd || 0).toFixed(4);
                 
                 // Update top users
                 const usersTable = document.getElementById('topUsersTable');
-                if (data.top_users && data.top_users.length > 0) {
-                    usersTable.innerHTML = data.top_users.map(u => 
+                if (data.breakdown_by_user && data.breakdown_by_user.length > 0) {
+                    usersTable.innerHTML = data.breakdown_by_user.slice(0, 10).map(u => 
                         `<tr><td>${u.user_id}</td><td>$${u.cost_usd.toFixed(6)}</td></tr>`
                     ).join('');
                 } else {
@@ -375,17 +774,127 @@
                 
                 // Update top models
                 const modelsTable = document.getElementById('topModelsTable');
-                if (data.top_models && data.top_models.length > 0) {
-                    modelsTable.innerHTML = data.top_models.map(m => 
+                if (data.breakdown_by_model && data.breakdown_by_model.length > 0) {
+                    modelsTable.innerHTML = data.breakdown_by_model.slice(0, 10).map(m => 
                         `<tr><td>${m.model}</td><td>$${m.cost_usd.toFixed(6)}</td></tr>`
                     ).join('');
                 } else {
                     modelsTable.innerHTML = '<tr><td colspan="2">No data</td></tr>';
                 }
+
+                // Update charts
+                updateCharts();
             })
             .catch(err => {
-                console.error('Failed to update summary:', err);
+                console.error('Failed to load summary:', err);
             });
+        }
+
+        // Access tab functions
+        function loadAccessData() {
+            const params = new URLSearchParams();
+            if (currentTimeRange.minutes) {
+                params.append('minutes', currentTimeRange.minutes);
+            } else {
+                params.append('start', currentTimeRange.start);
+                params.append('end', currentTimeRange.end);
+            }
+
+            fetch(`/v1/_mw/access_summary?${params}`, {
+                credentials: 'include'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data || !data.totals) return;
+
+                const t = data.totals;
+                document.getElementById('accessTotal').textContent = t.requests_total || 0;
+                document.getElementById('accessErrorRate').textContent = (t.error_rate_percent || 0).toFixed(1) + '%';
+                document.getElementById('accessLatency').textContent = t.avg_latency_ms ? t.avg_latency_ms.toFixed(0) + 'ms' : '-';
+
+                // Update paths table
+                const table = document.getElementById('accessPathsTable');
+                if (data.breakdown_by_path && data.breakdown_by_path.length > 0) {
+                    table.innerHTML = data.breakdown_by_path.slice(0, 15).map(p => `
+                        <tr>
+                            <td>${p.path}</td>
+                            <td>${p.count}</td>
+                            <td>${p.errors || 0}</td>
+                            <td>${p.error_rate_percent ? p.error_rate_percent.toFixed(1) : 0}%</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    table.innerHTML = '<tr><td colspan="4">No data</td></tr>';
+                }
+            })
+            .catch(err => console.error('Failed to load access data:', err));
+        }
+
+        function connectAccessStream() {
+            const eventsDiv = document.getElementById('accessEvents');
+            eventsDiv.innerHTML = '<div class="loading">Connecting...</div>';
+
+            accessEventSource = new EventSource('/v1/_mw/access_stream', {
+                withCredentials: true
+            });
+
+            accessEventSource.addEventListener('access', (e) => {
+                const data = JSON.parse(e.data);
+                addAccessEvent(data);
+            });
+
+            accessEventSource.onerror = () => {
+                eventsDiv.innerHTML = '<div class="loading">Connection error, retrying...</div>';
+            };
+        }
+
+        function addAccessEvent(data) {
+            const eventsDiv = document.getElementById('accessEvents');
+            if (eventsDiv.querySelector('.loading')) {
+                eventsDiv.innerHTML = '';
+            }
+
+            const line = document.createElement('div');
+            line.className = 'event-line';
+            line.innerHTML = `
+                <span class="event-time">${new Date(data.ts).toLocaleTimeString()}</span>
+                <span class="event-status status-${data.status_code < 400 ? 'ok' : 'error'}">${data.method} ${data.status_code}</span>
+                <span class="event-detail">${data.path} - ${data.latency_ms}ms</span>
+            `;
+            eventsDiv.insertBefore(line, eventsDiv.firstChild);
+
+            // Keep last 50 events
+            while (eventsDiv.children.length > 50) {
+                eventsDiv.removeChild(eventsDiv.lastChild);
+            }
+        }
+
+        // Users tab functions
+        function loadUsers() {
+            fetch('/v1/_mw/admin/users', {
+                credentials: 'include'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data || !data.users) return;
+
+                const table = document.getElementById('usersTable');
+                if (data.users.length > 0) {
+                    table.innerHTML = data.users.map(u => `
+                        <tr>
+                            <td>${u.user_id}</td>
+                            <td>${u.role || 'user'}</td>
+                            <td class="status-${u.disabled ? 'error' : 'ok'}">${u.disabled ? 'Disabled' : 'Active'}</td>
+                            <td>$${(u.cost_used_usd || 0).toFixed(4)}</td>
+                            <td>$${u.limit_cost_usd || '∞'}</td>
+                            <td style="font-size: 11px; opacity: 0.7;">${(u.allowed_models || ['*']).join(', ')}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    table.innerHTML = '<tr><td colspan="6">No users</td></tr>';
+                }
+            })
+            .catch(err => console.error('Failed to load users:', err));
         }
 
         function connectEventStream() {
