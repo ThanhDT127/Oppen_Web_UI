@@ -30,6 +30,7 @@ from api.user_admin import (
     rotate_user_key, disable_user, enable_user, get_admin_audit
 )
 from api.dashboard_login import dashboard_login, dashboard_logout
+from api.auth_check import get_auth_check
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -146,6 +147,7 @@ app.add_api_route("/v1/_mw/admin/audit", get_admin_audit, methods=["GET"])
 # Dashboard auth endpoints
 app.add_api_route("/v1/_mw/dashboard/login", dashboard_login, methods=["POST"])
 app.add_api_route("/v1/_mw/dashboard/logout", dashboard_logout, methods=["POST"])
+app.add_api_route("/v1/_mw/auth_check", get_auth_check, methods=["GET"])
 
 # Serve dashboard HTML
 @app.get("/dashboard")

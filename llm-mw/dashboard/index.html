@@ -289,6 +289,45 @@
             margin-bottom: 15px;
             color: #e2e8f0;
         }
+        /* Status Bar */
+        .status-bar {
+            background: #1e293b;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 13px;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+        .status-dot.error {
+            background: #ef4444;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        .status-dot.warning {
+            background: #f59e0b;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .status-message {
+            color: #94a3b8;
+        }
+        .status-message.error {
+            color: #ef4444;
+        }
     </style>
 </head>
 <body>
@@ -308,6 +347,14 @@
         <div class="header">
             <h1>📊 LLM Middleware Dashboard</h1>
             <p>Realtime monitoring and usage analytics</p>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span class="status-message" id="statusMessage">Authenticated ✓</span>
+            </div>
         </div>
 
         <!-- Time Filter -->
@@ -494,11 +541,91 @@
         let accessEventSource = null;
         let costChart = null;
         let tokensChart = null;
+        let summaryInterval = null;
+        let retryCount = 0;
+        const MAX_RETRY_DELAY = 15000; // 15s max
         
         // Time range state
         let currentTimeRange = { minutes: 60 }; // Default: last 1h
 
-        function authenticate() {
+        // Helper: standardized fetch with credentials
+        async function mwFetch(path, opts = {}) {
+            const defaultOpts = {
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(opts.headers || {})
+                }
+            };
+            const mergedOpts = { ...defaultOpts, ...opts };
+            
+            try {
+                const res = await fetch(path, mergedOpts);
+                
+                // Handle 403 without reload
+                if (res.status === 403) {
+                    stopDashboardLoops();
+                    showLoginUI('Session expired. Please login again.');
+                    return null;
+                }
+                
+                return res;
+            } catch (err) {
+                console.error(`mwFetch error for ${path}:`, err);
+                updateStatus('error', `Network error: ${err.message}`);
+                throw err;
+            }
+        }
+
+        // Stop all dashboard loops and streams
+        function stopDashboardLoops() {
+            if (summaryInterval) {
+                clearInterval(summaryInterval);
+                summaryInterval = null;
+            }
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            if (accessEventSource) {
+                accessEventSource.close();
+                accessEventSource = null;
+            }
+            retryCount = 0;
+        }
+
+        // Show login UI with message
+        function showLoginUI(message) {
+            // Don't clear the input so user can see what they typed
+            document.getElementById('authPrompt').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            
+            if (message) {
+                showError(message);
+            }
+        }
+
+        // Update status bar
+        function updateStatus(type, message) {
+            const dot = document.getElementById('statusDot');
+            const msg = document.getElementById('statusMessage');
+            
+            if (!dot || !msg) return;
+            
+            dot.className = 'status-dot';
+            msg.className = 'status-message';
+            
+            if (type === 'error') {
+                dot.classList.add('error');
+                msg.classList.add('error');
+            } else if (type === 'warning') {
+                dot.classList.add('warning');
+            }
+            
+            msg.textContent = message;
+        }
+
+        async function authenticate() {
             const input = document.getElementById('adminKeyInput');
             const key = input.value.trim();
             
@@ -507,37 +634,56 @@
                 return;
             }
 
-            // Call login endpoint to set session cookie
-            fetch('/v1/_mw/dashboard/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',  // Important: send/receive cookies
-                body: JSON.stringify({
-                    admin_key: key
-                })
-            })
-            .then(res => {
+            try {
+                // Call login endpoint to set session cookie
+                const res = await fetch('/v1/_mw/dashboard/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ admin_key: key })
+                });
+                
                 if (res.status === 403) {
                     throw new Error('Invalid admin key');
                 }
                 if (!res.ok) {
                     throw new Error('Login failed');
                 }
-                return res.json();
-            })
-            .then(data => {
-                // Success - cookie is set, hide auth prompt and show dashboard
+                
+                await res.json();
+                
+                // Success - hide auth prompt and show dashboard
                 document.getElementById('authPrompt').classList.add('hidden');
                 document.getElementById('dashboard').classList.remove('hidden');
                 
+                // Verify cookie works
+                await checkAuthStatus();
+                
                 // Start dashboard
                 startDashboard();
-            })
-            .catch(err => {
+            } catch (err) {
                 showError(err.message || 'Authentication failed');
-            });
+            }
+        }
+
+        // Check auth status and cookie presence
+        async function checkAuthStatus() {
+            try {
+                const res = await mwFetch('/v1/_mw/auth_check');
+                if (!res || !res.ok) {
+                    updateStatus('warning', 'Auth check failed - cookie may not work across different hosts');
+                    return;
+                }
+                const data = await res.json();
+                if (data.ok) {
+                    updateStatus('ok', 'Authenticated ✓');
+                } else {
+                    updateStatus('warning', 'Cookie not present - use same host (localhost OR 127.0.0.1, not mixed)');
+                }
+            } catch (err) {
+                // auth_check endpoint might not exist yet
+                updateStatus('ok', 'Authenticated ✓');
+            }
         }
 
         function showError(msg) {
@@ -547,6 +693,9 @@
         }
 
         function startDashboard() {
+            // Clear any existing loops
+            stopDashboardLoops();
+            
             // Initialize charts
             initCharts();
             
@@ -554,10 +703,12 @@
             loadSummary();
             
             // Auto-refresh every 30 seconds
-            setInterval(loadSummary, 30000);
+            summaryInterval = setInterval(loadSummary, 30000);
             
             // Connect to event stream
             connectEventStream();
+            
+            updateStatus('ok', 'Authenticated ✓');
         }
 
         // Time range functions
@@ -672,24 +823,24 @@
             );
         }
 
-        function updateCharts() {
-            // Build query params
-            const params = new URLSearchParams();
-            if (currentTimeRange.minutes) {
-                params.append('minutes', currentTimeRange.minutes);
-                params.append('bucket', currentTimeRange.minutes < 120 ? 'minute' : currentTimeRange.minutes < 2880 ? 'hour' : 'day');
-            } else {
-                params.append('start', currentTimeRange.start);
-                params.append('end', currentTimeRange.end);
-                const duration = (new Date(currentTimeRange.end) - new Date(currentTimeRange.start)) / 60000;
-                params.append('bucket', duration < 120 ? 'minute' : duration < 2880 ? 'hour' : 'day');
-            }
+        async function updateCharts() {
+            try {
+                // Build query params
+                const params = new URLSearchParams();
+                if (currentTimeRange.minutes) {
+                    params.append('minutes', currentTimeRange.minutes);
+                    params.append('bucket', currentTimeRange.minutes < 120 ? 'minute' : currentTimeRange.minutes < 2880 ? 'hour' : 'day');
+                } else {
+                    params.append('start', currentTimeRange.start);
+                    params.append('end', currentTimeRange.end);
+                    const duration = (new Date(currentTimeRange.end) - new Date(currentTimeRange.start)) / 60000;
+                    params.append('bucket', duration < 120 ? 'minute' : duration < 2880 ? 'hour' : 'day');
+                }
 
-            fetch(`/v1/_mw/summary?${params}`, {
-                credentials: 'include'
-            })
-            .then(res => res.json())
-            .then(data => {
+                const res = await mwFetch(`/v1/_mw/summary?${params}`);
+                if (!res || !res.ok) return;
+                
+                const data = await res.json();
                 if (!data.timeseries || data.timeseries.length === 0) return;
 
                 // Update cost chart
@@ -701,8 +852,9 @@
                 tokensChart.data.labels = data.timeseries.map(d => formatTimestamp(d.ts));
                 tokensChart.data.datasets[0].data = data.timeseries.map(d => d.tokens_total);
                 tokensChart.update();
-            })
-            .catch(err => console.error('Failed to update charts:', err));
+            } catch (err) {
+                console.error('Failed to update charts:', err);
+            }
         }
 
         function formatTimestamp(ts) {
@@ -718,28 +870,32 @@
             }
         }
 
-        function loadSummary() {
-            // Build query params based on currentTimeRange
-            const params = new URLSearchParams();
-            if (currentTimeRange.minutes) {
-                params.append('minutes', currentTimeRange.minutes);
-            } else {
-                params.append('start', currentTimeRange.start);
-                params.append('end', currentTimeRange.end);
-            }
-
-            fetch(`/v1/_mw/summary?${params}`, {
-                credentials: 'include'
-            })
-            .then(res => {
-                if (res.status === 403) {
-                    window.location.reload();
-                    return null;
+        async function loadSummary() {
+            try {
+                updateStatus('ok', 'Loading data...');
+                
+                // Build query params based on currentTimeRange
+                const params = new URLSearchParams();
+                if (currentTimeRange.minutes) {
+                    params.append('minutes', currentTimeRange.minutes);
+                } else {
+                    params.append('start', currentTimeRange.start);
+                    params.append('end', currentTimeRange.end);
                 }
-                return res.json();
-            })
-            .then(data => {
-                if (!data || !data.totals) return;
+
+                const res = await mwFetch(`/v1/_mw/summary?${params}`);
+                if (!res) return; // 403 handled by mwFetch
+                
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                
+                const data = await res.json();
+                
+                if (!data || !data.totals) {
+                    updateStatus('warning', 'No data received');
+                    return;
+                }
                 
                 const t = data.totals;
                 
@@ -784,27 +940,33 @@
 
                 // Update charts
                 updateCharts();
-            })
-            .catch(err => {
+                
+                updateStatus('ok', 'Authenticated ✓');
+            } catch (err) {
                 console.error('Failed to load summary:', err);
-            });
+                updateStatus('error', `Load error: ${err.message}`);
+                
+                // Show error in tables
+                document.getElementById('topUsersTable').innerHTML = '<tr><td colspan="2" class="error-msg">Error loading data</td></tr>';
+                document.getElementById('topModelsTable').innerHTML = '<tr><td colspan="2" class="error-msg">Error loading data</td></tr>';
+            }
         }
 
         // Access tab functions
-        function loadAccessData() {
-            const params = new URLSearchParams();
-            if (currentTimeRange.minutes) {
-                params.append('minutes', currentTimeRange.minutes);
-            } else {
-                params.append('start', currentTimeRange.start);
-                params.append('end', currentTimeRange.end);
-            }
+        async function loadAccessData() {
+            try {
+                const params = new URLSearchParams();
+                if (currentTimeRange.minutes) {
+                    params.append('minutes', currentTimeRange.minutes);
+                } else {
+                    params.append('start', currentTimeRange.start);
+                    params.append('end', currentTimeRange.end);
+                }
 
-            fetch(`/v1/_mw/access_summary?${params}`, {
-                credentials: 'include'
-            })
-            .then(res => res.json())
-            .then(data => {
+                const res = await mwFetch(`/v1/_mw/access_summary?${params}`);
+                if (!res || !res.ok) return;
+                
+                const data = await res.json();
                 if (!data || !data.totals) return;
 
                 const t = data.totals;
@@ -826,26 +988,54 @@
                 } else {
                     table.innerHTML = '<tr><td colspan="4">No data</td></tr>';
                 }
-            })
-            .catch(err => console.error('Failed to load access data:', err));
+            } catch (err) {
+                console.error('Failed to load access data:', err);
+                document.getElementById('accessPathsTable').innerHTML = '<tr><td colspan="4" class="error-msg">Error loading data</td></tr>';
+            }
         }
 
         function connectAccessStream() {
             const eventsDiv = document.getElementById('accessEvents');
-            eventsDiv.innerHTML = '<div class="loading">Connecting...</div>';
+            
+            // Close existing
+            if (accessEventSource) {
+                accessEventSource.close();
+                accessEventSource = null;
+            }
+            
+            eventsDiv.innerHTML = '<div class="loading">Connecting to access stream...</div>';
 
-            accessEventSource = new EventSource('/v1/_mw/access_stream', {
-                withCredentials: true
-            });
+            try {
+                accessEventSource = new EventSource('/v1/_mw/access_stream');
 
-            accessEventSource.addEventListener('access', (e) => {
-                const data = JSON.parse(e.data);
-                addAccessEvent(data);
-            });
+                accessEventSource.addEventListener('access', (e) => {
+                    try {
+                        const data = JSON.parse(e.data);
+                        addAccessEvent(data);
+                    } catch (err) {
+                        console.error('Failed to parse access event:', err);
+                    }
+                });
 
-            accessEventSource.onerror = () => {
-                eventsDiv.innerHTML = '<div class="loading">Connection error, retrying...</div>';
-            };
+                accessEventSource.onerror = (e) => {
+                    console.error('Access stream error:', e);
+                    if (accessEventSource.readyState === EventSource.CLOSED) {
+                        eventsDiv.innerHTML = '<div class="error-msg">Access stream disconnected. Will retry...</div>';
+                        setTimeout(() => {
+                            if (document.getElementById('accessTab').classList.contains('active')) {
+                                connectAccessStream();
+                            }
+                        }, 5000);
+                    }
+                };
+                
+                accessEventSource.onopen = () => {
+                    eventsDiv.innerHTML = '';
+                };
+            } catch (err) {
+                console.error('Failed to create access EventSource:', err);
+                eventsDiv.innerHTML = '<div class="error-msg">Failed to connect access stream</div>';
+            }
         }
 
         function addAccessEvent(data) {
@@ -870,12 +1060,12 @@
         }
 
         // Users tab functions
-        function loadUsers() {
-            fetch('/v1/_mw/admin/users', {
-                credentials: 'include'
-            })
-            .then(res => res.json())
-            .then(data => {
+        async function loadUsers() {
+            try {
+                const res = await mwFetch('/v1/_mw/admin/users');
+                if (!res || !res.ok) return;
+                
+                const data = await res.json();
                 if (!data || !data.users) return;
 
                 const table = document.getElementById('usersTable');
@@ -893,43 +1083,73 @@
                 } else {
                     table.innerHTML = '<tr><td colspan="6">No users</td></tr>';
                 }
-            })
-            .catch(err => console.error('Failed to load users:', err));
+            } catch (err) {
+                console.error('Failed to load users:', err);
+                document.getElementById('usersTable').innerHTML = '<tr><td colspan="6" class="error-msg">Error loading users</td></tr>';
+            }
         }
 
         function connectEventStream() {
             const eventsDiv = document.getElementById('events');
-            eventsDiv.innerHTML = '<div class="loading">Connecting...</div>';
             
-            // EventSource automatically sends cookies
-            eventSource = new EventSource('/v1/_mw/stream', {
-                withCredentials: true
-            });
+            // Close existing connection
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
             
-            eventSource.addEventListener('audit', (e) => {
-                const data = JSON.parse(e.data);
-                addEvent(data);
-            });
+            eventsDiv.innerHTML = '<div class="loading">Connecting to event stream...</div>';
             
-            eventSource.addEventListener('error', (e) => {
-                console.error('EventSource error:', e);
+            try {
+                // EventSource automatically sends cookies (can't set headers)
+                eventSource = new EventSource('/v1/_mw/stream');
                 
-                if (eventSource.readyState === EventSource.CLOSED) {
-                    eventsDiv.innerHTML = '<div class="error-msg">Stream disconnected. Reconnecting...</div>';
+                eventSource.addEventListener('audit', (e) => {
+                    try {
+                        const data = JSON.parse(e.data);
+                        addEvent(data);
+                        retryCount = 0; // Reset on success
+                    } catch (err) {
+                        console.error('Failed to parse event:', err);
+                    }
+                });
+                
+                eventSource.onerror = (e) => {
+                    console.error('EventSource error:', e);
                     
-                    // Reconnect after 5 seconds
-                    setTimeout(() => {
-                        if (eventSource) {
-                            eventSource.close();
-                        }
-                        connectEventStream();
-                    }, 5000);
-                }
-            });
-            
-            eventSource.onopen = () => {
-                eventsDiv.innerHTML = '';
-            };
+                    if (eventSource.readyState === EventSource.CLOSED) {
+                        // Calculate backoff delay: 1s, 2s, 5s, 10s, 15s
+                        retryCount++;
+                        const delays = [1000, 2000, 5000, 10000, MAX_RETRY_DELAY];
+                        const delay = delays[Math.min(retryCount - 1, delays.length - 1)];
+                        
+                        eventsDiv.innerHTML = `<div class="error-msg">Stream disconnected. Retrying in ${delay/1000}s... (attempt ${retryCount})</div>`;
+                        updateStatus('warning', `Stream disconnected, retry ${retryCount}`);
+                        
+                        // Reconnect with backoff
+                        setTimeout(() => {
+                            if (document.getElementById('dashboard').classList.contains('hidden')) {
+                                // User logged out, don't reconnect
+                                return;
+                            }
+                            connectEventStream();
+                        }, delay);
+                    } else {
+                        // Connection error but still trying
+                        eventsDiv.innerHTML = '<div class="loading">Stream connection error, retrying...</div>';
+                    }
+                };
+                
+                eventSource.onopen = () => {
+                    eventsDiv.innerHTML = '';
+                    retryCount = 0;
+                    updateStatus('ok', 'Authenticated ✓ (Stream connected)');
+                };
+            } catch (err) {
+                console.error('Failed to create EventSource:', err);
+                eventsDiv.innerHTML = '<div class="error-msg">Failed to connect stream. Check console.</div>';
+                updateStatus('error', 'Stream connection failed');
+            }
         }
 
         function addEvent(data) {
@@ -972,23 +1192,25 @@
         });
         
         // Check if already logged in on page load
-        window.addEventListener('load', () => {
-            // Try to load summary - if success, user is logged in
-            fetch('/v1/_mw/summary?minutes=5', {
-                credentials: 'include'
-            })
-            .then(res => {
+        window.addEventListener('load', async () => {
+            try {
+                // Try to load summary - if success, user is logged in
+                const res = await fetch('/v1/_mw/summary?minutes=5', {
+                    credentials: 'include'
+                });
+                
                 if (res.ok) {
                     // Already logged in, skip auth prompt
                     document.getElementById('authPrompt').classList.add('hidden');
                     document.getElementById('dashboard').classList.remove('hidden');
+                    await checkAuthStatus();
                     startDashboard();
                 }
-                // If 403, stay on login screen
-            })
-            .catch(() => {
-                // Network error or 403, stay on login screen
-            });
+                // If 403 or error, stay on login screen
+            } catch (err) {
+                // Network error, stay on login screen
+                console.log('Not logged in:', err);
+            }
         });
     </script>
 </body>
