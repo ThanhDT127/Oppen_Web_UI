@@ -4,331 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLM Middleware Dashboard</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
-            padding: 20px;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 30px;
-            border-radius: 12px;
-            margin-bottom: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-        .header h1 {
-            font-size: 32px;
-            margin-bottom: 10px;
-        }
-        .header p {
-            opacity: 0.9;
-            font-size: 14px;
-        }
-        .metrics {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .metric-card {
-            background: #1e293b;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-            transition: transform 0.2s;
-        }
-        .metric-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
-        }
-        .metric-label {
-            font-size: 12px;
-            text-transform: uppercase;
-            opacity: 0.7;
-            margin-bottom: 8px;
-        }
-        .metric-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #60a5fa;
-        }
-        .section {
-            background: #1e293b;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        .section-title {
-            font-size: 18px;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #334155;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th {
-            text-align: left;
-            padding: 10px;
-            background: #334155;
-            font-weight: 600;
-            font-size: 14px;
-        }
-        td {
-            padding: 10px;
-            border-bottom: 1px solid #334155;
-            font-size: 14px;
-        }
-        tr:hover {
-            background: #2d3748;
-        }
-        .status-ok { color: #10b981; }
-        .status-error { color: #ef4444; }
-        .status-pending { color: #f59e0b; }
-        .status-reconciled { color: #3b82f6; }
-        #events {
-            max-height: 400px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-        }
-        .event-line {
-            padding: 8px;
-            border-bottom: 1px solid #334155;
-            display: flex;
-            gap: 10px;
-        }
-        .event-time {
-            color: #64748b;
-            min-width: 80px;
-        }
-        .event-status {
-            min-width: 80px;
-            font-weight: 600;
-        }
-        .event-detail {
-            flex: 1;
-            opacity: 0.8;
-        }
-        .auth-prompt {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .auth-box {
-            background: #1e293b;
-            padding: 40px;
-            border-radius: 12px;
-            max-width: 400px;
-            width: 100%;
-        }
-        .auth-box h2 {
-            margin-bottom: 20px;
-        }
-        .auth-box input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #334155;
-            background: #0f172a;
-            color: #e2e8f0;
-            border-radius: 6px;
-            font-size: 14px;
-            margin-bottom: 15px;
-        }
-        .auth-box button {
-            width: 100%;
-            padding: 12px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-        .auth-box button:hover {
-            background: #5568d3;
-        }
-        .error-msg {
-            color: #ef4444;
-            font-size: 12px;
-            margin-top: -10px;
-            margin-bottom: 10px;
-        }
-        .hidden { display: none; }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            opacity: 0.7;
-        }
-        /* Time Filter Controls */
-        .time-filter {
-            background: #1e293b;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        .time-filter-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #94a3b8;
-        }
-        .time-quick-btns {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        .time-btn {
-            padding: 8px 16px;
-            background: #334155;
-            border: 2px solid #475569;
-            color: #e2e8f0;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.2s;
-        }
-        .time-btn:hover {
-            background: #475569;
-            border-color: #667eea;
-        }
-        .time-btn.active {
-            background: #667eea;
-            border-color: #667eea;
-            font-weight: 600;
-        }
-        .time-custom {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .time-custom input {
-            padding: 8px 12px;
-            background: #0f172a;
-            border: 1px solid #334155;
-            color: #e2e8f0;
-            border-radius: 6px;
-            font-size: 13px;
-        }
-        .time-custom button {
-            padding: 8px 16px;
-            background: #10b981;
-            border: none;
-            color: white;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-        }
-        .time-custom button:hover {
-            background: #059669;
-        }
-        /* Tab System */
-        .tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #334155;
-        }
-        .tab {
-            padding: 12px 24px;
-            background: transparent;
-            border: none;
-            color: #94a3b8;
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: 600;
-            border-bottom: 3px solid transparent;
-            transition: all 0.2s;
-        }
-        .tab:hover {
-            color: #e2e8f0;
-            border-bottom-color: #475569;
-        }
-        .tab.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        /* Chart Containers */
-        .chart-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        .chart-container {
-            background: #1e293b;
-            padding: 20px;
-            border-radius: 8px;
-            height: 300px;
-        }
-        .chart-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: #e2e8f0;
-        }
-        /* Status Bar */
-        .status-bar {
-            background: #1e293b;
-            padding: 10px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            font-size: 13px;
-        }
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #10b981;
-        }
-        .status-dot.error {
-            background: #ef4444;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-        .status-dot.warning {
-            background: #f59e0b;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        .status-message {
-            color: #94a3b8;
-        }
-        .status-message.error {
-            color: #ef4444;
-        }
-    </style>
+    <link rel="stylesheet" href="/dashboard/css/dashboard.css">
 </head>
 <body>
     <div id="authPrompt" class="auth-prompt">
@@ -339,7 +15,7 @@
             </p>
             <input type="password" id="adminKeyInput" placeholder="Admin Key" autocomplete="off">
             <div id="authError" class="error-msg hidden"></div>
-            <button onclick="authenticate()">Access Dashboard</button>
+            <button onclick="window.dashboardAPI.authenticate()">Access Dashboard</button>
         </div>
     </div>
 
@@ -361,114 +37,150 @@
         <div class="time-filter">
             <span class="time-filter-label">Time Range:</span>
             <div class="time-quick-btns">
-                <button class="time-btn active" onclick="setTimeRange(60)">Last 1h</button>
-                <button class="time-btn" onclick="setTimeRange(360)">Last 6h</button>
-                <button class="time-btn" onclick="setTimeRange(1440)">Last 24h</button>
-                <button class="time-btn" onclick="setTimeRange(10080)">Last 7d</button>
-                <button class="time-btn" onclick="setTimeRange(43200)">Last 30d</button>
+                <button class="time-btn active" onclick="window.dashboardAPI.setTimeRange(event, 60)">Last 1h</button>
+                <button class="time-btn" onclick="window.dashboardAPI.setTimeRange(event, 360)">Last 6h</button>
+                <button class="time-btn" onclick="window.dashboardAPI.setTimeRange(event, 1440)">Last 24h</button>
+                <button class="time-btn" onclick="window.dashboardAPI.setTimeRange(event, 10080)">Last 7d</button>
+                <button class="time-btn" onclick="window.dashboardAPI.setTimeRange(event, 43200)">Last 30d</button>
             </div>
             <div class="time-custom">
                 <span style="font-size: 13px; color: #94a3b8;">or</span>
-                <input type="datetime-local" id="customStart" />
+                <button type="button" id="startDateBtn" onclick="document.getElementById('customStart').showPicker()" style="padding: 10px 16px; min-width: 180px; background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">
+                    📅 Start Date
+                </button>
+                <input type="datetime-local" id="customStart" onchange="updateDateButton('startDateBtn', this.value)" style="position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;" />
                 <span style="font-size: 13px; color: #94a3b8;">to</span>
-                <input type="datetime-local" id="customEnd" />
-                <button onclick="applyCustomRange()">Apply</button>
+                <button type="button" id="endDateBtn" onclick="document.getElementById('customEnd').showPicker()" style="padding: 10px 16px; min-width: 180px; background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">
+                    📅 End Date
+                </button>
+                <input type="datetime-local" id="customEnd" onchange="updateDateButton('endDateBtn', this.value)" style="position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;" />
+                <button onclick="window.dashboardAPI.applyCustomRange()" style="padding: 10px 16px; background: #10b981; border: none; color: white; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">Apply</button>
             </div>
+            <script>
+                function updateDateButton(btnId, value) {
+                    if (!value) return;
+                    const btn = document.getElementById(btnId);
+                    const date = new Date(value);
+                    const formatted = date.toLocaleString('en-GB', { 
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                    btn.textContent = '📅 ' + formatted;
+                }
+            </script>
         </div>
 
         <!-- Tab Navigation -->
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('usage')">📈 Usage</button>
-            <button class="tab" onclick="switchTab('access')">🌐 Access</button>
-            <button class="tab" onclick="switchTab('users')">👥 Users</button>
+            <button class="tab active" onclick="window.dashboardAPI.switchTab(event, 'usage')">📈 Usage</button>
+            <button class="tab" onclick="window.dashboardAPI.switchTab(event, 'access')">🌐 Access</button>
+            <button class="tab" onclick="window.dashboardAPI.switchTab(event, 'users')">👥 Users</button>
+            <button class="tab" onclick="window.dashboardAPI.switchTab(event, 'logs')">📋 Logs</button>
         </div>
 
         <!-- Usage Tab -->
         <div id="usageTab" class="tab-content active">
             <div class="metrics">
-            <div class="metric-card">
-                <div class="metric-label">LLM Calls</div>
-                <div class="metric-value" id="metricLLMCalls">-</div>
-                <div class="metric-detail" style="font-size: 11px; margin-top: 5px; opacity: 0.7;">
-                    Chat: <span id="metricChat">-</span> | 
-                    Image: <span id="metricImage">-</span> | 
-                    Audio: <span id="metricAudio">-</span>
+                <div class="metric-card">
+                    <div class="metric-label">LLM Calls</div>
+                    <div class="metric-value" id="metricLLMCalls">-</div>
+                    <div class="metric-detail">
+                        Chat: <span id="metricChat">-</span> | 
+                        Image: <span id="metricImage">-</span> | 
+                        Audio: <span id="metricAudio">-</span>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">💰 Billable Calls</div>
+                    <div class="metric-value" id="metricBillableCalls">-</div>
+                    <div class="metric-detail">Requests with actual usage tracked</div>
+                </div>
+                <div class="metric-card usage-missing">
+                    <div class="metric-label">⚠️ Usage Missing</div>
+                    <div class="metric-value" id="metricUsageMissing">-</div>
+                    <div class="metric-detail">Completed but no tokens/cost (BUG)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Pending</div>
+                    <div class="metric-value" id="metricPending">-</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Error Rate</div>
+                    <div class="metric-value" id="metricErrorRate">-</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">P95 Latency</div>
+                    <div class="metric-value" id="metricLatency">-</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Total Tokens</div>
+                    <div class="metric-value" id="metricTokens">-</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Total Cost</div>
+                    <div class="metric-value" id="metricCost">-</div>
                 </div>
             </div>
-            <div class="metric-card">
-                <div class="metric-label">Admin Ops</div>
-                <div class="metric-value" id="metricAdminOps">-</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Pending</div>
-                <div class="metric-value" id="metricPending">-</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Error Rate</div>
-                <div class="metric-value" id="metricErrorRate">-</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">P95 Latency</div>
-                <div class="metric-value" id="metricLatency">-</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Total Tokens</div>
-                <div class="metric-value" id="metricTokens">-</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Total Cost</div>
-                <div class="metric-value" id="metricCost">-</div>
-            </div>
-        </div>
 
-        <!-- Charts -->
-        <div class="chart-grid">
-            <div class="chart-container">
-                <div class="chart-title">💰 Cost Over Time</div>
-                <canvas id="costChart"></canvas>
+            <!-- Charts -->
+            <div class="chart-grid">
+                <div class="chart-container">
+                    <div class="chart-title">💰 Cost Over Time</div>
+                    <canvas id="costChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">🔤 Tokens Over Time</div>
+                    <canvas id="tokensChart"></canvas>
+                </div>
             </div>
-            <div class="chart-container">
-                <div class="chart-title">🔤 Tokens Over Time</div>
-                <canvas id="tokensChart"></canvas>
+
+            <div class="section">
+                <div class="section-title">🏆 Top Users by Cost</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Cost (USD)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topUsersTable">
+                        <tr><td colspan="2" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
             </div>
-        </div>
 
-        <div class="section">
-            <div class="section-title">🏆 Top Users by Cost</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>User ID</th>
-                        <th>Cost (USD)</th>
-                    </tr>
-                </thead>
-                <tbody id="topUsersTable">
-                    <tr><td colspan="2" class="loading">Loading...</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="section">
-            <div class="section-title">🤖 Top Models by Cost</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Model</th>
-                        <th>Cost (USD)</th>
-                    </tr>
-                </thead>
-                <tbody id="topModelsTable">
-                    <tr><td colspan="2" class="loading">Loading...</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="section">
-            <div class="section-title">📡 Recent Events (Last 50)</div>
-            <div id="events">
-                <div class="loading">Connecting to event stream...</div>
+            <div class="section">
+                <div class="section-title">🤖 Top Models by Cost</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Model</th>
+                            <th>Cost (USD)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topModelsTable">
+                        <tr><td colspan="2" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
             </div>
-        </div>
+
+            <div class="section">
+                <div class="section-title">📡 Recent Events (Last 50)</div>
+                <div class="log-filters">
+                    <label for="auditUserFilter">User</label>
+                    <select id="auditUserFilter">
+                        <option value="">All users</option>
+                    </select>
+
+                    <label for="auditModelFilter">Model</label>
+                    <select id="auditModelFilter">
+                        <option value="">All models</option>
+                    </select>
+                </div>
+                <div id="events">
+                    <div class="loading">Connecting to event stream...</div>
+                </div>
+            </div>
         </div>
 
         <!-- Access Tab -->
@@ -506,7 +218,7 @@
 
             <div class="section">
                 <div class="section-title">📡 Access Events Stream</div>
-                <div id="accessEvents" style="max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+                <div id="accessEvents">
                     <div class="loading">Connecting...</div>
                 </div>
             </div>
@@ -533,685 +245,120 @@
                 </table>
             </div>
         </div>
+
+        <!-- Logs Tab -->
+        <div id="logsTab" class="tab-content">
+            <div class="section">
+                <div class="section-title">🔍 Audit Log Query</div>
+                
+                <!-- Filters -->
+                <div class="log-filters" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; padding: 15px; background: #1e293b; border-radius: 8px;">
+                    <div>
+                        <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">User ID</label>
+                        <select id="filterUserId" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0;">
+                            <option value="">All Users</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">Model</label>
+                        <select id="filterModel" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0;">
+                            <option value="">All Models</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">Status</label>
+                        <select id="filterStatus" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0;">
+                            <option value="">All Status</option>
+                            <option value="ok">OK / Success</option>
+                            <option value="reconciled">Reconciled</option>
+                            <option value="error">Error</option>
+                            <option value="pending">Pending</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">Sort By</label>
+                        <select id="sortBy" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0;">
+                            <option value="timestamp">Timestamp</option>
+                            <option value="cost">Cost</option>
+                            <option value="tokens">Tokens</option>
+                            <option value="duration">Duration</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">Order</label>
+                        <select id="sortOrder" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0;">
+                            <option value="desc">Newest First</option>
+                            <option value="asc">Oldest First</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: flex-end; gap: 10px;">
+                        <button onclick="window.dashboardAPI.applyLogFilters()" style="flex: 1; padding: 8px; background: #10b981; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: 600;">Apply</button>
+                        <button onclick="window.dashboardAPI.resetLogFilters()" style="flex: 1; padding: 8px; background: #334155; border: none; border-radius: 4px; color: white; cursor: pointer;">Reset</button>
+                        <button onclick="window.dashboardAPI.exportLogsToExcel()" style="flex: 1; padding: 8px; background: #3b82f6; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: 600;">📥 Export</button>
+                    </div>
+                </div>
+                
+                <!-- Stats -->
+                <div style="margin-bottom: 15px; font-size: 14px; color: #94a3b8;">
+                    Total: <span id="logsTotalCount">-</span> | 
+                    Showing: <span id="logsShowing">-</span>
+                </div>
+                
+                <!-- Results Table -->
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User ID</th>
+                            <th>Model</th>
+                            <th>Status</th>
+                            <th>Cost (USD)</th>
+                            <th>Tokens</th>
+                            <th>Duration (ms)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsResults">
+                        <tr><td colspan="7" class="loading">Click "Apply" to load logs</td></tr>
+                    </tbody>
+                </table>
+                
+                <!-- Load More -->
+                <div style="text-align: center; margin-top: 20px;">
+                    <button id="loadMoreBtn" onclick="window.dashboardAPI.loadMoreLogs()" style="display: none; padding: 10px 20px; background: #3b82f6; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: 600;">Load More</button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script src="vendor/chart.umd.min.js"></script>
+    <!-- Chart.js -->
+    <script src="/dashboard/vendor/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <!-- Pre-initialize window.dashboardAPI synchronously BEFORE modules load -->
     <script>
-        let eventSource = null;
-        let accessEventSource = null;
-        let costChart = null;
-        let tokensChart = null;
-        let summaryInterval = null;
-        let retryCount = 0;
-        const MAX_RETRY_DELAY = 15000; // 15s max
+        // Prevent "undefined" errors by creating placeholder functions immediately
+        window.dashboardAPI = {
+            authenticate: () => console.warn('Dashboard still loading...'),
+            setTimeRange: () => console.warn('Dashboard still loading...'),
+            applyCustomRange: () => console.warn('Dashboard still loading...'),
+            switchTab: () => console.warn('Dashboard still loading...'),
+            applyLogFilters: () => console.warn('Dashboard still loading...'),
+            resetLogFilters: () => console.warn('Dashboard still loading...'),
+            loadMoreLogs: () => console.warn('Dashboard still loading...'),
+            exportLogsToExcel: () => console.warn('Dashboard still loading...')
+        };
+    </script>
+    
+    <!-- Dashboard modules -->
+    <script type="module">
+        // Use dynamic import with cache buster
+        const v = Date.now();
+        const { initAuth } = await import(`/dashboard/js/auth.js?v=${v}`);
+        const { initAPI } = await import(`/dashboard/js/main.js?v=${v}`);
         
-        // Time range state
-        let currentTimeRange = { minutes: 60 }; // Default: last 1h
-
-        // Helper: standardized fetch with credentials
-        async function mwFetch(path, opts = {}) {
-            const defaultOpts = {
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(opts.headers || {})
-                }
-            };
-            const mergedOpts = { ...defaultOpts, ...opts };
-            
-            try {
-                const res = await fetch(path, mergedOpts);
-                
-                // Handle 403 without reload
-                if (res.status === 403) {
-                    stopDashboardLoops();
-                    showLoginUI('Session expired. Please login again.');
-                    return null;
-                }
-                
-                return res;
-            } catch (err) {
-                console.error(`mwFetch error for ${path}:`, err);
-                updateStatus('error', `Network error: ${err.message}`);
-                throw err;
-            }
-        }
-
-        // Stop all dashboard loops and streams
-        function stopDashboardLoops() {
-            if (summaryInterval) {
-                clearInterval(summaryInterval);
-                summaryInterval = null;
-            }
-            if (eventSource) {
-                eventSource.close();
-                eventSource = null;
-            }
-            if (accessEventSource) {
-                accessEventSource.close();
-                accessEventSource = null;
-            }
-            retryCount = 0;
-        }
-
-        // Show login UI with message
-        function showLoginUI(message) {
-            // Don't clear the input so user can see what they typed
-            document.getElementById('authPrompt').classList.remove('hidden');
-            document.getElementById('dashboard').classList.add('hidden');
-            
-            if (message) {
-                showError(message);
-            }
-        }
-
-        // Update status bar
-        function updateStatus(type, message) {
-            const dot = document.getElementById('statusDot');
-            const msg = document.getElementById('statusMessage');
-            
-            if (!dot || !msg) return;
-            
-            dot.className = 'status-dot';
-            msg.className = 'status-message';
-            
-            if (type === 'error') {
-                dot.classList.add('error');
-                msg.classList.add('error');
-            } else if (type === 'warning') {
-                dot.classList.add('warning');
-            }
-            
-            msg.textContent = message;
-        }
-
-        async function authenticate() {
-            const input = document.getElementById('adminKeyInput');
-            const key = input.value.trim();
-            
-            if (!key) {
-                showError('Please enter admin key');
-                return;
-            }
-
-            try {
-                // Call login endpoint to set session cookie
-                const res = await fetch('/v1/_mw/dashboard/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ admin_key: key })
-                });
-                
-                if (res.status === 403) {
-                    throw new Error('Invalid admin key');
-                }
-                if (!res.ok) {
-                    throw new Error('Login failed');
-                }
-                
-                await res.json();
-                
-                // Success - hide auth prompt and show dashboard
-                document.getElementById('authPrompt').classList.add('hidden');
-                document.getElementById('dashboard').classList.remove('hidden');
-                
-                // Verify cookie works
-                await checkAuthStatus();
-                
-                // Start dashboard
-                startDashboard();
-            } catch (err) {
-                showError(err.message || 'Authentication failed');
-            }
-        }
-
-        // Check auth status and cookie presence
-        async function checkAuthStatus() {
-            try {
-                const res = await mwFetch('/v1/_mw/auth_check');
-                if (!res || !res.ok) {
-                    updateStatus('warning', 'Auth check failed - cookie may not work across different hosts');
-                    return;
-                }
-                const data = await res.json();
-                if (data.ok) {
-                    updateStatus('ok', 'Authenticated ✓');
-                } else {
-                    updateStatus('warning', 'Cookie not present - use same host (localhost OR 127.0.0.1, not mixed)');
-                }
-            } catch (err) {
-                // auth_check endpoint might not exist yet
-                updateStatus('ok', 'Authenticated ✓');
-            }
-        }
-
-        function showError(msg) {
-            const errorDiv = document.getElementById('authError');
-            errorDiv.textContent = msg;
-            errorDiv.classList.remove('hidden');
-        }
-
-        function startDashboard() {
-            // Clear any existing loops
-            stopDashboardLoops();
-            
-            // Initialize charts
-            initCharts();
-            
-            // Initial data load
-            loadSummary();
-            
-            // Auto-refresh every 30 seconds
-            summaryInterval = setInterval(loadSummary, 30000);
-            
-            // Connect to event stream
-            connectEventStream();
-            
-            updateStatus('ok', 'Authenticated ✓');
-        }
-
-        // Time range functions
-        function setTimeRange(minutes) {
-            // Update active button
-            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-            
-            // Update state and reload
-            currentTimeRange = { minutes };
-            loadSummary();
-            updateCharts();
-        }
-
-        function applyCustomRange() {
-            const start = document.getElementById('customStart').value;
-            const end = document.getElementById('customEnd').value;
-            
-            if (!start || !end) {
-                alert('Please select both start and end times');
-                return;
-            }
-            
-            // Clear quick button selection
-            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
-            
-            // Update state and reload
-            currentTimeRange = {
-                start: new Date(start).toISOString(),
-                end: new Date(end).toISOString()
-            };
-            loadSummary();
-            updateCharts();
-        }
-
-        // Tab switching
-        function switchTab(tabName) {
-            // Update tab buttons
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
-            
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(tabName + 'Tab').classList.add('active');
-            
-            // Load tab-specific data
-            if (tabName === 'access') {
-                loadAccessData();
-                if (!accessEventSource) connectAccessStream();
-            } else if (tabName === 'users') {
-                loadUsers();
-            }
-        }
-
-        // Initialize Chart.js charts
-        function initCharts() {
-            const chartConfig = {
-                type: 'line',
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: {
-                            ticks: { color: '#94a3b8' },
-                            grid: { color: '#334155' }
-                        },
-                        y: {
-                            ticks: { color: '#94a3b8' },
-                            grid: { color: '#334155' }
-                        }
-                    }
-                }
-            };
-
-            costChart = new Chart(
-                document.getElementById('costChart').getContext('2d'),
-                {
-                    ...chartConfig,
-                    data: {
-                        labels: [],
-                        datasets: [{
-                            label: 'Cost (USD)',
-                            data: [],
-                            borderColor: '#10b981',
-                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }]
-                    }
-                }
-            );
-
-            tokensChart = new Chart(
-                document.getElementById('tokensChart').getContext('2d'),
-                {
-                    ...chartConfig,
-                    data: {
-                        labels: [],
-                        datasets: [{
-                            label: 'Tokens',
-                            data: [],
-                            borderColor: '#3b82f6',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }]
-                    }
-                }
-            );
-        }
-
-        async function updateCharts() {
-            try {
-                // Build query params
-                const params = new URLSearchParams();
-                if (currentTimeRange.minutes) {
-                    params.append('minutes', currentTimeRange.minutes);
-                    params.append('bucket', currentTimeRange.minutes < 120 ? 'minute' : currentTimeRange.minutes < 2880 ? 'hour' : 'day');
-                } else {
-                    params.append('start', currentTimeRange.start);
-                    params.append('end', currentTimeRange.end);
-                    const duration = (new Date(currentTimeRange.end) - new Date(currentTimeRange.start)) / 60000;
-                    params.append('bucket', duration < 120 ? 'minute' : duration < 2880 ? 'hour' : 'day');
-                }
-
-                const res = await mwFetch(`/v1/_mw/summary?${params}`);
-                if (!res || !res.ok) return;
-                
-                const data = await res.json();
-                if (!data.timeseries || data.timeseries.length === 0) return;
-
-                // Update cost chart
-                costChart.data.labels = data.timeseries.map(d => formatTimestamp(d.ts));
-                costChart.data.datasets[0].data = data.timeseries.map(d => d.cost_usd);
-                costChart.update();
-
-                // Update tokens chart
-                tokensChart.data.labels = data.timeseries.map(d => formatTimestamp(d.ts));
-                tokensChart.data.datasets[0].data = data.timeseries.map(d => d.tokens_total);
-                tokensChart.update();
-            } catch (err) {
-                console.error('Failed to update charts:', err);
-            }
-        }
-
-        function formatTimestamp(ts) {
-            const d = new Date(ts);
-            const bucket = currentTimeRange.minutes < 120 ? 'minute' : currentTimeRange.minutes < 2880 ? 'hour' : 'day';
-            
-            if (bucket === 'minute') {
-                return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            } else if (bucket === 'hour') {
-                return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit' });
-            } else {
-                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            }
-        }
-
-        async function loadSummary() {
-            try {
-                updateStatus('ok', 'Loading data...');
-                
-                // Build query params based on currentTimeRange
-                const params = new URLSearchParams();
-                if (currentTimeRange.minutes) {
-                    params.append('minutes', currentTimeRange.minutes);
-                } else {
-                    params.append('start', currentTimeRange.start);
-                    params.append('end', currentTimeRange.end);
-                }
-
-                const res = await mwFetch(`/v1/_mw/summary?${params}`);
-                if (!res) return; // 403 handled by mwFetch
-                
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}`);
-                }
-                
-                const data = await res.json();
-                
-                if (!data || !data.totals) {
-                    updateStatus('warning', 'No data received');
-                    return;
-                }
-                
-                const t = data.totals;
-                
-                // Update metrics
-                document.getElementById('metricLLMCalls').textContent = t.requests_llm || 0;
-                document.getElementById('metricAdminOps').textContent = t.requests_admin || 0;
-                document.getElementById('metricPending').textContent = t.pending_open_count || 0;
-                
-                // Update breakdown
-                document.getElementById('metricChat').textContent = t.requests_chat || 0;
-                document.getElementById('metricImage').textContent = t.requests_image || 0;
-                document.getElementById('metricAudio').textContent = t.requests_audio || 0;
-                
-                document.getElementById('metricErrorRate').textContent = 
-                    (t.error_rate_percent || 0).toFixed(1) + '%';
-                document.getElementById('metricLatency').textContent = 
-                    t.p95_latency_ms ? t.p95_latency_ms.toFixed(0) + 'ms' : '-';
-                document.getElementById('metricTokens').textContent = 
-                    (t.tokens_total || 0).toLocaleString();
-                document.getElementById('metricCost').textContent = 
-                    '$' + (t.cost_usd || 0).toFixed(4);
-                
-                // Update top users
-                const usersTable = document.getElementById('topUsersTable');
-                if (data.breakdown_by_user && data.breakdown_by_user.length > 0) {
-                    usersTable.innerHTML = data.breakdown_by_user.slice(0, 10).map(u => 
-                        `<tr><td>${u.user_id}</td><td>$${u.cost_usd.toFixed(6)}</td></tr>`
-                    ).join('');
-                } else {
-                    usersTable.innerHTML = '<tr><td colspan="2">No data</td></tr>';
-                }
-                
-                // Update top models
-                const modelsTable = document.getElementById('topModelsTable');
-                if (data.breakdown_by_model && data.breakdown_by_model.length > 0) {
-                    modelsTable.innerHTML = data.breakdown_by_model.slice(0, 10).map(m => 
-                        `<tr><td>${m.model}</td><td>$${m.cost_usd.toFixed(6)}</td></tr>`
-                    ).join('');
-                } else {
-                    modelsTable.innerHTML = '<tr><td colspan="2">No data</td></tr>';
-                }
-
-                // Update charts
-                updateCharts();
-                
-                updateStatus('ok', 'Authenticated ✓');
-            } catch (err) {
-                console.error('Failed to load summary:', err);
-                updateStatus('error', `Load error: ${err.message}`);
-                
-                // Show error in tables
-                document.getElementById('topUsersTable').innerHTML = '<tr><td colspan="2" class="error-msg">Error loading data</td></tr>';
-                document.getElementById('topModelsTable').innerHTML = '<tr><td colspan="2" class="error-msg">Error loading data</td></tr>';
-            }
-        }
-
-        // Access tab functions
-        async function loadAccessData() {
-            try {
-                const params = new URLSearchParams();
-                if (currentTimeRange.minutes) {
-                    params.append('minutes', currentTimeRange.minutes);
-                } else {
-                    params.append('start', currentTimeRange.start);
-                    params.append('end', currentTimeRange.end);
-                }
-
-                const res = await mwFetch(`/v1/_mw/access_summary?${params}`);
-                if (!res || !res.ok) return;
-                
-                const data = await res.json();
-                if (!data || !data.totals) return;
-
-                const t = data.totals;
-                document.getElementById('accessTotal').textContent = t.requests_total || 0;
-                document.getElementById('accessErrorRate').textContent = (t.error_rate_percent || 0).toFixed(1) + '%';
-                document.getElementById('accessLatency').textContent = t.avg_latency_ms ? t.avg_latency_ms.toFixed(0) + 'ms' : '-';
-
-                // Update paths table
-                const table = document.getElementById('accessPathsTable');
-                if (data.breakdown_by_path && data.breakdown_by_path.length > 0) {
-                    table.innerHTML = data.breakdown_by_path.slice(0, 15).map(p => `
-                        <tr>
-                            <td>${p.path}</td>
-                            <td>${p.count}</td>
-                            <td>${p.errors || 0}</td>
-                            <td>${p.error_rate_percent ? p.error_rate_percent.toFixed(1) : 0}%</td>
-                        </tr>
-                    `).join('');
-                } else {
-                    table.innerHTML = '<tr><td colspan="4">No data</td></tr>';
-                }
-            } catch (err) {
-                console.error('Failed to load access data:', err);
-                document.getElementById('accessPathsTable').innerHTML = '<tr><td colspan="4" class="error-msg">Error loading data</td></tr>';
-            }
-        }
-
-        function connectAccessStream() {
-            const eventsDiv = document.getElementById('accessEvents');
-            
-            // Close existing
-            if (accessEventSource) {
-                accessEventSource.close();
-                accessEventSource = null;
-            }
-            
-            eventsDiv.innerHTML = '<div class="loading">Connecting to access stream...</div>';
-
-            try {
-                accessEventSource = new EventSource('/v1/_mw/access_stream');
-
-                accessEventSource.addEventListener('access', (e) => {
-                    try {
-                        const data = JSON.parse(e.data);
-                        addAccessEvent(data);
-                    } catch (err) {
-                        console.error('Failed to parse access event:', err);
-                    }
-                });
-
-                accessEventSource.onerror = (e) => {
-                    console.error('Access stream error:', e);
-                    if (accessEventSource.readyState === EventSource.CLOSED) {
-                        eventsDiv.innerHTML = '<div class="error-msg">Access stream disconnected. Will retry...</div>';
-                        setTimeout(() => {
-                            if (document.getElementById('accessTab').classList.contains('active')) {
-                                connectAccessStream();
-                            }
-                        }, 5000);
-                    }
-                };
-                
-                accessEventSource.onopen = () => {
-                    eventsDiv.innerHTML = '';
-                };
-            } catch (err) {
-                console.error('Failed to create access EventSource:', err);
-                eventsDiv.innerHTML = '<div class="error-msg">Failed to connect access stream</div>';
-            }
-        }
-
-        function addAccessEvent(data) {
-            const eventsDiv = document.getElementById('accessEvents');
-            if (eventsDiv.querySelector('.loading')) {
-                eventsDiv.innerHTML = '';
-            }
-
-            const line = document.createElement('div');
-            line.className = 'event-line';
-            line.innerHTML = `
-                <span class="event-time">${new Date(data.ts).toLocaleTimeString()}</span>
-                <span class="event-status status-${data.status_code < 400 ? 'ok' : 'error'}">${data.method} ${data.status_code}</span>
-                <span class="event-detail">${data.path} - ${data.latency_ms}ms</span>
-            `;
-            eventsDiv.insertBefore(line, eventsDiv.firstChild);
-
-            // Keep last 50 events
-            while (eventsDiv.children.length > 50) {
-                eventsDiv.removeChild(eventsDiv.lastChild);
-            }
-        }
-
-        // Users tab functions
-        async function loadUsers() {
-            try {
-                const res = await mwFetch('/v1/_mw/admin/users');
-                if (!res || !res.ok) return;
-                
-                const data = await res.json();
-                if (!data || !data.users) return;
-
-                const table = document.getElementById('usersTable');
-                if (data.users.length > 0) {
-                    table.innerHTML = data.users.map(u => `
-                        <tr>
-                            <td>${u.user_id}</td>
-                            <td>${u.role || 'user'}</td>
-                            <td class="status-${u.disabled ? 'error' : 'ok'}">${u.disabled ? 'Disabled' : 'Active'}</td>
-                            <td>$${(u.cost_used_usd || 0).toFixed(4)}</td>
-                            <td>$${u.limit_cost_usd || '∞'}</td>
-                            <td style="font-size: 11px; opacity: 0.7;">${(u.allowed_models || ['*']).join(', ')}</td>
-                        </tr>
-                    `).join('');
-                } else {
-                    table.innerHTML = '<tr><td colspan="6">No users</td></tr>';
-                }
-            } catch (err) {
-                console.error('Failed to load users:', err);
-                document.getElementById('usersTable').innerHTML = '<tr><td colspan="6" class="error-msg">Error loading users</td></tr>';
-            }
-        }
-
-        function connectEventStream() {
-            const eventsDiv = document.getElementById('events');
-            
-            // Close existing connection
-            if (eventSource) {
-                eventSource.close();
-                eventSource = null;
-            }
-            
-            eventsDiv.innerHTML = '<div class="loading">Connecting to event stream...</div>';
-            
-            try {
-                // EventSource automatically sends cookies (can't set headers)
-                eventSource = new EventSource('/v1/_mw/stream');
-                
-                eventSource.addEventListener('audit', (e) => {
-                    try {
-                        const data = JSON.parse(e.data);
-                        addEvent(data);
-                        retryCount = 0; // Reset on success
-                    } catch (err) {
-                        console.error('Failed to parse event:', err);
-                    }
-                });
-                
-                eventSource.onerror = (e) => {
-                    console.error('EventSource error:', e);
-                    
-                    if (eventSource.readyState === EventSource.CLOSED) {
-                        // Calculate backoff delay: 1s, 2s, 5s, 10s, 15s
-                        retryCount++;
-                        const delays = [1000, 2000, 5000, 10000, MAX_RETRY_DELAY];
-                        const delay = delays[Math.min(retryCount - 1, delays.length - 1)];
-                        
-                        eventsDiv.innerHTML = `<div class="error-msg">Stream disconnected. Retrying in ${delay/1000}s... (attempt ${retryCount})</div>`;
-                        updateStatus('warning', `Stream disconnected, retry ${retryCount}`);
-                        
-                        // Reconnect with backoff
-                        setTimeout(() => {
-                            if (document.getElementById('dashboard').classList.contains('hidden')) {
-                                // User logged out, don't reconnect
-                                return;
-                            }
-                            connectEventStream();
-                        }, delay);
-                    } else {
-                        // Connection error but still trying
-                        eventsDiv.innerHTML = '<div class="loading">Stream connection error, retrying...</div>';
-                    }
-                };
-                
-                eventSource.onopen = () => {
-                    eventsDiv.innerHTML = '';
-                    retryCount = 0;
-                    updateStatus('ok', 'Authenticated ✓ (Stream connected)');
-                };
-            } catch (err) {
-                console.error('Failed to create EventSource:', err);
-                eventsDiv.innerHTML = '<div class="error-msg">Failed to connect stream. Check console.</div>';
-                updateStatus('error', 'Stream connection failed');
-            }
-        }
-
-        function addEvent(data) {
-            const eventsDiv = document.getElementById('events');
-            
-            // Create event line
-            const line = document.createElement('div');
-            line.className = 'event-line';
-            
-            // Format timestamp
-            const time = new Date(data.ts).toLocaleTimeString();
-            
-            // Status class
-            const statusClass = `status-${data.status}`;
-            
-            line.innerHTML = `
-                <span class="event-time">${time}</span>
-                <span class="event-status ${statusClass}">${data.status.toUpperCase()}</span>
-                <span class="event-detail">
-                    ${data.user_id} | ${data.model} | 
-                    ${data.tokens_total || 0} tokens | 
-                    $${(data.cost_usd || 0).toFixed(6)}
-                </span>
-            `;
-            
-            // Add to top
-            eventsDiv.insertBefore(line, eventsDiv.firstChild);
-            
-            // Keep only last 50 events
-            while (eventsDiv.children.length > 50) {
-                eventsDiv.removeChild(eventsDiv.lastChild);
-            }
-        }
-
-        // Allow Enter key to authenticate
-        document.getElementById('adminKeyInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                authenticate();
-            }
-        });
-        
-        // Check if already logged in on page load
-        window.addEventListener('load', async () => {
-            try {
-                // Try to load summary - if success, user is logged in
-                const res = await fetch('/v1/_mw/summary?minutes=5', {
-                    credentials: 'include'
-                });
-                
-                if (res.ok) {
-                    // Already logged in, skip auth prompt
-                    document.getElementById('authPrompt').classList.add('hidden');
-                    document.getElementById('dashboard').classList.remove('hidden');
-                    await checkAuthStatus();
-                    startDashboard();
-                }
-                // If 403 or error, stay on login screen
-            } catch (err) {
-                // Network error, stay on login screen
-                console.log('Not logged in:', err);
-            }
-        });
+        // Initialize API bridge first, then auth
+        await initAPI();
+        initAuth();
     </script>
 </body>
 </html>

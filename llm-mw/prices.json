@@ -1,0 +1,85 @@
+{
+  "_schema": {
+    "version": 2,
+    "units": {
+      "input_per_1m": "USD per 1,000,000 input tokens",
+      "output_per_1m": "USD per 1,000,000 output tokens"
+    },
+    "updated_utc": "2025-12-16",
+    "sources": {
+      "openai": "https://platform.openai.com/docs/pricing",
+      "gemini": "https://ai.google.dev/gemini-api/docs/pricing"
+    },
+    "notes": "These are list prices from the sources above. Middleware primarily trusts LiteLLM's x-litellm-response-cost; these values are a fallback. OpenAI's Text tokens table is tiered (Batch/Flex/Standard/Priority) and does not separate input vs output in the extracted table; we store Standard tier into both input_per_1m and output_per_1m for fallback only."
+  },
+
+  "gpt-5": { "input_per_1m": 1.25, "output_per_1m": 1.25, "tier": "standard" },
+  "gpt-5-mini": { "input_per_1m": 0.25, "output_per_1m": 0.25, "tier": "standard" },
+  "gpt-5-nano": { "input_per_1m": 0.05, "output_per_1m": 0.05, "tier": "standard" },
+
+  "gpt-4o": { "input_per_1m": 2.50, "output_per_1m": 2.50, "tier": "standard" },
+  "gpt-4o-mini": { "input_per_1m": 0.15, "output_per_1m": 0.15, "tier": "standard" },
+  "gpt-4.1": { "input_per_1m": 2.00, "output_per_1m": 2.00, "tier": "standard" },
+  "gpt-4.1-mini": { "input_per_1m": 0.40, "output_per_1m": 0.40, "tier": "standard" },
+  "gpt-4.1-nano": { "input_per_1m": 0.10, "output_per_1m": 0.10, "tier": "standard" },
+
+  "gpt-image-1": {
+    "per_image_usd": {
+      "low": { "1024x1024": 0.011, "1024x1792": 0.016, "1792x1024": 0.016 },
+      "medium": { "1024x1024": 0.042, "1024x1792": 0.063, "1792x1024": 0.063 },
+      "high": { "1024x1024": 0.167, "1024x1792": 0.25, "1792x1024": 0.25 }
+    },
+    "notes": "OpenAI image generation is priced per image (quality + size)."
+  },
+  "gpt-image-1-mini": {
+    "per_image_usd": {
+      "low": { "1024x1024": 0.005, "1024x1792": 0.006, "1792x1024": 0.006 },
+      "medium": { "1024x1024": 0.011, "1024x1792": 0.015, "1792x1024": 0.015 },
+      "high": { "1024x1024": 0.036, "1024x1792": 0.052, "1792x1024": 0.052 }
+    },
+    "notes": "OpenAI image generation is priced per image (quality + size)."
+  },
+
+  "gpt-4o-mini-tts": {
+    "tts_usd_per_1m_chars": 15.0,
+    "tts_usd_per_minute": 0.015,
+    "notes": "OpenAI pricing includes $15 / 1M characters for TTS (generic), and also publishes $0.015/min for gpt-4o-mini-tts. Middleware uses chars-based fallback if LiteLLM doesn't return x-litellm-response-cost."
+  },
+  "gpt-4o-transcribe": { "stt_usd_per_minute": 0.006 },
+  "gpt-4o-mini-transcribe": { "stt_usd_per_minute": 0.003 },
+
+  "sora-2": { "video_usd_per_second": 0.10 },
+  "sora-2-pro": {
+    "video_usd_per_second": 0.30,
+    "video_usd_per_second_by_size": {
+      "1024x1792": 0.50,
+      "1792x1024": 0.50
+    }
+  },
+
+  "gemini-2.5-pro": { "input_per_1m": 1.25, "output_per_1m": 10.0 },
+  "gemini-2.5-flash": { "input_per_1m": 0.30, "output_per_1m": 2.50 },
+  "gemini-2.5-flash-lite": { "input_per_1m": 0.10, "output_per_1m": 0.40 },
+  "gemini-2.5-flash-image": {
+    "input_per_1m": 0.30,
+    "output_per_1m": 2.50,
+    "per_image_usd": 0.039
+  },
+  "gemini-2.5-flash-preview-tts": {
+    "tts_text_input_per_1m_tokens": 0.50,
+    "tts_audio_output_per_1m_tokens": 10.0
+  },
+  "gemini-2.5-flash-native-audio-preview-12-2025": {
+    "input_per_1m": 0.50,
+    "output_per_1m": 2.0,
+    "audio_input_per_1m_tokens": 3.0,
+    "audio_output_per_1m_tokens": 12.0
+  },
+  "gemini-2.0-flash": {
+    "input_per_1m": 0.10,
+    "output_per_1m": 0.40,
+    "audio_input_per_1m_tokens": 0.70
+  },
+  "gemini-2.0-flash-lite": { "input_per_1m": 0.075, "output_per_1m": 0.30 },
+  "gemini-3-pro-preview": { "input_per_1m": 2.0, "output_per_1m": 12.0 }
+}

@@ -6,16 +6,16 @@
     "allowed_models": [
       "*"
     ],
-    "used_tokens": 228375,
-    "used_cost_usd": 0.6634715852576,
+    "used_tokens": 237531,
+    "used_cost_usd": 0.6797593852576002,
     "quota": {
       "period": "monthly",
       "timezone": "Asia/Bangkok",
       "limit_tokens": 0,
       "limit_cost_usd": 0,
       "period_start": 1767200400000,
-      "used_tokens": 0,
-      "used_cost_usd": 0.19899969525759997,
+      "used_tokens": 9156,
+      "used_cost_usd": 0.2152874952576,
       "used_image_requests": 5
     },
     "subkey_hash": "7e897aa34d3d75e54eb74797aaba6e9e6d8dc9c96ef11f0d7bc1f2c2c64b03a5",

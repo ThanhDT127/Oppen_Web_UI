@@ -42,15 +42,23 @@ def get_summary_v2(
     now_utc = dt.datetime.now(tz=dt.timezone.utc)
     
     if start and end:
-        # Parse custom range
+        # Parse custom range - normalize 'Z' to '+00:00' for fromisoformat
         try:
-            cutoff = dt.datetime.fromisoformat(start)
-            end_time = dt.datetime.fromisoformat(end)
+            start_normalized = start.replace('Z', '+00:00') if start.endswith('Z') else start
+            end_normalized = end.replace('Z', '+00:00') if end.endswith('Z') else end
+            
+            cutoff = dt.datetime.fromisoformat(start_normalized)
+            end_time = dt.datetime.fromisoformat(end_normalized)
+            
             # Ensure timezone aware
             if cutoff.tzinfo is None:
                 cutoff = cutoff.replace(tzinfo=dt.timezone.utc)
             if end_time.tzinfo is None:
                 end_time = end_time.replace(tzinfo=dt.timezone.utc)
+            
+            # Validate: start < end
+            if cutoff >= end_time:
+                raise HTTPException(400, "Start time must be before end time")
         except ValueError as e:
             raise HTTPException(400, f"Invalid datetime format: {e}")
     else:
@@ -59,6 +67,9 @@ def get_summary_v2(
             minutes = 60
         cutoff = now_utc - dt.timedelta(minutes=minutes)
         end_time = now_utc
+    
+    # DEBUG: Log time range for troubleshooting
+    print(f"[SUMMARY_V2] Time range: {cutoff.isoformat()} to {end_time.isoformat()} (minutes={minutes})")
     
     # Auto-determine bucket size if "auto"
     time_range_seconds = (end_time - cutoff).total_seconds()
@@ -118,6 +129,10 @@ def get_summary_v2(
     # Read audit log (including rotated files)
     log_files = _get_audit_log_files()
     
+    # DEBUG: Counters
+    total_lines = 0
+    matched_lines = 0
+    
     try:
         for log_file in log_files:
             if not os.path.exists(log_file):
@@ -127,6 +142,7 @@ def get_summary_v2(
                 for line in f:
                     if not line.strip():
                         continue
+                    total_lines += 1
                     try:
                         entry = json.loads(line)
                         timestamp_str = entry.get("ts", "")
@@ -139,6 +155,8 @@ def get_summary_v2(
                         # Filter by time range
                         if entry_time < cutoff or entry_time > end_time:
                             continue
+                        
+                        matched_lines += 1
                         
                         rid = entry.get("rid", "")
                         if not rid:
@@ -201,6 +219,43 @@ def get_summary_v2(
         pending_open_count = sum(1 for _, (_, status) in rid_status.items() if status == "pending")
         error_count = sum(1 for _, (_, status) in rid_status.items() if status == "error")
         requests_ok = sum(1 for _, (_, status) in rid_status.items() if status in ["ok", "reconciled"])
+        
+        # Calculate billable metrics (requests with actual usage)
+        billable_calls = 0
+        nonbillable_calls = 0
+        usage_missing_calls = 0
+        
+        for rid, data in rid_data.items():
+            status = rid_status.get(rid, (0, ""))[1]
+            
+            # Only check completed requests
+            if status not in ["ok", "reconciled"]:
+                continue
+            
+            endpoint = data.get("endpoint", "")
+            tokens = data.get("tokens_total", 0)
+            cost = data.get("cost_usd", 0.0)
+            model = data.get("model", "")
+            
+            # Determine if billable
+            is_image_model = "dall-e" in model.lower() or "imagen" in model.lower() or "stable-diffusion" in model.lower()
+            is_audio_model = "whisper" in model.lower() or "tts" in model.lower()
+            is_video_model = "sora" in model.lower() or "gen-" in model.lower()
+            is_chat_model = endpoint == "/v1/chat/completions" or "gpt" in model.lower() or "claude" in model.lower() or "gemini" in model.lower()
+            
+            # Billable if:
+            # 1. Has cost OR tokens (actual usage recorded)
+            # 2. For image models: cost > 0 (images don't have tokens)
+            has_usage = cost > 0 or tokens > 0
+            
+            if has_usage:
+                billable_calls += 1
+            else:
+                nonbillable_calls += 1
+                
+                # Flag missing usage for chat models (images/audio might legitimately have 0 cost)
+                if is_chat_model:
+                    usage_missing_calls += 1
         
         # Calculate LLM type breakdown
         for rid, data in rid_data.items():
@@ -294,7 +349,8 @@ def get_summary_v2(
                 "errors": data["errors"]
             })
         
-        return {
+        # DEBUG: Log processing summary
+        print(f\"[SUMMARY_V2] Processed {total_lines} total lines, {matched_lines} matched time range\")\n        print(f\"[SUMMARY_V2] Final: {requests_total} requests, {requests_ok} ok, {error_count} errors\")\n        \n        return {
             "time_range": {
                 "start": cutoff.isoformat(),
                 "end": end_time.isoformat(),
@@ -312,7 +368,11 @@ def get_summary_v2(
                 "chat_calls": llm_type_counts["chat"],
                 "image_calls": llm_type_counts["image"],
                 "audio_calls": llm_type_counts["audio"],
-                "video_calls": llm_type_counts["video"]
+                "video_calls": llm_type_counts["video"],
+                # NEW: Billable metrics
+                "billable_calls": billable_calls,
+                "nonbillable_calls": nonbillable_calls,
+                "usage_missing_calls": usage_missing_calls
             },
             "breakdown_by_user": breakdown_by_user[:20],  # Top 20
             "breakdown_by_model": breakdown_by_model[:20],  # Top 20

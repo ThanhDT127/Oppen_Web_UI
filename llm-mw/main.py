@@ -25,6 +25,7 @@ from api.summary import get_summary
 from api.summary_v2 import get_summary_v2
 from api.stream import stream_audit
 from api.access_logs import get_access_summary, stream_access
+from api.audit_query import parse_audit_filters
 from api.user_admin import (
     list_users, create_user, update_user, 
     rotate_user_key, disable_user, enable_user, get_admin_audit
@@ -135,6 +136,9 @@ app.add_api_route("/v1/_mw/stream", stream_audit, methods=["GET"])
 app.add_api_route("/v1/_mw/access_summary", get_access_summary, methods=["GET"])
 app.add_api_route("/v1/_mw/access_stream", stream_access, methods=["GET"])
 
+# Audit log query endpoint (Logs tab)
+app.add_api_route("/v1/_mw/audit/query", parse_audit_filters, methods=["GET"])
+
 # User management endpoints (admin only)
 app.add_api_route("/v1/_mw/admin/users", list_users, methods=["GET"])
 app.add_api_route("/v1/_mw/admin/users", create_user, methods=["POST"])
@@ -149,12 +153,19 @@ app.add_api_route("/v1/_mw/dashboard/login", dashboard_login, methods=["POST"])
 app.add_api_route("/v1/_mw/dashboard/logout", dashboard_logout, methods=["POST"])
 app.add_api_route("/v1/_mw/auth_check", get_auth_check, methods=["GET"])
 
-# Serve dashboard HTML
+# Mount static files for dashboard (css, js, vendor)
+import os
+dashboard_dir = os.path.join(os.path.dirname(__file__), "dashboard")
+app.mount("/dashboard/css", StaticFiles(directory=os.path.join(dashboard_dir, "css")), name="dashboard-css")
+app.mount("/dashboard/js", StaticFiles(directory=os.path.join(dashboard_dir, "js")), name="dashboard-js")
+app.mount("/dashboard/vendor", StaticFiles(directory=os.path.join(dashboard_dir, "vendor")), name="dashboard-vendor")
+
+# Serve dashboard HTML (must be after static mounts)
 @app.get("/dashboard")
+@app.get("/dashboard/")
 async def serve_dashboard():
     """Serve dashboard HTML"""
-    import os
-    dashboard_path = os.path.join(os.path.dirname(__file__), "dashboard", "index.html")
+    dashboard_path = os.path.join(dashboard_dir, "index.html")
     return FileResponse(dashboard_path)
 
 

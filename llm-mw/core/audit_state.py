@@ -11,12 +11,24 @@ from typing import Optional
 from fastapi import Request
 
 
+# LLM Endpoint Allowlist - Only these endpoints will have usage audit
+# This prevents background polling requests (chats, tasks, etc.) from being counted as LLM usage
+LLM_ENDPOINT_ALLOWLIST = {
+    "/v1/chat/completions",
+    "/v1/images/generations",
+    "/v1/audio/transcriptions",
+    "/v1/audio/speech",
+    "/v1/video/generations",
+}
+
+
 def init_audit_state(
     request: Request,
     user_id: str,
     endpoint: str,
     model: Optional[str] = None,
-    rid: Optional[str] = None
+    rid: Optional[str] = None,
+    purpose: Optional[str] = None
 ) -> str:
     """
     Initialize audit state on request object.
@@ -24,15 +36,19 @@ def init_audit_state(
     This should be called early in endpoint handlers after user authentication.
     Sets default values for all audit fields.
     
+    **IMPORTANT**: Only LLM endpoints in LLM_ENDPOINT_ALLOWLIST will have audit state initialized.
+    This prevents background polling requests from inflating usage metrics.
+    
     Args:
         request: FastAPI Request object
         user_id: Authenticated user ID
         endpoint: API endpoint path (e.g., "/v1/chat/completions")
         model: Model name if known (can be None)
         rid: Request ID (will generate if None)
+        purpose: Request purpose/context (e.g., "user_chat", "background_task", "system_prompt")
     
     Returns:
-        str: The request ID (rid) assigned
+        str: The request ID (rid) assigned, or empty string if endpoint not in allowlist
     
     Example:
         ```python
@@ -41,21 +57,35 @@ def init_audit_state(
             body = await request.json()
             model = body.get("model")
             
-            # Initialize audit state
-            rid = init_audit_state(request, user["user_id"], "/v1/chat/completions", model)
+            # Extract purpose from header or query param
+            purpose = request.headers.get("x-purpose") or request.query_params.get("purpose")
+            
+            # Initialize audit state (will only work for LLM endpoints)
+            rid = init_audit_state(request, user["user_id"], "/v1/chat/completions", model, purpose=purpose)
             
             # ... rest of endpoint logic ...
         ```
     """
+    # Check if endpoint is in LLM allowlist
+    if endpoint not in LLM_ENDPOINT_ALLOWLIST:
+        # Do not initialize audit state for non-LLM endpoints
+        # This prevents background polling (chats, tasks, etc.) from being counted as LLM usage
+        return ""
     # Generate or use provided request ID
     if rid is None:
         rid = f"mw_{uuid.uuid4().hex[:16]}"
+    
+    # Extract purpose from request if not provided
+    if purpose is None:
+        # Try to get from header first, then query param
+        purpose = request.headers.get("x-purpose") or request.query_params.get("purpose")
     
     # Set all audit state fields with defaults
     request.state.mw_request_id = rid
     request.state.mw_user_id = user_id
     request.state.mw_endpoint = endpoint
     request.state.mw_model = model
+    request.state.mw_purpose = purpose  # NEW: Track request purpose/context
     
     # Default status is "ok" (will be changed if error occurs)
     request.state.mw_status = "ok"
