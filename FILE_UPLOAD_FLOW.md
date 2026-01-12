@@ -97,7 +97,7 @@ Content-Type: application/json
 **Middleware xử lý:**
 
 ```python
-# File: llm-mw/api/chat.py
+# File: llm-mw/main.py (line 814-850)
 
 # 1. Validate authentication
 user = _require_user(request)
@@ -116,9 +116,12 @@ for msg in messages:
                 image_url_obj = item.get("image_url")
                 url = image_url_obj.get("url")
                 
-                # Keep data URLs inline - don't materialize
-                # Chat endpoint forwards base64 directly to LiteLLM
-                # Providers (OpenAI/Gemini) handle base64 natively
+                # Nếu là data URL (base64)
+                if url.startswith("data:"):
+                    # Convert to public URL
+                    new_url = _maybe_materialize_data_url(request, url=url)
+                    image_url_obj["url"] = new_url
+                    # Ví dụ: "http://localhost:5000/v1/_mw/media/abc123.png"
 
 # 4. Forward to LiteLLM
 resp = await client.post(
@@ -128,11 +131,11 @@ resp = await client.post(
 )
 ```
 
-**Tại sao KHÔNG materialize trong chat?**
-- ✅ **Providers hỗ trợ base64:** OpenAI/Gemini chấp nhận data URLs trực tiếp
-- ✅ **Đơn giản hơn:** Không cần storage/cleanup logic
-- ✅ **Ít overhead:** Không cần đọc/ghi file
-- ℹ️ **Lưu ý:** Chỉ `/v1/images/generations` mới materialize output để UI render
+**Tại sao phải materialize?**
+- ❌ **Data URL quá dài:** 1MB image = ~1.37MB base64 string
+- ❌ **Provider có thể reject:** OpenAI/Gemini có giới hạn request size
+- ✅ **Public URL ngắn hơn:** ~50 bytes thay vì 1.37MB
+- ✅ **Cache được:** File lưu local, dùng lại nhiều lần
 
 **Function `_maybe_materialize_data_url()`:**
 

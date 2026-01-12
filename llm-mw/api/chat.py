@@ -36,6 +36,7 @@ async def _finalize_streaming(request: Request, user: dict, model: str, request_
         completion_tokens = 0
         total_tokens = 0
         cost_usd = 0.0
+        usage_missing = False
         
         # Method 1: Extract from stream (if stream_options.include_usage was set)
         if usage_data:
@@ -60,6 +61,14 @@ async def _finalize_streaming(request: Request, user: dict, model: str, request_
                         pass
                 logger.info("stream_finalize rid=%s tokens=%d (from litellm log)", request_id, total_tokens)
         
+        # CRITICAL: If no usage found, mark as missing and don't write reconciled audit
+        if total_tokens == 0 and cost_usd == 0.0:
+            usage_missing = True
+            logger.warning("stream_finalize rid=%s: USAGE MISSING - no tokens or cost from stream or log", request_id)
+            # Don't write reconciled audit with zeros - this would pollute billable metrics
+            # The pending audit remains, showing the request was made but usage wasn't captured
+            return
+        
         # Calculate cost if not from LiteLLM
         if cost_usd == 0.0 and total_tokens > 0:
             prices = load_prices()
@@ -81,7 +90,7 @@ async def _finalize_streaming(request: Request, user: dict, model: str, request_
                         break
                 save_users(users)
         
-        # Write reconciled audit line
+        # Write reconciled audit line (only if we have actual usage)
         write_audit_line({
             "ts": datetime.now(timezone.utc).isoformat(),
             "rid": request_id,

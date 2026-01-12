@@ -42,13 +42,22 @@ def get_access_summary(
     now_utc = dt.datetime.now(tz=dt.timezone.utc)
     
     if start and end:
+        # Normalize 'Z' to '+00:00' for fromisoformat compatibility
         try:
-            cutoff = dt.datetime.fromisoformat(start)
-            end_time = dt.datetime.fromisoformat(end)
+            start_normalized = start.replace('Z', '+00:00') if start.endswith('Z') else start
+            end_normalized = end.replace('Z', '+00:00') if end.endswith('Z') else end
+            
+            cutoff = dt.datetime.fromisoformat(start_normalized)
+            end_time = dt.datetime.fromisoformat(end_normalized)
+            
             if cutoff.tzinfo is None:
                 cutoff = cutoff.replace(tzinfo=dt.timezone.utc)
             if end_time.tzinfo is None:
                 end_time = end_time.replace(tzinfo=dt.timezone.utc)
+            
+            # Validate: start < end
+            if cutoff >= end_time:
+                raise HTTPException(400, "Start time must be before end time")
         except ValueError as e:
             raise HTTPException(400, f"Invalid datetime format: {e}")
     else:

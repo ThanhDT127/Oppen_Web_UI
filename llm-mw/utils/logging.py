@@ -195,6 +195,7 @@ def audit_from_request(
             "user_id": getattr(request.state, "mw_user_id", "unknown"),
             "endpoint": getattr(request.state, "mw_endpoint", request.url.path),
             "model": getattr(request.state, "mw_model", None),
+            "purpose": getattr(request.state, "mw_purpose", None),  # NEW: Log request purpose
             "status": getattr(request.state, "mw_status", "ok"),
             "status_code": status_code,
             "latency_ms": round(duration_ms, 1) if duration_ms is not None else None,

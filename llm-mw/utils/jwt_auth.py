@@ -87,8 +87,8 @@ def verify_session_token(token: str) -> dict:
             raise ValueError("Invalid signature")
         
         # Decode payload
-        # Add padding if needed
-        payload_b64 += "=" * (4 - len(payload_b64) % 4)
+        # Add base64 padding if needed (0..3 chars)
+        payload_b64 += "=" * (-len(payload_b64) % 4)
         payload_json = base64.urlsafe_b64decode(payload_b64).decode()
         payload = json.loads(payload_json)
         
@@ -101,3 +101,4 @@ def verify_session_token(token: str) -> dict:
     
     except Exception as e:
         raise ValueError(f"Token verification failed: {e}")
+

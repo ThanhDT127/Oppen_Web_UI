@@ -36,7 +36,9 @@ def require_admin_or_session(request: Request) -> bool:
     if session_cookie:
         try:
             payload = verify_session_token(session_cookie)
-            # Token is valid and not expired
+            # Token is valid and not expired; ensure it matches current ADMIN_KEY
+            if payload.get("key_hash") != get_admin_key_hash():
+                raise ValueError("Session does not match current admin key")
             return True
         except ValueError:
             # Invalid or expired token - fall through to 403
