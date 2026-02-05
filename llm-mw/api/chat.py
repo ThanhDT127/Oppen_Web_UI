@@ -13,11 +13,188 @@ import httpx
 from config import LITELLM_BASE, LITELLM_KEY, logger
 from core.auth import require_user, assert_model_allowed, load_users, save_users, get_lock
 from core.quota import maybe_reset_quota, enforce_and_bump_quota
-from core.cost import calc_cost_usd, append_pending, remove_pending, load_prices
-from core.audit_state import init_audit_state, set_usage_state, set_error_state
+from core.cost import calc_cost_usd, append_pending, remove_pending, load_prices, calc_image_cost_from_body
+from core.audit_state import init_audit_state, set_usage_state, set_error_state, set_counters
 from services.litellm import get_cost_from_headers, find_usage_in_log
 from utils.helpers import truncate_text, extract_text_from_messages, safe_headers
 from utils.logging import detail_log, write_audit_line
+
+
+def _is_image_generation_model(model: str) -> bool:
+    """Check if model is an image generation model."""
+    if not isinstance(model, str):
+        return False
+    model_lower = model.lower()
+    # Check for renamed models that bypass OpenWebUI filter
+    return any(pattern in model_lower for pattern in [
+        "image", "dall-e", "dalle", "stable-diffusion", "midjourney", "imagen",
+        "-draw", "draw-"  # New: detect renamed models like gpt-draw-1, gemini-flash-draw
+    ])
+
+
+def _extract_prompt_from_messages(messages: list) -> str:
+    """Extract text prompt from chat messages for image generation."""
+    if not isinstance(messages, list):
+        return ""
+    
+    # Get last user message
+    for msg in reversed(messages):
+        if isinstance(msg, dict) and msg.get("role") == "user":
+            content = msg.get("content")
+            if isinstance(content, str):
+                return content
+            elif isinstance(content, list):
+                # Extract text from content array
+                texts = []
+                for item in content:
+                    if isinstance(item, dict) and item.get("type") == "text":
+                        texts.append(item.get("text", ""))
+                return " ".join(texts)
+    return ""
+
+
+async def _handle_image_as_chat(request: Request, user: dict, model: str, body: dict):
+    """
+    Handle image generation models in chat format.
+    Converts chat request to image generation, then formats response as chat.
+    """
+    rid = init_audit_state(request, user["user_id"], "/v1/chat/completions", model)
+    
+    # Extract prompt from messages
+    messages = body.get("messages", [])
+    prompt = _extract_prompt_from_messages(messages)
+    
+    if not prompt:
+        raise HTTPException(400, "No prompt found in messages for image generation")
+    
+    detail_log(
+        "chat.image_model",
+        request=request,
+        user_id=user.get("user_id"),
+        model=model,
+        prompt=truncate_text(prompt, limit=2000),
+    )
+    
+    assert_model_allowed(user, model)
+    maybe_reset_quota(user)
+    
+    # Prepare image generation request
+    image_body = {
+        "model": model,
+        "prompt": prompt,
+        "n": 1,
+        "size": body.get("size", "1024x1024"),
+    }
+    
+    # Call image generation API
+    client: httpx.AsyncClient = request.app.state.http_client
+    headers = {
+        "Authorization": f"Bearer {LITELLM_KEY}",
+        "Content-Type": "application/json",
+        "X-Request-ID": rid,
+    }
+    
+    try:
+        resp = await client.post(
+            f"{LITELLM_BASE}/images/generations",
+            headers=headers,
+            json=image_body,
+            timeout=120
+        )
+    except httpx.RequestError as e:
+        set_error_state(request, "provider", f"Image generation failed: {e.__class__.__name__}")
+        raise HTTPException(503, f"Image generation unavailable: {e.__class__.__name__}")
+    
+    if resp.status_code >= 400:
+        set_error_state(request, "provider", f"Image generation returned {resp.status_code}")
+        try:
+            error_data = resp.json()
+            raise HTTPException(resp.status_code, error_data)
+        except Exception:
+            raise HTTPException(resp.status_code, resp.text)
+    
+    # Parse image response
+    image_data = resp.json()
+    image_url = None
+    if isinstance(image_data.get("data"), list) and len(image_data["data"]) > 0:
+        image_url = image_data["data"][0].get("url")
+    
+    if not image_url:
+        raise HTTPException(500, "No image URL in response")
+    
+    # Calculate cost and bump quota
+    prices = load_prices()
+    cost_usd = calc_image_cost_from_body(model, image_body, prices)
+    if cost_usd > 0:
+        enforce_and_bump_quota(user["user_id"], add_cost_usd=cost_usd, add_image_requests=1)
+    
+    set_usage_state(request, 0, 0, 0, cost_usd)
+    set_counters(request, image_count=1)
+    
+    # Format as chat completion response
+    chat_response = {
+        "id": f"chatcmpl-{rid}",
+        "object": "chat.completion",
+        "created": int(datetime.now(timezone.utc).timestamp()),
+        "model": model,
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": f"![Generated Image]({image_url})\n\nHere is the image you requested."
+            },
+            "finish_reason": "stop"
+        }],
+        "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0
+        },
+        "_mw_user": user["user_id"],
+        "_mw_request_id": rid,
+        "_mw_added_cost_usd": round(cost_usd, 6) if cost_usd > 0 else None
+    }
+    
+    # Handle streaming vs non-streaming
+    stream = body.get("stream", False)
+    if stream:
+        # Convert to SSE stream format
+        async def _stream_image_response():
+            # Send data chunk
+            chunk = {
+                "id": f"chatcmpl-{rid}",
+                "object": "chat.completion.chunk",
+                "created": int(datetime.now(timezone.utc).timestamp()),
+                "model": model,
+                "choices": [{
+                    "index": 0,
+                    "delta": {
+                        "role": "assistant",
+                        "content": f"![Generated Image]({image_url})\n\nHere is the image you requested."
+                    },
+                    "finish_reason": None
+                }]
+            }
+            yield f"data: {json.dumps(chunk)}\n\n"
+            
+            # Send finish chunk
+            finish_chunk = {
+                "id": f"chatcmpl-{rid}",
+                "object": "chat.completion.chunk",
+                "created": int(datetime.now(timezone.utc).timestamp()),
+                "model": model,
+                "choices": [{
+                    "index": 0,
+                    "delta": {},
+                    "finish_reason": "stop"
+                }]
+            }
+            yield f"data: {json.dumps(finish_chunk)}\n\n"
+            yield "data: [DONE]\n\n"
+        
+        return StreamingResponse(_stream_image_response(), media_type="text/event-stream")
+    else:
+        return JSONResponse(status_code=200, content=chat_response)
 
 
 async def _finalize_streaming(request: Request, user: dict, model: str, request_id: str, usage_data: dict):
@@ -122,13 +299,24 @@ async def chat_completions(request: Request):
     """
     Proxy chat completions to LiteLLM with quota enforcement.
     Supports both streaming and non-streaming modes.
+    Also handles image generation models by converting to chat format.
     """
     user = require_user(request)
 
-    body = await request.json()
+    # Parse body once and reuse
+    try:
+        body = await request.json()
+    except UnicodeDecodeError as e:
+        raise HTTPException(400, f"Invalid UTF-8 encoding in request body: {str(e)}")
+    
     model = body.get("model")
     if not model:
         raise HTTPException(400, "Missing model")
+    
+    # Detect image generation models and route to image generation
+    is_image_model = _is_image_generation_model(model)
+    if is_image_model:
+        return await _handle_image_as_chat(request, user, model, body)
     
     # Initialize audit state early
     rid = init_audit_state(request, user["user_id"], "/v1/chat/completions", model)

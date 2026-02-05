@@ -6,17 +6,16 @@
     "allowed_models": [
       "*"
     ],
-    "used_tokens": 118455,
-    "used_cost_usd": 0.6013119952576,
+    "used_tokens": 57693,
+    "used_cost_usd": 0.20136140000000005,
     "quota": {
       "period": "monthly",
       "timezone": "Asia/Bangkok",
       "limit_tokens": 0,
       "limit_cost_usd": 0,
-      "period_start": 1767200400000,
-      "used_tokens": 60762,
-      "used_cost_usd": 0.3999505952576,
-      "used_image_requests": 6
+      "period_start": 1764522000000,
+      "used_tokens": 57693,
+      "used_cost_usd": 0.20136140000000005
     }
   },
   {

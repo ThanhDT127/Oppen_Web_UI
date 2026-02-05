@@ -228,12 +228,14 @@ async def generate_images(request: Request):
     # Help UIs that only know how to render image URLs by synthesizing a data URL
     # when the provider returns only base64.
     try:
-        output_format = (data.get("output_format") or body.get("output_format") or "png").lower()
+        output_format = str(data.get("output_format") or body.get("output_format") or "png").lower()
         mime = "image/png" if output_format in ("png", "") else f"image/{output_format}"
-        items = data.get("data")
-        maybe_materialize_image_items(request, items, fallback_mime=mime)
-    except Exception:
-        pass
+        items = data.get("data") or []
+        if isinstance(items, list):
+            maybe_materialize_image_items(request, items, fallback_mime=mime)
+    except Exception as e:
+        # Log but don't fail the request if materialization fails
+        detail_log("image.materialize_error", request=request, error=str(e))
     
     litellm_cost = get_cost_from_headers(resp.headers)
     enforce_and_bump_quota(user["user_id"], add_image_requests=1)

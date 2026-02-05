@@ -350,7 +350,10 @@ def get_summary_v2(
             })
         
         # DEBUG: Log processing summary
-        print(f\"[SUMMARY_V2] Processed {total_lines} total lines, {matched_lines} matched time range\")\n        print(f\"[SUMMARY_V2] Final: {requests_total} requests, {requests_ok} ok, {error_count} errors\")\n        \n        return {
+        print(f"[SUMMARY_V2] Processed {total_lines} total lines, {matched_lines} matched time range")
+        print(f"[SUMMARY_V2] Final: {requests_total} requests, {requests_ok} ok, {error_count} errors")
+
+        return {
             "time_range": {
                 "start": cutoff.isoformat(),
                 "end": end_time.isoformat(),

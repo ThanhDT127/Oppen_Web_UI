@@ -23,13 +23,13 @@ function Stop-ServiceOnPort {
         return
     }
 
-    foreach ($pid in $pids) {
-        if ($pid -match '^\d+$') {
+    foreach ($processId in $pids) {
+        if ($processId -match '^\d+$') {
             try {
-                Stop-Process -Id $pid -Force -ErrorAction Stop
-                Write-Host "  [+] Killed PID: $pid" -ForegroundColor Green
+                Stop-Process -Id $processId -Force -ErrorAction Stop
+                Write-Host "  [+] Killed PID: $processId" -ForegroundColor Green
             } catch {
-                Write-Host "  [!] Failed to kill PID $pid : $_" -ForegroundColor Red
+                Write-Host "  [!] Failed to kill PID $processId : $_" -ForegroundColor Red
             }
         }
     }
