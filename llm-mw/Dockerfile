@@ -11,13 +11,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy all application code and modules
 COPY main.py .
+COPY config.py .
+COPY api/ ./api/
+COPY core/ ./core/
+COPY utils/ ./utils/
+COPY services/ ./services/
+COPY models/ ./models/
+COPY dashboard/ ./dashboard/
+COPY data/ ./data/
+
+# Copy data files (fallback if not in data/)
 COPY prices.json .
 COPY users.json .
 
 # Create logs directory
-RUN mkdir -p /app/../logs
+RUN mkdir -p /app/logs
 
 # Expose port
 EXPOSE 5000

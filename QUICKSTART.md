@@ -137,7 +137,6 @@ docker-compose restart postgres
 
 ### Reset everything
 ```powershell
-docker-compose down -v  # CAUTION: Deletes all data!
 docker-compose up -d
 ```
 
