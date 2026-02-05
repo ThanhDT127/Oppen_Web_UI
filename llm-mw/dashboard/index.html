@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Middleware Dashboard</title>
+    <link rel="stylesheet" href="/dashboard/css/dashboard.css">
+</head>
+<body>
+    <div id="authPrompt" class="auth-prompt">
+        <div class="auth-box">
+            <h2>🔐 Admin Authentication</h2>
+            <p style="opacity: 0.8; margin-bottom: 20px; font-size: 14px;">
+                Enter your admin key to access the dashboard
+            </p>
+            <input type="password" id="adminKeyInput" placeholder="Admin Key" autocomplete="off">
+            <div id="authError" class="error-msg hidden"></div>
+            <button onclick="window.dashboardAPI.authenticate()">Access Dashboard</button>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden">
+        <div class="header">
+            <h1>📊 LLM Middleware Dashboard</h1>
+            <p>Realtime monitoring and usage analytics</p>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span class="status-message" id="statusMessage">Authenticated ✓</span>
+            </div>
+        </div>
+
+        <!-- Time Filter -->
+        <div class="time-filter">
+            <span class="time-filter-label">Time Range:</span>
+            <div class="time-quick-btns">
+                <button class="time-btn active" onclick="window.dashboardAPI.setTimeRange(event, 60)">Last 1h</button>
+                <button class="time-btn" onclick="window.dashboardAPI.setTimeRange(event, 360)">Last 6h</button>
+                <button class="time-btn" onclick="window.dashboardAPI.setTimeRange(event, 1440)">Last 24h</button>
+                <button class="time-btn" onclick="window.dashboardAPI.setTimeRange(event, 10080)">Last 7d</button>
+                <button class="time-btn" onclick="window.dashboardAPI.setTimeRange(event, 43200)">Last 30d</button>
+            </div>
+            <div class="time-custom">
+                <span style="font-size: 13px; color: #94a3b8;">or</span>
+                <button type="button" id="startDateBtn" onclick="document.getElementById('customStart').showPicker()" style="padding: 10px 16px; min-width: 180px; background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">
+                    📅 Start Date
+                </button>
+                <input type="datetime-local" id="customStart" onchange="updateDateButton('startDateBtn', this.value)" style="position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;" />
+                <span style="font-size: 13px; color: #94a3b8;">to</span>
+                <button type="button" id="endDateBtn" onclick="document.getElementById('customEnd').showPicker()" style="padding: 10px 16px; min-width: 180px; background: #334155; border: 1px solid #475569; color: #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">
+                    📅 End Date
+                </button>
+                <input type="datetime-local" id="customEnd" onchange="updateDateButton('endDateBtn', this.value)" style="position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;" />
+                <button onclick="window.dashboardAPI.applyCustomRange()" style="padding: 10px 16px; background: #10b981; border: none; color: white; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">Apply</button>
+            </div>
+            <script>
+                function updateDateButton(btnId, value) {
+                    if (!value) return;
+                    const btn = document.getElementById(btnId);
+                    const date = new Date(value);
+                    const formatted = date.toLocaleString('en-GB', { 
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                    btn.textContent = '📅 ' + formatted;
+                }
+            </script>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <button class="tab active" onclick="window.dashboardAPI.switchTab(event, 'usage')">📈 Usage</button>
+            <button class="tab" onclick="window.dashboardAPI.switchTab(event, 'access')">🌐 Access</button>
+            <button class="tab" onclick="window.dashboardAPI.switchTab(event, 'users')">👥 Users</button>
+            <button class="tab" onclick="window.dashboardAPI.switchTab(event, 'logs')">📋 Logs</button>
+        </div>
+
+        <!-- Usage Tab -->
+        <div id="usageTab" class="tab-content active">
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-label">LLM Calls</div>
+                    <div class="metric-value" id="metricLLMCalls">-</div>
+                    <div class="metric-detail">
+                        Chat: <span id="metricChat">-</span> | 
+                        Image: <span id="metricImage">-</span> | 
+                        Audio: <span id="metricAudio">-</span>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">💰 Billable Calls</div>
+                    <div class="metric-value" id="metricBillableCalls">-</div>
+                    <div class="metric-detail">Requests with actual usage tracked</div>
+                </div>
+                <div class="metric-card usage-missing">
+                    <div class="metric-label">⚠️ Usage Missing</div>
+                    <div class="metric-value" id="metricUsageMissing">-</div>
+                    <div class="metric-detail">Completed but no tokens/cost (BUG)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Pending</div>
+                    <div class="metric-value" id="metricPending">-</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Error Rate</div>
+                    <div class="metric-value" id="metricErrorRate">-</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">P95 Latency</div>
+                    <div class="metric-value" id="metricLatency">-</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Total Tokens</div>
+                    <div class="metric-value" id="metricTokens">-</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Total Cost</div>
+                    <div class="metric-value" id="metricCost">-</div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="chart-grid">
+                <div class="chart-container">
+                    <div class="chart-title">💰 Cost Over Time</div>
+                    <canvas id="costChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">🔤 Tokens Over Time</div>
+                    <canvas id="tokensChart"></canvas>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">🏆 Top Users by Cost</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Cost (USD)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topUsersTable">
+                        <tr><td colspan="2" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <div class="section-title">🤖 Top Models by Cost</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Model</th>
+                            <th>Cost (USD)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topModelsTable">
+                        <tr><td colspan="2" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📡 Recent Events (Last 50)</div>
+                <div class="log-filters">
+                    <label for="auditUserFilter">User</label>
+                    <select id="auditUserFilter">
+                        <option value="">All users</option>
+                    </select>
+
+                    <label for="auditModelFilter">Model</label>
+                    <select id="auditModelFilter">
+                        <option value="">All models</option>
+                    </select>
+                </div>
+                <div id="events">
+                    <div class="loading">Connecting to event stream...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Access Tab -->
+        <div id="accessTab" class="tab-content">
+            <div class="section">
+                <div class="section-title">🌐 HTTP Access Summary</div>
+                <div class="metrics" style="margin-bottom: 20px;">
+                    <div class="metric-card">
+                        <div class="metric-label">Total Requests</div>
+                        <div class="metric-value" id="accessTotal">-</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Error Rate</div>
+                        <div class="metric-value" id="accessErrorRate">-</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Avg Latency</div>
+                        <div class="metric-value" id="accessLatency">-</div>
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Path</th>
+                            <th>Requests</th>
+                            <th>Errors</th>
+                            <th>Error %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="accessPathsTable">
+                        <tr><td colspan="4" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📡 Access Events Stream</div>
+                <div id="accessEvents">
+                    <div class="loading">Connecting...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users Tab -->
+        <div id="usersTab" class="tab-content">
+            <div class="section">
+                <div class="section-title">👥 User Management</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Cost Used</th>
+                            <th>Limit</th>
+                            <th>Models</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable">
+                        <tr><td colspan="6" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Logs Tab -->
+        <div id="logsTab" class="tab-content">
+            <div class="section">
+                <div class="section-title">🔍 Audit Log Query</div>
+                
+                <!-- Filters -->
+                <div class="log-filters" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; padding: 15px; background: #1e293b; border-radius: 8px;">
+                    <div>
+                        <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">User ID</label>
+                        <select id="filterUserId" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0;">
+                            <option value="">All Users</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">Model</label>
+                        <select id="filterModel" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0;">
+                            <option value="">All Models</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">Status</label>
+                        <select id="filterStatus" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0;">
+                            <option value="">All Status</option>
+                            <option value="ok">OK / Success</option>
+                            <option value="reconciled">Reconciled</option>
+                            <option value="error">Error</option>
+                            <option value="pending">Pending</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">Sort By</label>
+                        <select id="sortBy" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0;">
+                            <option value="timestamp">Timestamp</option>
+                            <option value="cost">Cost</option>
+                            <option value="tokens">Tokens</option>
+                            <option value="duration">Duration</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">Order</label>
+                        <select id="sortOrder" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #e2e8f0;">
+                            <option value="desc">Newest First</option>
+                            <option value="asc">Oldest First</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: flex-end; gap: 10px;">
+                        <button onclick="window.dashboardAPI.applyLogFilters()" style="flex: 1; padding: 8px; background: #10b981; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: 600;">Apply</button>
+                        <button onclick="window.dashboardAPI.resetLogFilters()" style="flex: 1; padding: 8px; background: #334155; border: none; border-radius: 4px; color: white; cursor: pointer;">Reset</button>
+                        <button onclick="window.dashboardAPI.exportLogsToExcel()" style="flex: 1; padding: 8px; background: #3b82f6; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: 600;">📥 Export</button>
+                    </div>
+                </div>
+                
+                <!-- Stats -->
+                <div style="margin-bottom: 15px; font-size: 14px; color: #94a3b8;">
+                    Total: <span id="logsTotalCount">-</span> | 
+                    Showing: <span id="logsShowing">-</span>
+                </div>
+                
+                <!-- Results Table -->
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User ID</th>
+                            <th>Model</th>
+                            <th>Status</th>
+                            <th>Cost (USD)</th>
+                            <th>Tokens</th>
+                            <th>Duration (ms)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsResults">
+                        <tr><td colspan="7" class="loading">Click "Apply" to load logs</td></tr>
+                    </tbody>
+                </table>
+                
+                <!-- Load More -->
+                <div style="text-align: center; margin-top: 20px;">
+                    <button id="loadMoreBtn" onclick="window.dashboardAPI.loadMoreLogs()" style="display: none; padding: 10px 20px; background: #3b82f6; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: 600;">Load More</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="/dashboard/vendor/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <!-- Pre-initialize window.dashboardAPI synchronously BEFORE modules load -->
+    <script>
+        // Prevent "undefined" errors by creating placeholder functions immediately
+        window.dashboardAPI = {
+            authenticate: () => console.warn('Dashboard still loading...'),
+            setTimeRange: () => console.warn('Dashboard still loading...'),
+            applyCustomRange: () => console.warn('Dashboard still loading...'),
+            switchTab: () => console.warn('Dashboard still loading...'),
+            applyLogFilters: () => console.warn('Dashboard still loading...'),
+            resetLogFilters: () => console.warn('Dashboard still loading...'),
+            loadMoreLogs: () => console.warn('Dashboard still loading...'),
+            exportLogsToExcel: () => console.warn('Dashboard still loading...')
+        };
+    </script>
+    
+    <!-- Dashboard modules -->
+    <script type="module">
+        // Use dynamic import with cache buster
+        const v = Date.now();
+        const { initAuth } = await import(`/dashboard/js/auth.js?v=${v}`);
+        const { initAPI } = await import(`/dashboard/js/main.js?v=${v}`);
+        
+        // Initialize API bridge first, then auth
+        await initAPI();
+        initAuth();
+    </script>
+</body>
+</html>

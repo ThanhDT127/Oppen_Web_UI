@@ -1,0 +1,46 @@
+[
+  {
+    "user_id": "admin",
+    "subkey": "YOUR_SUBKEY_ADMIN",
+    "subkey_hash": "CHANGE_THIS_IN_PRODUCTION",
+    "active": true,
+    "allowed_models": ["*"],
+    "used_tokens": 0,
+    "used_cost_usd": 0.0,
+    "quota": {
+      "period": "monthly",
+      "timezone": "Asia/Bangkok",
+      "limit_tokens": 0,
+      "limit_cost_usd": 0,
+      "limit_image_requests": 0,
+      "period_start": 1704067200000,
+      "used_tokens": 0,
+      "used_cost_usd": 0.0,
+      "used_image_requests": 0
+    }
+  },
+  {
+    "user_id": "user1",
+    "subkey": "YOUR_SUBKEY_USER1",
+    "subkey_hash": "CHANGE_THIS_IN_PRODUCTION",
+    "active": true,
+    "allowed_models": [
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-image",
+      "gpt-4o-mini"
+    ],
+    "used_tokens": 0,
+    "used_cost_usd": 0.0,
+    "quota": {
+      "period": "weekly",
+      "timezone": "Asia/Bangkok",
+      "limit_tokens": 200000,
+      "limit_cost_usd": 10.0,
+      "limit_image_requests": 50,
+      "period_start": 1704067200000,
+      "used_tokens": 0,
+      "used_cost_usd": 0.0,
+      "used_image_requests": 0
+    }
+  }
+]

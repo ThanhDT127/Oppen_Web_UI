@@ -1,4 +1,5 @@
-litellm
+litellm[proxy]
+open-webui
 fastapi
 uvicorn
 httpx

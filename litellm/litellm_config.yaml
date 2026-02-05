@@ -1,7 +1,4 @@
 model_list:
-  # =========================
-  # OpenAI - Chat/Text
-  # =========================
   - model_name: gpt-5
     litellm_params:
       model: openai/gpt-5
@@ -42,17 +39,6 @@ model_list:
       model: openai/gpt-4.1-nano
       api_key: os.environ/OPENAI_API_KEY
 
-  # =========================
-  # OpenAI - Image Generation
-  # =========================
-  - model_name: gpt-image-1
-    litellm_params:
-      model: openai/gpt-image-1
-      api_key: os.environ/OPENAI_API_KEY
-
-  # =========================
-  # OpenAI - TTS / STT
-  # =========================
   - model_name: gpt-4o-mini-tts
     litellm_params:
       model: openai/gpt-4o-mini-tts
@@ -68,22 +54,6 @@ model_list:
       model: openai/gpt-4o-mini-transcribe
       api_key: os.environ/OPENAI_API_KEY
 
-  # =========================
-  # OpenAI - Video (availability depends on your account)
-  # =========================
-  - model_name: sora-2
-    litellm_params:
-      model: openai/sora-2
-      api_key: os.environ/OPENAI_API_KEY
-
-  - model_name: sora-2-pro
-    litellm_params:
-      model: openai/sora-2-pro
-      api_key: os.environ/OPENAI_API_KEY
-
-  # =========================
-  # Gemini - Chat/Text (keep the existing gemini/<model> pattern)
-  # =========================
   - model_name: gemini-2.5-pro
     litellm_params:
       model: gemini/gemini-2.5-pro
@@ -99,27 +69,15 @@ model_list:
       model: gemini/gemini-2.5-flash-lite
       api_key: os.environ/GEMINI_API_KEY
 
-  # =========================
-  # Gemini - Flash Image Preview
-  # =========================
-  - model_name: gemini-2.5-flash-image
+
+  # Image generation models
+  # Note: Gemini image generation requires Vertex AI Imagen API
+  # For now, only DALL-E 3 is supported
+  - model_name: gpt-draw-1
     litellm_params:
-      model: gemini/gemini-2.5-flash-image
-      api_key: os.environ/GEMINI_API_KEY
+      model: openai/dall-e-3
+      api_key: os.environ/OPENAI_API_KEY
 
-  # =========================
-  # Gemini - Audio / TTS previews (availability depends on your key)
-  # =========================
-  - model_name: gemini-2.5-flash-preview-tts
-    litellm_params:
-      model: gemini/gemini-2.5-flash-preview-tts
-      api_key: os.environ/GEMINI_API_KEY
-
-  # NOTE: We keep the list minimal; add native-audio preview only if you need it.
-
-  # =========================
-  # Legacy/compat models (kept for backwards compatibility)
-  # =========================
   - model_name: gemini-2.0-flash
     litellm_params:
       model: gemini/gemini-2.0-flash
@@ -149,5 +107,5 @@ general_settings:
   log_level: "info"
 
 logging:
-  file: "D:\\Works\\Open_Web_UI\\Oppen_Web_UI\\litellm\\litellm.log"
+  file: "litellm/litellm.log"
   level: INFO
