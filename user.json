@@ -1,0 +1,40 @@
+[
+  {
+    "user_id": "admin",
+    "subkey": "subkey_admin_123",
+    "active": true,
+    "allowed_models": [
+      "*"
+    ],
+    "used_tokens": 57693,
+    "used_cost_usd": 0.20136140000000005,
+    "quota": {
+      "period": "monthly",
+      "timezone": "Asia/Bangkok",
+      "limit_tokens": 0,
+      "limit_cost_usd": 0,
+      "period_start": 1764522000000,
+      "used_tokens": 57693,
+      "used_cost_usd": 0.20136140000000005
+    }
+  },
+  {
+    "user_id": "user1",
+    "subkey": "subkey_user1_abc",
+    "active": true,
+    "allowed_models": [
+      "*"
+    ],
+    "used_tokens": 0,
+    "used_cost_usd": 0.0,
+    "quota": {
+      "period": "weekly",
+      "timezone": "Asia/Bangkok",
+      "limit_tokens": 200000,
+      "limit_cost_usd": 10.0,
+      "period_start": 1765731600000,
+      "used_tokens": 0,
+      "used_cost_usd": 0.0
+    }
+  }
+]
