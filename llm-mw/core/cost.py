@@ -116,12 +116,12 @@ def calc_image_cost_from_body(model: str, body: Dict[str, Any], prices: Dict[str
     if not isinstance(size, str) or "x" not in size:
         size = "1024x1024"
 
-    quality = body.get("quality") or "medium"
+    quality = body.get("quality") or "standard"
     if not isinstance(quality, str):
-        quality = "medium"
-    quality = quality.lower().strip()
-    if quality not in ("low", "medium", "high"):
-        quality = "medium"
+        quality = "standard"
+    quality = str(quality).lower().strip()
+    if quality not in ("standard", "hd"):
+        quality = "standard"
 
     q_map = per_image.get(quality)
     if isinstance(q_map, dict):

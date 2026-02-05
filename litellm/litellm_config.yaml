@@ -70,12 +70,10 @@ model_list:
       api_key: os.environ/GEMINI_API_KEY
 
 
-  - model_name: gemini-2.5-flash-image
-    litellm_params:
-      model: gemini/gemini-2.5-flash-image
-      api_key: os.environ/GEMINI_API_KEY
-
-  - model_name: gpt-image-1
+  # Image generation models
+  # Note: Gemini image generation requires Vertex AI Imagen API
+  # For now, only DALL-E 3 is supported
+  - model_name: gpt-draw-1
     litellm_params:
       model: openai/dall-e-3
       api_key: os.environ/OPENAI_API_KEY

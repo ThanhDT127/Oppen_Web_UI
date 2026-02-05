@@ -32,18 +32,24 @@ async def list_models(request: Request):
         )
         if resp.status_code == 200:
             payload = resp.json() or {}
-            if not env_truthy("MW_EXPOSE_RESTRICTED_MODELS", default=False):
-                data = payload.get("data")
-                if isinstance(data, list):
-                    filtered = []
-                    for item in data:
-                        if not isinstance(item, dict):
-                            continue
-                        mid = item.get("id") or item.get("model") or item.get("name")
+            data = payload.get("data")
+            if isinstance(data, list):
+                filtered = []
+                for item in data:
+                    if not isinstance(item, dict):
+                        continue
+                    mid = item.get("id") or item.get("model") or item.get("name")
+                    
+                    # Filter restricted models
+                    if not env_truthy("MW_EXPOSE_RESTRICTED_MODELS", default=False):
                         if isinstance(mid, str) and mid in RESTRICTED_MODELS:
                             continue
-                        filtered.append(item)
-                    payload["data"] = filtered
+                    
+                    # Allow all models including image generation models
+                    # Users can chat directly with image models now
+                    
+                    filtered.append(item)
+                payload["data"] = filtered
             return payload
         return {"data": []}
     except Exception:
