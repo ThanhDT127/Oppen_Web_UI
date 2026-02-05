@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with PGVector extension
+  postgres:
+    image: pgvector/pgvector:0.8.0-pg16
+    container_name: openwebui-postgres
+    environment:
+      POSTGRES_USER: openwebui_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-YOUR_DB_PASSWORD}
+      POSTGRES_DB: openwebui
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_pgvector.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U openwebui_user -d openwebui" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - openwebui-network
+
+  # LiteLLM Proxy
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: openwebui-litellm
+    environment:
+      - LITELLM_MASTER_KEY=${LITELLM_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./litellm/litellm_config.yaml:/app/config.yaml:ro
+      - litellm_logs:/app/logs
+    command: [ "--config", "/app/config.yaml", "--port", "4000", "--detailed_debug" ]
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+    networks:
+      - openwebui-network
+
+  # Middleware (Auth & Quota)
+  middleware:
+    build:
+      context: ./llm-mw
+      dockerfile: Dockerfile
+    container_name: openwebui-middleware
+    environment:
+      - LITELLM_BASE=http://litellm:4000/v1
+      - LITELLM_KEY=${LITELLM_KEY}
+      - ADMIN_KEY=${ADMIN_KEY}
+    volumes:
+      - ./llm-mw/users.json:/app/users.json
+      - ./llm-mw/prices.json:/app/prices.json:ro
+      - ./logs:/app/../logs
+    ports:
+      - "5000:5000"
+    depends_on:
+      - litellm
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - openwebui-network
+
+  # Open WebUI Application
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: openwebui-app
+    environment:
+      # Database Configuration - PostgreSQL
+      - DATABASE_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:-YOUR_DB_PASSWORD}@postgres:5432/openwebui
+
+      # PGVector Configuration
+      - VECTOR_DB=pgvector
+      - PGVECTOR_DB_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:-YOUR_DB_PASSWORD}@postgres:5432/openwebui
+      - PGVECTOR_CREATE_EXTENSION=true
+      - PGVECTOR_INDEX_METHOD=hnsw
+
+      # Embeddings using Sentence Transformers (local)
+      - RAG_EMBEDDING_ENGINE=
+      - RAG_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+
+      # RAG Configuration
+      - ENABLE_RAG=true
+      - CHUNK_SIZE=1000
+      - CHUNK_OVERLAP=200
+      - RAG_TEXT_SPLITTER=character
+      - ENABLE_RAG_HYBRID_SEARCH=true
+      - RAG_FILE_MAX_SIZE=10
+      - RAG_FILE_MAX_COUNT=10
+
+      # LLM Connection via Middleware
+      - OPENAI_API_BASE_URL=http://middleware:5000/v1
+      - OPENAI_API_KEY=${SUBKEY_ADMIN}
+
+      # WebUI Settings
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
+      - ENABLE_SIGNUP=true
+      - PORT=8080
+    volumes:
+      - openwebui_data:/app/backend/data
+    ports:
+      - "3000:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      middleware:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - openwebui-network
+
+volumes:
+  postgres_data:
+    driver: local
+  openwebui_data:
+    driver: local
+  litellm_logs:
+    driver: local
+
+networks:
+  openwebui-network:
+    driver: bridge
