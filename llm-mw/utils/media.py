@@ -111,15 +111,37 @@ def public_media_url(request: Request, name: str) -> str:
     """
     Generate public URL for media file.
     
-    Args:
-        request: FastAPI request
-        name: Filename
-        
-    Returns:
-        Public URL
+    Detection order:
+    1. MW_PUBLIC_URL env var (recommended for production)
+    2. X-Forwarded-Host / X-Forwarded-Proto headers (reverse proxy)
+    3. Host header if not Docker-internal (e.g. 192.168.x.x:5000)
+    4. Fallback: http://localhost:5000
+    
+    NOTE: request.base_url returns Docker internal hostname (e.g. http://middleware:5000/)
+    which is NOT accessible from the browser. We must use the externally accessible URL.
     """
-    base = str(request.base_url).rstrip("/")
-    return f"{base}/v1/_mw/media/{name}"
+    # 1. Explicit env var (best option)
+    public_base = os.environ.get("MW_PUBLIC_URL", "").rstrip("/")
+    if public_base:
+        return f"{public_base}/v1/_mw/media/{name}"
+    
+    # 2. Reverse proxy headers
+    fwd_host = request.headers.get("x-forwarded-host")
+    fwd_proto = request.headers.get("x-forwarded-proto", "http")
+    if fwd_host:
+        return f"{fwd_proto}://{fwd_host}/v1/_mw/media/{name}"
+    
+    # 3. Host header (skip Docker-internal names like "middleware")
+    host = request.headers.get("host", "")
+    docker_internal_names = {"middleware", "litellm", "open-webui", "postgres"}
+    host_name = host.split(":")[0] if host else ""
+    if host and host_name not in docker_internal_names:
+        scheme = str(request.url.scheme) or "http"
+        return f"{scheme}://{host}/v1/_mw/media/{name}"
+    
+    # 4. Last resort fallback
+    port = request.url.port or 5000
+    return f"http://localhost:{port}/v1/_mw/media/{name}"
 
 
 def maybe_materialize_data_url(
