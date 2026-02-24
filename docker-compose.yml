@@ -71,7 +71,9 @@ services:
 
   # Open WebUI Application
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    build:
+      context: .
+      dockerfile: Dockerfile.openwebui
     container_name: openwebui-app
     environment:
       # Database Configuration - PostgreSQL
@@ -85,7 +87,7 @@ services:
 
       # Embeddings using Sentence Transformers (local)
       - RAG_EMBEDDING_ENGINE=
-      - RAG_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - RAG_EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 
       # RAG Configuration
       - ENABLE_RAG=true
@@ -93,7 +95,7 @@ services:
       - CHUNK_OVERLAP=200
       - RAG_TEXT_SPLITTER=character
       - ENABLE_RAG_HYBRID_SEARCH=true
-      - RAG_FILE_MAX_SIZE=10
+      - RAG_FILE_MAX_SIZE=50
       - RAG_FILE_MAX_COUNT=10
 
       # LLM Connection via Middleware
