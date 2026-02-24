@@ -28,12 +28,46 @@ def _is_image_generation_model(model: str) -> bool:
     # Check for renamed models that bypass OpenWebUI filter
     return any(pattern in model_lower for pattern in [
         "image", "dall-e", "dalle", "stable-diffusion", "midjourney", "imagen",
-        "-draw", "draw-"  # New: detect renamed models like gpt-draw-1, gemini-flash-draw
+        "-draw", "draw-",  # detect renamed models like gpt-draw-1
+        "img-"  # detect models like img-gemini-flash, img-gpt-dalle-3
     ])
 
 
+# --- Task prompt detection (Fix #3) ---
+_TASK_PATTERNS = [
+    "### Task:\nGenerate a concise",       # title generation
+    "### Task:\nGenerate 1-3 broad tags",  # tag generation
+    "### Task:\nGenerate follow-up",       # follow-up suggestions
+    "### Task:\nGenerate a query",         # search query generation
+]
+
+
+def _is_system_task_prompt(messages: list) -> str | None:
+    """
+    Detect Open WebUI internal task prompts (title/tags/follow-up generation).
+    These should NOT be sent to image models.
+    
+    Returns:
+        Task type string ('title', 'tags', 'follow_up', 'query') if detected, else None.
+    """
+    prompt = _extract_prompt_from_messages(messages)
+    if not prompt:
+        return None
+    for pattern in _TASK_PATTERNS:
+        if pattern in prompt:
+            if "title" in pattern.lower():
+                return "title"
+            elif "tags" in pattern.lower():
+                return "tags"
+            elif "follow-up" in pattern.lower():
+                return "follow_up"
+            else:
+                return "query"
+    return None
+
+
 def _extract_prompt_from_messages(messages: list) -> str:
-    """Extract text prompt from chat messages for image generation."""
+    """Extract text prompt from last user message (for logging/display)."""
     if not isinstance(messages, list):
         return ""
     
@@ -53,6 +87,162 @@ def _extract_prompt_from_messages(messages: list) -> str:
     return ""
 
 
+def _prepare_image_messages(messages: list) -> list:
+    """
+    Prepare full conversation messages for Gemini image generation.
+    Keeps conversation context so Gemini can understand references
+    like "ảnh đấy" or "vẽ lại ảnh này" in follow-up messages.
+    
+    Cleans up messages by:
+    - Keeping all user and assistant messages
+    - Stripping assistant markdown image references (Gemini doesn't need them)
+    - Preserving image_url content parts (for image editing)
+    """
+    if not isinstance(messages, list):
+        return []
+    
+    cleaned = []
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        
+        if role == "system":
+            # Keep system messages as-is
+            cleaned.append({"role": role, "content": content})
+        elif role == "user":
+            # Keep user messages fully (text + images)
+            cleaned.append({"role": role, "content": content})
+        elif role == "assistant":
+            # For assistant messages, extract meaningful text
+            # Remove markdown image links that Gemini can't use
+            if isinstance(content, str):
+                import re
+                # Remove ![...](...) markdown images
+                text = re.sub(r'!\[([^\]]*)\]\([^)]+\)', '', content)
+                text = text.replace("Here is the image you requested.", "").strip()
+                if text:
+                    cleaned.append({"role": role, "content": text})
+                else:
+                    # If only had image, add a short note
+                    cleaned.append({"role": role, "content": "[I generated an image based on your request]"})
+            else:
+                cleaned.append({"role": role, "content": content})
+    
+    return cleaned if cleaned else []
+
+
+def _build_contextual_prompt(messages: list, last_prompt: str) -> str:
+    """
+    Build a rich text prompt for GPT Image models from conversation history.
+    
+    GPT Image models only accept text prompts via /images/generations,
+    so we combine conversation context into a single descriptive prompt.
+    This helps the model understand references like "that image" or "modify it".
+    
+    Args:
+        messages: Full conversation messages from Open WebUI
+        last_prompt: The extracted last user message text
+    
+    Returns:
+        A contextual prompt string with conversation summary
+    """
+    if not isinstance(messages, list) or len(messages) <= 1:
+        return last_prompt
+    
+    context_parts = []
+    has_image = False
+    
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        
+        if role == "user":
+            # Check for image content
+            if isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict):
+                        if item.get("type") == "image_url":
+                            has_image = True
+                            context_parts.append("[User uploaded an image]")
+                        elif item.get("type") == "text":
+                            text = item.get("text", "").strip()
+                            if text:
+                                context_parts.append(f"User: {text}")
+            elif isinstance(content, str) and content.strip():
+                context_parts.append(f"User: {content.strip()}")
+        
+        elif role == "assistant":
+            if isinstance(content, str):
+                # Summarize assistant responses briefly
+                import re
+                text = re.sub(r'!\[[^\]]*\]\([^)]+\)', '[generated image]', content)
+                text = text.strip()
+                if text and len(text) < 200:
+                    context_parts.append(f"Assistant: {text}")
+                elif text:
+                    context_parts.append(f"Assistant: {text[:150]}...")
+    
+    # If only one message or no useful context, return original prompt
+    if len(context_parts) <= 1:
+        return last_prompt
+    
+    # Build contextual prompt
+    context_summary = "\n".join(context_parts)
+    
+    if has_image:
+        contextual = (
+            f"Context of our conversation:\n{context_summary}\n\n"
+            f"The user has uploaded an image in this conversation. "
+            f"Based on the conversation context above, fulfill this request:\n{last_prompt}"
+        )
+    else:
+        contextual = (
+            f"Context of our conversation:\n{context_summary}\n\n"
+            f"Based on the conversation context above, generate an image for:\n{last_prompt}"
+        )
+    
+    return contextual
+
+
+def _extract_images_from_messages(messages: list) -> list[str]:
+    """
+    Extract image URLs/base64 uploaded by the USER from conversation messages.
+    
+    Only scans USER messages (not assistant) to avoid including AI-generated images.
+    Returns a list of image URLs (data:image/...;base64,... or http URLs).
+    """
+    image_urls = []
+    if not isinstance(messages, list):
+        return image_urls
+    
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        # Only extract from user messages — skip assistant-generated images
+        if msg.get("role") != "user":
+            continue
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") == "image_url":
+                    img_url_obj = item.get("image_url", {})
+                    if isinstance(img_url_obj, dict):
+                        url = img_url_obj.get("url", "")
+                        if url and (url.startswith("data:image") or url.startswith("http")):
+                            image_urls.append(url)
+                    elif isinstance(img_url_obj, str):
+                        if img_url_obj.startswith("data:image") or img_url_obj.startswith("http"):
+                            image_urls.append(img_url_obj)
+    
+    return image_urls
+
+
 async def _handle_image_as_chat(request: Request, user: dict, model: str, body: dict):
     """
     Handle image generation models in chat format.
@@ -60,12 +250,52 @@ async def _handle_image_as_chat(request: Request, user: dict, model: str, body: 
     """
     rid = init_audit_state(request, user["user_id"], "/v1/chat/completions", model)
     
-    # Extract prompt from messages
+    # Extract messages and prompt
     messages = body.get("messages", [])
     prompt = _extract_prompt_from_messages(messages)
     
     if not prompt:
         raise HTTPException(400, "No prompt found in messages for image generation")
+    
+    # Fix #3: Detect and skip Open WebUI task prompts (title/tags generation)
+    task_type = _is_system_task_prompt(messages)
+    if task_type:
+        detail_log(
+            "chat.task_skipped",
+            request=request,
+            user_id=user.get("user_id"),
+            model=model,
+            task_type=task_type,
+            reason="Task prompt sent to image model, returning dummy response",
+        )
+        # Return appropriate dummy response based on task type
+        if task_type == "title":
+            dummy_content = '{"title": "🎨 Image Generation"}'
+        elif task_type == "tags":
+            dummy_content = '{"tags": ["Art", "Image Generation"]}'
+        elif task_type == "follow_up":
+            dummy_content = '{"follow_ups": ["Generate another image", "Modify the image"]}'
+        else:
+            dummy_content = '{"query": "image generation"}'
+        
+        chat_response = {
+            "id": f"chatcmpl-{rid}",
+            "object": "chat.completion",
+            "created": int(datetime.now(timezone.utc).timestamp()),
+            "model": model,
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": dummy_content}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        }
+        # Handle streaming for task prompts too
+        if body.get("stream", False):
+            async def _stream_task():
+                chunk = {"id": f"chatcmpl-{rid}", "object": "chat.completion.chunk", "created": int(datetime.now(timezone.utc).timestamp()), "model": model, "choices": [{"index": 0, "delta": {"role": "assistant", "content": dummy_content}, "finish_reason": None}]}
+                yield f"data: {json.dumps(chunk)}\n\n"
+                finish = {"id": f"chatcmpl-{rid}", "object": "chat.completion.chunk", "created": int(datetime.now(timezone.utc).timestamp()), "model": model, "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}
+                yield f"data: {json.dumps(finish)}\n\n"
+                yield "data: [DONE]\n\n"
+            return StreamingResponse(_stream_task(), media_type="text/event-stream")
+        return JSONResponse(status_code=200, content=chat_response)
     
     detail_log(
         "chat.image_model",
@@ -78,7 +308,10 @@ async def _handle_image_as_chat(request: Request, user: dict, model: str, body: 
     assert_model_allowed(user, model)
     maybe_reset_quota(user)
     
-    # Prepare image generation request
+    # Fix #1: Prepare full conversation messages for context
+    image_messages = _prepare_image_messages(messages)
+    
+    # Prepare image generation request (for non-Gemini fallback)
     image_body = {
         "model": model,
         "prompt": prompt,
@@ -95,32 +328,84 @@ async def _handle_image_as_chat(request: Request, user: dict, model: str, body: 
     }
     
     try:
-        resp = await client.post(
-            f"{LITELLM_BASE}/images/generations",
-            headers=headers,
-            json=image_body,
-            timeout=120
-        )
+        # Gemini models use chat/completions with full conversation context
+        if "gemini" in model.lower():
+            from api.images import _generate_image_via_chat
+            image_data = await _generate_image_via_chat(client, headers, image_messages, model)
+        else:
+            # GPT Image / DALL-E models
+            # Check if user uploaded images → use /images/edits for editing
+            uploaded_images = _extract_images_from_messages(messages)
+            contextual_prompt = _build_contextual_prompt(messages, prompt)
+            
+            from api.images import _IMAGE_MODEL_MAP
+            litellm_model = _IMAGE_MODEL_MAP.get(model, model)
+            
+
+
+            
+            if uploaded_images and "dalle" not in model.lower():
+                # User uploaded image(s) → use /images/edits endpoint
+                detail_log(
+                    "chat.image_edit",
+                    request=request,
+                    user_id=user.get("user_id"),
+                    model=model,
+                    num_images=len(uploaded_images),
+                    prompt=truncate_text(prompt, limit=200),
+                )
+                from api.images import _generate_via_gpt_image_edit
+                image_data = await _generate_via_gpt_image_edit(
+                    client, headers, uploaded_images, contextual_prompt,
+                    model, size=body.get("size", "1024x1024"),
+                )
+                # If edit failed to extract images, fall back to generations
+                if image_data is None:
+                    detail_log("chat.image_edit_fallback", request=request,
+                               reason="No valid images extracted, falling back to generations")
+                    image_body["prompt"] = contextual_prompt
+                    image_body["model"] = litellm_model
+                    resp = await client.post(
+                        f"{LITELLM_BASE}/images/generations",
+                        headers=headers, json=image_body, timeout=120
+                    )
+                    if resp.status_code >= 400:
+                        set_error_state(request, "provider", f"Image generation returned {resp.status_code}")
+                        try: raise HTTPException(resp.status_code, resp.json())
+                        except: raise HTTPException(resp.status_code, resp.text)
+                    image_data = resp.json()
+            else:
+                # No uploaded images → use /images/generations with contextual prompt
+                image_body["prompt"] = contextual_prompt
+                image_body["model"] = litellm_model
+                
+                resp = await client.post(
+                    f"{LITELLM_BASE}/images/generations",
+                    headers=headers,
+                    json=image_body,
+                    timeout=120
+                )
+                if resp.status_code >= 400:
+                    set_error_state(request, "provider", f"Image generation returned {resp.status_code}")
+                    try:
+                        error_data = resp.json()
+                        raise HTTPException(resp.status_code, error_data)
+                    except Exception:
+                        raise HTTPException(resp.status_code, resp.text)
+                image_data = resp.json()
+    
     except httpx.RequestError as e:
         set_error_state(request, "provider", f"Image generation failed: {e.__class__.__name__}")
         raise HTTPException(503, f"Image generation unavailable: {e.__class__.__name__}")
     
-    if resp.status_code >= 400:
-        set_error_state(request, "provider", f"Image generation returned {resp.status_code}")
-        try:
-            error_data = resp.json()
-            raise HTTPException(resp.status_code, error_data)
-        except Exception:
-            raise HTTPException(resp.status_code, resp.text)
-    
-    # Parse image response
-    image_data = resp.json()
+    # Parse image response and materialize base64 to HTTP URL
+    # CRITICAL: data:image/png;base64,... URLs are hundreds of KB and cause
+    # "Chunk too big" errors in Open WebUI streaming. Must convert to HTTP URLs.
     image_url = None
     if isinstance(image_data.get("data"), list) and len(image_data["data"]) > 0:
+        from utils.media import maybe_materialize_image_items
+        maybe_materialize_image_items(request, image_data["data"], fallback_mime="image/png")
         image_url = image_data["data"][0].get("url")
-    
-    if not image_url:
-        raise HTTPException(500, "No image URL in response")
     
     # Calculate cost and bump quota
     prices = load_prices()
@@ -132,6 +417,7 @@ async def _handle_image_as_chat(request: Request, user: dict, model: str, body: 
     set_counters(request, image_count=1)
     
     # Format as chat completion response
+    content_text = f"![Generated Image]({image_url})\n\nHere is the image you requested." if image_url else "Sorry, I could not generate the image. Please try again."
     chat_response = {
         "id": f"chatcmpl-{rid}",
         "object": "chat.completion",
@@ -141,7 +427,7 @@ async def _handle_image_as_chat(request: Request, user: dict, model: str, body: 
             "index": 0,
             "message": {
                 "role": "assistant",
-                "content": f"![Generated Image]({image_url})\n\nHere is the image you requested."
+                "content": content_text
             },
             "finish_reason": "stop"
         }],
@@ -170,7 +456,7 @@ async def _handle_image_as_chat(request: Request, user: dict, model: str, body: 
                     "index": 0,
                     "delta": {
                         "role": "assistant",
-                        "content": f"![Generated Image]({image_url})\n\nHere is the image you requested."
+                        "content": content_text
                     },
                     "finish_reason": None
                 }]
