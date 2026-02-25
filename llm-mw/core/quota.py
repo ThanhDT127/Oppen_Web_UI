@@ -49,6 +49,8 @@ def maybe_reset_quota(user: Dict[str, Any]):
         quota["used_tokens"] = 0
         quota["used_cost_usd"] = 0.0
         quota["used_image_requests"] = 0
+        # Reset alert tracking for the new period
+        user["alerts_sent"] = {}
         # DO NOT reset user["used_*"] - those are lifetime counters
 
 

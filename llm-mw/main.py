@@ -32,6 +32,7 @@ from api.user_admin import (
 )
 from api.dashboard_login import dashboard_login, dashboard_logout
 from api.auth_check import get_auth_check
+from api.quota_status import get_quota_status, get_alert_config, update_alert_config, test_alert_email
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -147,6 +148,12 @@ app.add_api_route("/v1/_mw/admin/users/{user_id}/rotate_key", rotate_user_key, m
 app.add_api_route("/v1/_mw/admin/users/{user_id}/disable", disable_user, methods=["POST"])
 app.add_api_route("/v1/_mw/admin/users/{user_id}/enable", enable_user, methods=["POST"])
 app.add_api_route("/v1/_mw/admin/audit", get_admin_audit, methods=["GET"])
+
+# Quota status & Alert endpoints
+app.add_api_route("/v1/_mw/quota-status", get_quota_status, methods=["GET"])
+app.add_api_route("/v1/_mw/admin/alerts/config", get_alert_config, methods=["GET"])
+app.add_api_route("/v1/_mw/admin/alerts/config", update_alert_config, methods=["PUT"])
+app.add_api_route("/v1/_mw/admin/alerts/test-email", test_alert_email, methods=["POST"])
 
 # Dashboard auth endpoints
 app.add_api_route("/v1/_mw/dashboard/login", dashboard_login, methods=["POST"])

@@ -1,0 +1,42 @@
+{
+    "smtp": {
+        "enabled": true,
+        "host": "smtp.gmail.com",
+        "port": 587,
+        "username": "admin@example.com",
+        "password_env": "SMTP_PASSWORD",
+        "from_email": "admin@example.com",
+        "use_tls": true
+    },
+    "admin_alerts": {
+        "emails": [
+            "admin@example.com"
+        ],
+        "api_budget": {
+            "enabled": true,
+            "monthly_budget_usd": 500.00,
+            "thresholds": [
+                50,
+                70,
+                90,
+                100
+            ]
+        },
+        "per_user_quota": {
+            "enabled": true,
+            "thresholds": [
+                50,
+                70,
+                90,
+                100
+            ]
+        }
+    },
+    "user_alerts": {
+        "enabled": true,
+        "thresholds": [
+            80,
+            95
+        ]
+    }
+}

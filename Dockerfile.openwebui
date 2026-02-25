@@ -1,0 +1,23 @@
+FROM ghcr.io/open-webui/open-webui:main
+
+USER root
+
+# 1. Cài đầy đủ font DejaVu (core = Regular+Bold, extra = Oblique+BoldOblique)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    fonts-dejavu-core \
+    fonts-dejavu-extra && \
+    rm -rf /var/lib/apt/lists/*
+
+# 2. Cài sẵn pip dependencies
+RUN pip install --no-cache-dir \
+    "fpdf2>=2.7" \
+    "openpyxl>=3.1" \
+    "python-docx>=1.1" \
+    "requests>=2.28"
+
+# 3. Đảm bảo cache/functions directory có đúng quyền
+RUN mkdir -p /app/backend/data/cache/functions && \
+    chown -R 1000:0 /app/backend/data/cache
+
+USER 1000

@@ -20,6 +20,15 @@ from utils.helpers import truncate_text, extract_text_from_messages, safe_header
 from utils.logging import detail_log, write_audit_line
 
 
+async def _safe_alert_check(user_id: str, cost_usd: float):
+    """Wrapper that silently catches all alert errors."""
+    try:
+        from core.alerting import check_and_send_alerts
+        await check_and_send_alerts(user_id, add_cost_usd=cost_usd)
+    except Exception as e:
+        logger.error("alert_check_error user=%s: %s", user_id, str(e))
+
+
 def _is_image_generation_model(model: str) -> bool:
     """Check if model is an image generation model."""
     if not isinstance(model, str):
@@ -266,6 +275,11 @@ async def _finalize_streaming(request: Request, user: dict, model: str, request_
                         quota["used_cost_usd"] = quota.get("used_cost_usd", 0.0) + cost_usd
                         break
                 save_users(users)
+            
+            # Alert check (after quota bump, streaming already sent)
+            asyncio.create_task(
+                _safe_alert_check(user["user_id"], cost_usd)
+            )
         
         # Write reconciled audit line (only if we have actual usage)
         write_audit_line({
@@ -613,6 +627,11 @@ async def _handle_non_streaming(request: Request, user: dict, model: str, body: 
         raise HTTPException(403, f"Cost quota exceeded for {user['user_id']} (${used_cost + cost_usd:.2f}/${limit_cost:.2f})")
 
     enforce_and_bump_quota(user["user_id"], add_tokens=total_tokens, add_cost_usd=cost_usd)
+
+    # Alert check (async, non-blocking)
+    asyncio.create_task(
+        _safe_alert_check(user["user_id"], cost_usd)
+    )
 
     data["_mw_user"] = user["user_id"]
     data["_mw_request_id"] = request_id
