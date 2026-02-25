@@ -71,7 +71,9 @@ services:
 
   # Open WebUI Application
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    build:
+      context: .
+      dockerfile: Dockerfile.openwebui
     container_name: openwebui-app
     environment:
       # Database Configuration - PostgreSQL
