@@ -12,7 +12,7 @@ llm-mw/.env
 llm-mw/users.json
 llm-mw/users.local.json
 
-# Runtime dataa / data
+# Runtime data
 openwebui_data/
 *.db
 *.db-*
