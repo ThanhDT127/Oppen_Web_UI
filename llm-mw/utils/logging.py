@@ -60,6 +60,14 @@ def detail_log(
             payload[k] = redact(v)
 
         detail_logger.info(json.dumps(payload, ensure_ascii=False))
+
+        # Dual-write to DB (best-effort, non-blocking)
+        try:
+            from core.db import insert_request_log, _pool
+            if _pool is not None:
+                insert_request_log(payload)
+        except Exception:
+            pass
     except Exception:
         # Never break API behavior due to logging failures.
         return
@@ -154,6 +162,14 @@ def write_audit_line(data: dict):
     """
     try:
         audit_logger.info(json.dumps(data, ensure_ascii=False))
+
+        # Dual-write to DB (best-effort)
+        try:
+            from core.db import insert_audit_log, _pool
+            if _pool is not None:
+                insert_audit_log(data)
+        except Exception:
+            pass
     except Exception:
         # Never break application due to logging failure
         pass

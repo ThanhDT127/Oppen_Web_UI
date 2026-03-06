@@ -159,6 +159,27 @@ POST /v1/_mw/admin/users/{user_id}/rotate_key
 
 ---
 
+### Delete User
+
+```bash
+DELETE /v1/_mw/admin/users/{user_id}
+```
+
+**Response:**
+```json
+{
+  "message": "User alice deleted",
+  "user_id": "alice"
+}
+```
+
+**⚠️ IMPORTANT:**
+- Deletion is permanent — removes from both DB and JSON backup
+- Self-deletion is prevented (admin cannot delete themselves)
+- Requires double confirmation in Dashboard UI
+
+---
+
 ### Disable User
 
 ```bash
@@ -190,6 +211,29 @@ POST /v1/_mw/admin/users/{user_id}/enable
   "user": {...}
 }
 ```
+
+---
+
+## Dashboard CRUD UI
+
+Full user management is available via the Admin Dashboard at `http://<server>:5000/dashboard` → **Users** tab.
+
+### Available Actions
+
+| Action | Button | Description |
+|--------|--------|-------------|
+| **Add User** | ➕ Add User | Create new user with generated subkey |
+| **Edit User** | ✏️ | Modify quota, models, role, period, active |
+| **Delete User** | 🗑️ | Remove user (double confirmation) |
+| **Rotate Key** | 🔑 | Invalidate old key, generate new one |
+| **Toggle Active** | 🔴/🟢 | Enable/disable user (403 when disabled) |
+
+### Subkey Display
+
+- After **Create** or **Rotate Key**, a popup shows the plaintext subkey
+- Admin must copy it immediately — it will **NOT** be shown again
+- Dashboard table shows only masked hash (`abc...xyz`)
+- Subkeys are hashed with HMAC-SHA256 using `MW_SECRET`
 
 ---
 

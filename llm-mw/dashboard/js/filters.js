@@ -16,15 +16,13 @@ export async function setTimeRange(e, minutes) {
     // Update active button
     document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
     e.target.classList.add('active');
-    
+
     // Update state and reload
     currentTimeRange = { minutes };
-    
+
     // Reload data
     const { loadSummary } = await import('./usage.js');
-    const { updateCharts } = await import('./charts.js');
     loadSummary();
-    updateCharts();
 }
 
 export async function applyCustomRange() {
@@ -32,14 +30,14 @@ export async function applyCustomRange() {
     const endInput = document.getElementById('customEnd');
     const start = startInput.value;
     const end = endInput.value;
-    
+
     if (!start || !end) {
         updateStatus('warning', 'Please select both start and end times');
         if (!start) startInput.focus();
         else endInput.focus();
         return;
     }
-    
+
     // Validate: start < end
     const startDate = new Date(start);
     const endDate = new Date(end);
@@ -47,21 +45,19 @@ export async function applyCustomRange() {
         updateStatus('error', 'Start time must be before end time');
         return;
     }
-    
+
     // Clear quick button selection
     document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
-    
+
     // Update state and reload
     // Replace 'Z' with '+00:00' for backend fromisoformat compatibility
     currentTimeRange = {
         start: new Date(start).toISOString().replace('Z', '+00:00'),
         end: new Date(end).toISOString().replace('Z', '+00:00')
     };
-    
+
     const { loadSummary } = await import('./usage.js');
-    const { updateCharts } = await import('./charts.js');
     loadSummary();
-    updateCharts();
 }
 
 // Initialize audit filters

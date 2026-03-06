@@ -20,8 +20,8 @@ class Filter:
 
     class Valves(BaseModel):
         middleware_url: str = Field(
-            default="http://host.docker.internal:5000",
-            description="URL của Middleware server (mặc định cho Docker)"
+            default="http://middleware:5000",
+            description="URL của Middleware server (Docker service name)"
         )
         enabled: bool = Field(
             default=True,
@@ -55,24 +55,37 @@ class Filter:
 
         try:
             # Lấy user_id từ Open WebUI user info
-            user_id = __user__.get("id", "") or __user__.get("email", "")
-            if not user_id:
+            # Thử nhiều field: name (thường match middleware user_id), email, id (UUID)
+            user_name = __user__.get("name", "")
+            user_email = __user__.get("email", "")
+            user_id_uuid = __user__.get("id", "")
+            
+            # Thử từng identifier cho đến khi tìm thấy user trong middleware
+            result_data = None
+            for candidate_id in [user_name, user_email, user_id_uuid]:
+                if not candidate_id:
+                    continue
+                try:
+                    resp = requests.get(
+                        f"{self.valves.middleware_url}/v1/_mw/quota-status",
+                        params={"user_id": candidate_id},
+                        timeout=2
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        if data.get("found"):
+                            result_data = data
+                            break
+                except Exception:
+                    continue
+            
+            if not result_data:
                 return body
 
-            # Gọi Middleware API kiểm tra quota (timeout ngắn, không block)
-            resp = requests.get(
-                f"{self.valves.middleware_url}/v1/_mw/quota-status",
-                params={"user_id": user_id},
-                timeout=2
-            )
+            data = result_data
 
-            if resp.status_code != 200:
-                return body
-
-            data = resp.json()
-
-            # Bỏ qua nếu user không giới hạn hoặc không tìm thấy
-            if not data.get("found") or data.get("unlimited"):
+            # Bỏ qua nếu user không giới hạn
+            if data.get("unlimited"):
                 return body
 
             percent = data.get("percent_used", 0)

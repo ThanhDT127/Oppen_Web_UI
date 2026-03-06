@@ -33,9 +33,13 @@ else:
 DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-USERS_FILE = os.path.join(DATA_DIR, "users.json")
-PRICES_FILE = os.path.join(DATA_DIR, "prices.json")
-PENDING_CSV = os.path.join(DATA_DIR, "pending.csv")
+# Backup directory for JSON/CSV files (DB is primary, files are backup)
+BACKUP_DATA_DIR = os.path.join(DATA_DIR, "backup")
+os.makedirs(BACKUP_DATA_DIR, exist_ok=True)
+
+USERS_FILE = os.path.join(BACKUP_DATA_DIR, "users.json")
+PRICES_FILE = os.path.join(BACKUP_DATA_DIR, "prices.json")
+PENDING_CSV = os.path.join(BACKUP_DATA_DIR, "pending.csv")
 
 # ============================================================================
 # LOG FILES (in ../logs/ directory)
@@ -44,9 +48,13 @@ PENDING_CSV = os.path.join(DATA_DIR, "pending.csv")
 LOG_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "logs"))
 os.makedirs(LOG_DIR, exist_ok=True)
 
+# Backup directory for log files (DB is primary, files are backup)
+BACKUP_LOG_DIR = os.path.join(LOG_DIR, "backup")
+os.makedirs(BACKUP_LOG_DIR, exist_ok=True)
+
 MW_LOG_FILE = os.path.join(LOG_DIR, "middleware.log")
-MW_DETAIL_LOG_FILE = os.path.join(LOG_DIR, "middleware.requests.log")
-AUDIT_LOG_FILE = os.path.join(LOG_DIR, "audit.jsonl")
+MW_DETAIL_LOG_FILE = os.path.join(BACKUP_LOG_DIR, "middleware.requests.log")
+AUDIT_LOG_FILE = os.path.join(BACKUP_LOG_DIR, "audit.jsonl")
 LITELLM_LOG_FILE = os.path.abspath(os.path.join(BASE_DIR, "..", "litellm", "litellm.log"))
 
 # Media storage (in logs/mw_media/)
@@ -62,6 +70,7 @@ LITELLM_KEY = os.getenv("LITELLM_KEY", "").strip()
 ADMIN_KEY = os.getenv("ADMIN_KEY", "").strip()
 JWT_SECRET = os.getenv("JWT_SECRET", "default-jwt-secret-CHANGE-IN-PRODUCTION").strip()
 MW_SECRET = os.getenv("MW_SECRET", "default-secret-CHANGE-IN-PRODUCTION").strip()
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://openwebui_user:changeme123@localhost:5432/middleware").strip()
 
 # ============================================================================
 # LOGGING SETUP
@@ -98,6 +107,17 @@ if MW_SECRET == "default-secret-CHANGE-IN-PRODUCTION":
     logger.warning("⚠️  MW_SECRET is using default value - CHANGE IN PRODUCTION!")
 if not ADMIN_KEY:
     logger.warning("⚠️  ADMIN_KEY is empty - Admin endpoints will be inaccessible!")
+
+# ============================================================================
+# DATABASE INITIALIZATION
+# ============================================================================
+
+try:
+    from core.db import init_pool
+    init_pool(DATABASE_URL)
+except Exception as _db_err:
+    logger.error("Failed to initialize database pool: %s", str(_db_err))
+    logger.warning("Middleware will run in FILE-ONLY mode (no PostgreSQL)")
 
 # ============================================================================
 # CONSTANTS

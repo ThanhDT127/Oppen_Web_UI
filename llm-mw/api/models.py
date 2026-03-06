@@ -34,6 +34,10 @@ async def list_models(request: Request):
             payload = resp.json() or {}
             data = payload.get("data")
             if isinstance(data, list):
+                # Get user's allowed models
+                allowed_models = user.get("allowed_models", ["*"])
+                allow_all = allowed_models == ["*"]
+                
                 filtered = []
                 for item in data:
                     if not isinstance(item, dict):
@@ -45,8 +49,10 @@ async def list_models(request: Request):
                         if isinstance(mid, str) and mid in RESTRICTED_MODELS:
                             continue
                     
-                    # Allow all models including image generation models
-                    # Users can chat directly with image models now
+                    # Filter by user's allowed_models
+                    if not allow_all and isinstance(mid, str):
+                        if mid not in allowed_models:
+                            continue
                     
                     filtered.append(item)
                 payload["data"] = filtered

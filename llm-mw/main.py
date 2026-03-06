@@ -28,7 +28,8 @@ from api.access_logs import get_access_summary, stream_access
 from api.audit_query import parse_audit_filters
 from api.user_admin import (
     list_users, create_user, update_user, 
-    rotate_user_key, disable_user, enable_user, get_admin_audit
+    rotate_user_key, disable_user, enable_user, get_admin_audit,
+    delete_user_endpoint
 )
 from api.dashboard_login import dashboard_login, dashboard_logout
 from api.auth_check import get_auth_check
@@ -144,6 +145,7 @@ app.add_api_route("/v1/_mw/audit/query", parse_audit_filters, methods=["GET"])
 app.add_api_route("/v1/_mw/admin/users", list_users, methods=["GET"])
 app.add_api_route("/v1/_mw/admin/users", create_user, methods=["POST"])
 app.add_api_route("/v1/_mw/admin/users/{user_id}", update_user, methods=["PATCH"])
+app.add_api_route("/v1/_mw/admin/users/{user_id}", delete_user_endpoint, methods=["DELETE"])
 app.add_api_route("/v1/_mw/admin/users/{user_id}/rotate_key", rotate_user_key, methods=["POST"])
 app.add_api_route("/v1/_mw/admin/users/{user_id}/disable", disable_user, methods=["POST"])
 app.add_api_route("/v1/_mw/admin/users/{user_id}/enable", enable_user, methods=["POST"])

@@ -1,48 +1,75 @@
 """
 Cost calculation and request tracking utilities.
+Data stored in PostgreSQL (mw_prices, mw_pending), with JSON/CSV file fallback.
 """
 
 import os
 import csv
+import json
 import time
 from typing import Dict, Any
 
 from config import PRICES_FILE, PENDING_CSV
 
 
-def load_prices() -> Dict[str, Any]:
-    """
-    Load pricing data from prices.json file.
-    
-    Returns:
-        Dictionary of model prices
-    """
+def _db_available() -> bool:
+    """Check if database pool is initialized."""
+    try:
+        from core.db import _pool
+        return _pool is not None
+    except Exception:
+        return False
+
+
+# ─── Prices ───────────────────────────────────────────────────
+
+def _load_prices_db() -> Dict[str, Any]:
+    """Load prices from mw_prices table, reconstructing the original dict format."""
+    from core.db import db_conn
+    with db_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT model_name, pricing FROM mw_prices")
+        rows = cur.fetchall()
+        cur.close()
+
+    prices = {}
+    for model_name, pricing in rows:
+        if model_name == "_schema":
+            prices["_schema"] = pricing
+        else:
+            prices[model_name] = pricing
+    return prices
+
+
+def _load_prices_file() -> Dict[str, Any]:
+    """Load pricing data from prices.json file."""
     if not os.path.exists(PRICES_FILE):
         return {}
-    import json
     with open(PRICES_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
+def load_prices() -> Dict[str, Any]:
+    """
+    Load pricing data. Uses DB if available, falls back to JSON file.
+    """
+    if _db_available():
+        try:
+            return _load_prices_db()
+        except Exception:
+            pass
+    return _load_prices_file()
+
+
+# ─── Cost calculation ─────────────────────────────────────────
 
 def calc_cost_usd(model: str, prompt_tokens: int, completion_tokens: int, prices: Dict[str, Any]) -> float:
     """
     Calculate cost in USD for token usage.
     Supports both legacy (per-1K tokens) and newer (per-1M tokens) pricing formats.
-    
-    Args:
-        model: Model name
-        prompt_tokens: Input token count
-        completion_tokens: Output token count
-        prices: Pricing dictionary from prices.json
-        
-    Returns:
-        Cost in USD
     """
     price = prices.get(model, {})
-    
-    # Support both legacy (per-1K tokens) and newer (per-1M tokens) formats.
-    # - Legacy: {"in": <usd_per_1k>, "out": <usd_per_1k>}
-    # - New: {"input_per_1m": <usd_per_1m>, "output_per_1m": <usd_per_1m>}
+
     if "input_per_1m" in price or "output_per_1m" in price:
         price_in_1m = float(price.get("input_per_1m", 0.0) or 0.0)
         price_out_1m = float(price.get("output_per_1m", 0.0) or 0.0)
@@ -54,19 +81,7 @@ def calc_cost_usd(model: str, prompt_tokens: int, completion_tokens: int, prices
 
 
 def calc_image_cost(model: str, n: int, size: str, quality: str, prices: Dict[str, Any]) -> float:
-    """
-    Calculate cost for image generation.
-    
-    Args:
-        model: Model name (e.g., "dall-e-3")
-        n: Number of images
-        size: Image size (e.g., "1024x1024")
-        quality: Image quality ("standard" or "hd")
-        prices: Pricing dictionary from prices.json
-        
-    Returns:
-        Cost in USD
-    """
+    """Calculate cost for image generation."""
     model_prices = prices.get(model, {})
     size_prices = model_prices.get(size, {})
     per_image = float(size_prices.get(quality, 0.0) or 0.0)
@@ -77,21 +92,10 @@ def calc_image_cost_from_body(model: str, body: Dict[str, Any], prices: Dict[str
     """
     Calculate image generation cost from request body.
     Supports both flat per-image pricing and quality/size-based pricing.
-    
-    Args:
-        model: Model name
-        body: Request body with n, size, quality
-        prices: Pricing dictionary from prices.json
-        
-    Returns:
-        Cost in USD
     """
     price = prices.get(model, {})
     per_image = price.get("per_image_usd")
-    
-    # Support both:
-    # - dict pricing (OpenAI: quality->size->usd or {"flat": usd})
-    # - numeric flat per-image pricing (Gemini)
+
     flat_per_image: float = 0.0
     if isinstance(per_image, (int, float)):
         try:
@@ -131,7 +135,6 @@ def calc_image_cost_from_body(model: str, body: Dict[str, Any], prices: Dict[str
             per = 0.0
         return max(0.0, per) * float(n_int)
 
-    # Some providers expose flat per-image pricing.
     try:
         per = float(per_image.get("flat", 0.0) or 0.0)
     except Exception:
@@ -139,14 +142,31 @@ def calc_image_cost_from_body(model: str, body: Dict[str, Any], prices: Dict[str
     return max(0.0, per) * float(n_int)
 
 
-def append_pending(request_id: str, user_id: str):
-    """
-    Append request to pending.csv for tracking incomplete requests.
-    
-    Args:
-        request_id: Unique request identifier
-        user_id: User identifier
-    """
+# ─── Pending requests ────────────────────────────────────────
+
+def _append_pending_db(request_id: str, user_id: str):
+    """Insert pending request into DB."""
+    from core.db import db_conn
+    with db_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO mw_pending (request_id, user_id, ts) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
+            (request_id, user_id, int(time.time()))
+        )
+        cur.close()
+
+
+def _remove_pending_db(request_id: str):
+    """Remove pending request from DB."""
+    from core.db import db_conn
+    with db_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM mw_pending WHERE request_id = %s", (request_id,))
+        cur.close()
+
+
+def _append_pending_file(request_id: str, user_id: str):
+    """Append request to pending.csv."""
     try:
         newfile = not os.path.exists(PENDING_CSV)
         with open(PENDING_CSV, "a", newline="", encoding="utf-8") as f:
@@ -158,13 +178,8 @@ def append_pending(request_id: str, user_id: str):
         pass
 
 
-def remove_pending(request_id: str):
-    """
-    Remove request from pending.csv after completion.
-    
-    Args:
-        request_id: Request identifier to remove
-    """
+def _remove_pending_file(request_id: str):
+    """Remove request from pending.csv."""
     if not os.path.exists(PENDING_CSV):
         return
     temp_path = PENDING_CSV + ".tmp"
@@ -178,3 +193,23 @@ def remove_pending(request_id: str):
                 if len(row) >= 1 and row[0] != request_id:
                     writer.writerow(row)
     os.replace(temp_path, PENDING_CSV)
+
+
+def append_pending(request_id: str, user_id: str):
+    """Append pending request. Uses DB + file backup."""
+    if _db_available():
+        try:
+            _append_pending_db(request_id, user_id)
+        except Exception:
+            pass
+    _append_pending_file(request_id, user_id)
+
+
+def remove_pending(request_id: str):
+    """Remove pending request. Uses DB + file backup."""
+    if _db_available():
+        try:
+            _remove_pending_db(request_id)
+        except Exception:
+            pass
+    _remove_pending_file(request_id)

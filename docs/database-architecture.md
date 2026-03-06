@@ -1,14 +1,18 @@
 # Database Architecture - Chi tiết kỹ thuật
 
 > **Database**: PostgreSQL 16 + PGVector 0.8.0  
-> **Cập nhật**: 2026-02-09  
+> **Cập nhật**: 2026-03-03  
 > **Docker Image**: `pgvector/pgvector:0.8.0-pg16`
 
 ---
 
 ## 1. Tổng quan
 
-Hệ thống sử dụng PostgreSQL 16 làm database chính, tích hợp PGVector extension cho vector storage (phục vụ RAG). Tất cả data (users, chats, knowledge, embeddings, settings) đều lưu trong cùng 1 database `openwebui`.
+Hệ thống sử dụng PostgreSQL 16 làm database chính, tích hợp PGVector extension cho vector storage (phục vụ RAG).
+
+**2 databases:**
+- `openwebui` — Lưu toàn bộ data của Open WebUI (users, chats, knowledge, embeddings, settings) — 32 tables
+- `middleware` — Lưu data của LLM Middleware (users, prices, audit logs, request logs) — 6 tables
 
 ### 1.1. Kết nối
 
@@ -28,7 +32,7 @@ Volume:           postgres_data (persistent)
 
 ---
 
-## 2. Database Schema - Toàn bộ Tables (32 tables)
+## 2. Database `openwebui` — Open WebUI Schema (32 tables)
 
 ### 2.1. Sơ đồ quan hệ tổng quát
 
@@ -375,6 +379,127 @@ Referenced by: channel_file
 
 ---
 
+## 3b. Database `middleware` — Middleware Schema (6 tables)
+
+Middleware sử dụng database riêng `middleware` trên cùng PostgreSQL instance.
+
+**Connection:** `postgresql://openwebui_user:<password>@postgres:5432/middleware`
+
+### `mw_users` — Middleware users (quota, subkeys)
+
+```sql
+Table "public.mw_users"
+    Column    |  Type  | Nullable
+--------------+--------+----------
+ user_id       | text   | NOT NULL  -- PRIMARY KEY
+ data          | jsonb  | NOT NULL  -- Full user JSON (subkey, quota, allowed_models, etc.)
+ updated_at    | timestamptz | DEFAULT now()
+```
+
+### `mw_prices` — Model pricing
+
+```sql
+Table "public.mw_prices"
+    Column    |  Type  | Nullable
+--------------+--------+----------
+ model         | text   | NOT NULL  -- PRIMARY KEY (model ID)
+ data          | jsonb  | NOT NULL  -- Price JSON (input/output per token)
+ updated_at    | timestamptz | DEFAULT now()
+```
+
+### `mw_config` — Configuration (alerts, system alerts)
+
+```sql
+Table "public.mw_config"
+    Column    |  Type  | Nullable
+--------------+--------+----------
+ key           | text   | NOT NULL  -- PRIMARY KEY ('alert_config', 'system_alerts')
+ value         | jsonb  | NOT NULL  -- Config JSON
+ updated_at    | timestamptz | DEFAULT now()
+```
+
+### `mw_pending` — In-flight request tracking
+
+```sql
+Table "public.mw_pending"
+    Column    |  Type  | Nullable
+--------------+--------+----------
+ rid           | text   | NOT NULL  -- PRIMARY KEY (request ID)
+ data          | jsonb  | NOT NULL  -- Request metadata
+ created_at    | timestamptz | DEFAULT now()
+```
+
+### `mw_audit_log` — Structured audit events ⭐
+
+```sql
+Table "public.mw_audit_log"
+      Column      |     Type        | Nullable
+------------------+-----------------+----------
+ id                | SERIAL          | NOT NULL  -- PRIMARY KEY (auto-increment)
+ ts                | timestamptz     |           -- Event timestamp
+ rid               | text            |           -- Request ID
+ user_id           | text            |           -- User who made the request
+ endpoint          | text            |           -- API endpoint
+ model             | text            |           -- Model used
+ purpose           | text            |           -- Request purpose
+ status            | text            |           -- ok, error, pending, reconciled
+ status_code       | integer         |           -- HTTP status code
+ latency_ms        | real            |           -- Response time
+ tokens_in         | integer         |           -- Input tokens
+ tokens_out        | integer         |           -- Output tokens
+ tokens_total      | integer         |           -- Total tokens
+ cost_usd          | numeric(12,8)   |           -- Cost in USD
+ image_count       | integer         |
+ tts_chars         | integer         |
+ stt_seconds       | real            |
+ video_count       | integer         |
+ error_type        | text            |
+ error_message     | text            |
+
+Indexes:
+  idx_mw_audit_ts: btree (ts)
+  idx_mw_audit_user: btree (user_id)
+  idx_mw_audit_rid: btree (rid)
+```
+
+Đây là table quan trọng nhất của middleware — lưu toàn bộ lịch sử sử dụng AI (chat, image, audio, video). Dashboard query trực tiếp table này.
+
+### `mw_request_log` — HTTP request logs
+
+```sql
+Table "public.mw_request_log"
+    Column    |     Type        | Nullable
+--------------+-----------------+----------
+ id            | SERIAL          | NOT NULL  -- PRIMARY KEY
+ ts            | timestamptz     |           -- Request timestamp
+ payload       | jsonb           |           -- Full request/response metadata
+
+Indexes:
+  idx_mw_reqlog_ts: btree (ts)
+```
+
+### Kiến trúc dual-write
+
+```
+Middleware Code
+    │
+    ├─── Write to PostgreSQL (primary)
+    │       mw_users, mw_prices, mw_config,
+    │       mw_audit_log, mw_request_log
+    │
+    └─── Write to Files (backup)
+            users.json, prices.json,
+            audit.jsonl, middleware.requests.log
+
+API Queries
+    │
+    ├─── Try PostgreSQL first
+    │
+    └─── Fallback to files if DB unavailable
+```
+
+---
+
 ## 4. Indexes (65 indexes)
 
 ### 4.1. Primary Keys & Unique Indexes
@@ -410,8 +535,9 @@ ix_chat_file_chat_id, ix_chat_file_file_id
 
 | Metric | Giá trị |
 |--------|---------|
-| Tổng tables | 32 |
-| Tổng indexes | 65 |
+| Tổng tables (openwebui DB) | 32 |
+| Tổng tables (middleware DB) | 6 |
+| Tổng indexes | 65+ |
 | DB Extensions | vector (pgvector 0.8.0) |
 | Document chunks | 1 chunk (collection: "knowledge-bases") |
 | document_chunk table size | ~80 KB |

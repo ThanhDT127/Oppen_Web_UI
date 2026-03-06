@@ -1,8 +1,8 @@
 # 📘 HƯỚNG DẪN SỬ DỤNG - OPEN WEBUI STACK
 
-> **Phiên bản:** 2.0 | **Cập nhật:** 05/02/2026
+> **Phiên bản:** 3.0 | **Cập nhật:** 06/03/2026
 
-Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware, bao gồm kiến trúc, RAG, tạo ảnh, và troubleshooting.
+Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware, bao gồm kiến trúc, RAG, tạo ảnh, quản lý user, và troubleshooting.
 
 ---
 
@@ -13,7 +13,9 @@ Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware,
 3. [Sử Dụng RAG](#3-sử-dụng-rag)
 4. [Tạo Ảnh (Image Generation)](#4-tạo-ảnh-image-generation)
 5. [Quản Lý Quota & Chi Phí](#5-quản-lý-quota--chi-phí)
-6. [Troubleshooting](#6-troubleshooting)
+6. [Quản Lý User & Subkey](#6-quản-lý-user--subkey)
+7. [Xuất File (Export Tool)](#7-xuất-file-export-tool)
+8. [Troubleshooting](#8-troubleshooting)
 
 ---
 
@@ -218,19 +220,97 @@ curl -X POST -H "X-Admin-Key: admin_key" \
 
 ---
 
-## 6. Troubleshooting
+## 6. Quản Lý User & Subkey
 
-### 6.1 Lỗi Thường Gặp
+### 6.1 Kiến Trúc — 2 Hệ Thống User
+
+| Hệ thống | Database | Vai trò |
+|----------|---------|--------|
+| **Open WebUI** | `openwebui` → bảng `user` | Đăng nhập web, phân quyền Admin/User |
+| **Middleware** | `middleware` → bảng `mw_users` | Xác thực API, quản lý quota, subkey |
+
+> ⚠️ Hai hệ thống **độc lập** — user_id trong middleware không liên kết với user_id trong Open WebUI.
+
+### 6.2 Quản Lý qua Dashboard (Giao Diện)
+
+Truy cập: `http://<server>:5000/dashboard` → Tab **Users**
+
+| Thao tác | Cách làm |
+|----------|---------|
+| **Tạo user** | Nhấn ➕ Add User → Điền form → Create → Copy subkey |
+| **Sửa user** | Nhấn ✏️ → Sửa quota/model/role → Save |
+| **Xóa user** | Nhấn 🗑️ → Confirm 2 lần |
+| **Rotate key** | Nhấn 🔑 → Confirm → Copy subkey mới |
+| **Enable/Disable** | Nhấn 🔴/🟢 toggle |
+
+### 6.3 Subkey — Bảo Mật
+
+- Subkey là **mã xác thực API** (dạng `sk_abc123...`)
+- Mã hóa **HMAC-SHA256** — không thể dịch ngược
+- Plaintext chỉ hiện **1 lần** khi tạo/rotate → phải copy ngay
+- Dashboard chỉ hiện hash rút gọn (`abc...xyz`)
+
+### 6.4 Quản Lý qua API
+
+```bash
+# Tạo user
+curl -X POST http://localhost:5000/v1/_mw/admin/users \
+  -H "X-Admin-Key: $ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "alice", "role": "user", "limit_cost_usd": 5.0}'
+
+# Sửa user
+curl -X PATCH http://localhost:5000/v1/_mw/admin/users/alice \
+  -H "X-Admin-Key: $ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"limit_cost_usd": 10.0}'
+
+# Xóa user
+curl -X DELETE http://localhost:5000/v1/_mw/admin/users/alice \
+  -H "X-Admin-Key: $ADMIN_KEY"
+
+# Rotate key
+curl -X POST http://localhost:5000/v1/_mw/admin/users/alice/rotate_key \
+  -H "X-Admin-Key: $ADMIN_KEY"
+```
+
+---
+
+## 7. Xuất File (Export Tool)
+
+### 7.1 Các Định Dạng
+
+| Công cụ | Mô Tả |
+|---------|--------|
+| **Xuất Excel** (.xlsx) | Trích xuất bảng biểu, auto-format số/ngày/tiền |
+| **Xuất PDF** | Xuất hội thoại, hỗ trợ tiếng Việt (font DejaVu) |
+| **Xuất Word** (.docx) | Xuất hội thoại dạng Word |
+
+### 7.2 Cách Sử Dụng
+
+1. Mở chat → gõ gì đó để bot trả lời
+2. Nhấn icon ⚡ (Action) bên dưới tin nhắn bot
+3. Chọn **Xuất File**
+4. Chọn format: 1=Excel, 2=PDF, 3=Word
+5. File tự tải xuống
+
+> 💡 Tool Excel tự nhận dạng: số, ngày tháng, %, tiền VNĐ/$/€ và format đúng.
+
+---
+
+## 8. Troubleshooting
+
+### 8.1 Lỗi Thường Gặp
 
 | Lỗi | Nguyên Nhân | Giải Pháp |
 |-----|-------------|-----------|
 | 401 Missing sub-key | Thiếu Authorization header | Thêm `Bearer <subkey>` |
-| 403 Invalid sub-key | Subkey sai | Kiểm tra users.json |
+| 403 Invalid sub-key | Subkey sai hoặc user bị disable | Kiểm tra DB hoặc rotate key |
 | 403 Model not allowed | Model bị chặn | Thêm vào allowed_models |
 | 403 Quota exceeded | Hết quota | Reset hoặc tăng limit |
 | 502 LiteLLM unavailable | LiteLLM chưa chạy | Kiểm tra container |
 
-### 6.2 Kiểm Tra Service
+### 8.2 Kiểm Tra Service
 
 ```bash
 # Health check
@@ -242,10 +322,10 @@ docker compose logs litellm --tail 50
 
 # Kiểm tra models
 curl http://localhost:5000/v1/models \
-  -H "Authorization: Bearer subkey_admin_123"
+  -H "Authorization: Bearer <subkey>"
 ```
 
-### 6.3 RAG Không Hoạt Động
+### 8.3 RAG Không Hoạt Động
 
 1. **Verify file đã index**: Workspace → Knowledge → Click KB
 2. **Check embedding model**: `docker compose logs open-webui | grep embedding`
@@ -279,11 +359,9 @@ docker compose down && docker compose up -d --build
 
 # Xem logs
 docker compose logs -f middleware
-
-# Test API
-curl http://localhost:5000/health
 ```
 
 ---
 
-*Tài liệu gộp từ: TAI_LIEU_TONG_QUAN_DU_AN.md, HUONG_DAN_SU_DUNG_RAG.md, IMAGE_GENERATION.md, IMAGE_GENERATION_FLOW_DETAILED.md, PROJECT_EXPLAINED_VI.md*
+*Tài liệu gộp từ: TAI_LIEU_TONG_QUAN_DU_AN.md, HUONG_DAN_SU_DUNG_RAG.md, IMAGE_GENERATION.md, HUONG_DAN_IMAGE_GENERATION.md, HUONG_DAN_TRIEN_KHAI_EXPORT.md, huong-dan-thao-tac-he-thong.md*
+
