@@ -1,5 +1,6 @@
 """
 Enhanced summary endpoint with time range, breakdown, and timeseries support.
+Primary: queries mw_audit_log DB table. Fallback: reads audit.jsonl file.
 """
 
 import os
@@ -13,6 +14,69 @@ from collections import defaultdict
 from config import AUDIT_LOG_FILE, LOG_DIR
 
 
+def _db_available() -> bool:
+    try:
+        from core.db import _pool
+        return _pool is not None
+    except Exception:
+        return False
+
+
+def _load_entries_from_db(cutoff, end_time) -> List[Dict[str, Any]]:
+    """Load audit entries from mw_audit_log table as dicts."""
+    from core.db import db_conn
+    entries = []
+    with db_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT ts, rid, user_id, endpoint, model, purpose, status,
+                   status_code, latency_ms, tokens_in, tokens_out, tokens_total,
+                   cost_usd, image_count, tts_chars, stt_seconds, video_count,
+                   error_type, error_message
+            FROM mw_audit_log WHERE ts >= %s AND ts <= %s
+            ORDER BY ts ASC
+        """, (cutoff, end_time))
+        for r in cur.fetchall():
+            entries.append({
+                "ts": r[0].isoformat() if r[0] else "",
+                "rid": r[1] or "", "user_id": r[2] or "unknown",
+                "endpoint": r[3] or "", "model": r[4] or "unknown",
+                "purpose": r[5], "status": r[6] or "ok",
+                "status_code": r[7], "latency_ms": r[8],
+                "tokens_in": r[9] or 0, "tokens_out": r[10] or 0,
+                "tokens_total": r[11] or 0, "cost_usd": float(r[12] or 0),
+                "image_count": r[13], "tts_chars": r[14],
+                "stt_seconds": r[15], "video_count": r[16],
+                "error_type": r[17], "error_message": r[18],
+            })
+        cur.close()
+    return entries
+
+
+def _load_entries_from_files(cutoff, end_time) -> List[Dict[str, Any]]:
+    """Load audit entries from audit.jsonl files."""
+    entries = []
+    for log_file in _get_audit_log_files():
+        if not os.path.exists(log_file):
+            continue
+        with open(log_file, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    entry = json.loads(line)
+                    ts_str = entry.get("ts", "")
+                    if not ts_str:
+                        continue
+                    entry_time = dt.datetime.fromisoformat(ts_str)
+                    if entry_time < cutoff or entry_time > end_time:
+                        continue
+                    entries.append(entry)
+                except Exception:
+                    continue
+    return entries
+
+
 def get_summary_v2(
     request: Request,
     minutes: Optional[int] = None,
@@ -21,22 +85,12 @@ def get_summary_v2(
     bucket: str = "auto"
 ):
     """
-    Enhanced admin endpoint: Aggregate usage statistics from audit.jsonl with time range support.
-    
-    Query parameters:
-    - minutes: Time window in minutes (legacy fallback)
-    - start: ISO datetime string (e.g., "2026-01-07T00:00:00+07:00")
-    - end: ISO datetime string
-    - bucket: "auto" | "minute" | "hour" | "day" (for timeseries)
-    
-    Returns:
-        Aggregated metrics with breakdown by user/model and timeseries data
+    Enhanced admin endpoint: Aggregate usage statistics with time range support.
+    Uses DB if available, falls back to audit.jsonl files.
     """
     from utils.auth_guard import require_admin_or_session
     require_admin_or_session(request)
-    
-    if not os.path.exists(AUDIT_LOG_FILE):
-        return {"error": "audit.jsonl not found", "data": []}
+
     
     # Determine time range
     now_utc = dt.datetime.now(tz=dt.timezone.utc)
@@ -126,94 +180,82 @@ def get_summary_v2(
     # Breakdown by LLM type
     llm_type_counts = {"chat": 0, "image": 0, "audio": 0, "video": 0}
     
-    # Read audit log (including rotated files)
-    log_files = _get_audit_log_files()
-    
-    # DEBUG: Counters
-    total_lines = 0
-    matched_lines = 0
+    # Load entries from DB or file
+    try:
+        if _db_available():
+            raw_entries = _load_entries_from_db(cutoff, end_time)
+            source = "database"
+        else:
+            raw_entries = _load_entries_from_files(cutoff, end_time)
+            source = "file"
+    except Exception:
+        raw_entries = _load_entries_from_files(cutoff, end_time)
+        source = "file"
     
     try:
-        for log_file in log_files:
-            if not os.path.exists(log_file):
+        for entry in raw_entries:
+            timestamp_str = entry.get("ts", "")
+            if not timestamp_str:
                 continue
-                
-            with open(log_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    if not line.strip():
-                        continue
-                    total_lines += 1
-                    try:
-                        entry = json.loads(line)
-                        timestamp_str = entry.get("ts", "")
-                        if not timestamp_str:
-                            continue
-                        
-                        # Parse timestamp
-                        entry_time = dt.datetime.fromisoformat(timestamp_str)
-                        
-                        # Filter by time range
-                        if entry_time < cutoff or entry_time > end_time:
-                            continue
-                        
-                        matched_lines += 1
-                        
-                        rid = entry.get("rid", "")
-                        if not rid:
-                            continue
-                        
-                        endpoint = entry.get("endpoint", "")
-                        status = entry.get("status", "ok")
-                        user_id = entry.get("user_id", "unknown")
-                        model = entry.get("model", "unknown")
-                        
-                        # Track last status per rid (control-grade)
-                        entry_ts = entry_time.timestamp()
-                        if rid not in rid_status or entry_ts > rid_status[rid][0]:
-                            rid_status[rid] = (entry_ts, status)
-                            rid_data[rid] = entry
-                        
-                        # Timeseries bucketing
-                        bucket_key = _get_bucket_key(entry_time, bucket_size)
-                        timeseries_data[bucket_key]["requests"].add(rid)
-                        
-                        # Only aggregate tokens/cost from final status (ok/reconciled)
-                        if status in ["ok", "reconciled"]:
-                            tokens = entry.get("tokens_total", 0)
-                            cost = entry.get("cost_usd", 0.0)
-                            latency = entry.get("latency_ms")
-                            
-                            timeseries_data[bucket_key]["tokens_total"] += tokens
-                            timeseries_data[bucket_key]["cost_total"] += cost
-                            
-                            # User breakdown
-                            user_data[user_id]["requests"].add(rid)
-                            user_data[user_id]["requests_ok"].add(rid)
-                            user_data[user_id]["tokens_total"] += tokens
-                            user_data[user_id]["cost_total"] += cost
-                            if latency:
-                                user_data[user_id]["latencies"].append(latency)
-                            
-                            # Model breakdown
-                            model_data[model]["requests"].add(rid)
-                            model_data[model]["requests_ok"].add(rid)
-                            model_data[model]["tokens_total"] += tokens
-                            model_data[model]["cost_total"] += cost
-                            if latency:
-                                model_data[model]["latencies"].append(latency)
-                        
-                        elif status == "error":
-                            timeseries_data[bucket_key]["errors"] += 1
-                            user_data[user_id]["requests"].add(rid)
-                            user_data[user_id]["errors"] += 1
-                            model_data[model]["requests"].add(rid)
-                            model_data[model]["errors"] += 1
-                        
-                    except json.JSONDecodeError:
-                        continue
-                    except Exception:
-                        continue
-        
+
+            # Parse timestamp
+            try:
+                entry_time = dt.datetime.fromisoformat(timestamp_str)
+            except Exception:
+                continue
+
+            rid = entry.get("rid", "")
+            if not rid:
+                continue
+
+            endpoint = entry.get("endpoint", "")
+            status = entry.get("status", "ok")
+            user_id = entry.get("user_id", "unknown")
+            model = entry.get("model", "unknown")
+
+            # Track last status per rid (control-grade)
+            entry_ts = entry_time.timestamp()
+            if rid not in rid_status or entry_ts > rid_status[rid][0]:
+                rid_status[rid] = (entry_ts, status)
+                rid_data[rid] = entry
+
+            # Timeseries bucketing
+            bucket_key = _get_bucket_key(entry_time, bucket_size)
+            timeseries_data[bucket_key]["requests"].add(rid)
+
+            # Only aggregate tokens/cost from final status (ok/reconciled)
+            if status in ["ok", "reconciled"]:
+                tokens = entry.get("tokens_total", 0)
+                cost = entry.get("cost_usd", 0.0)
+                latency = entry.get("latency_ms")
+
+                timeseries_data[bucket_key]["tokens_total"] += tokens
+                timeseries_data[bucket_key]["cost_total"] += cost
+
+                # User breakdown
+                user_data[user_id]["requests"].add(rid)
+                user_data[user_id]["requests_ok"].add(rid)
+                user_data[user_id]["tokens_total"] += tokens
+                user_data[user_id]["cost_total"] += cost
+                if latency:
+                    user_data[user_id]["latencies"].append(latency)
+
+                # Model breakdown
+                model_data[model]["requests"].add(rid)
+                model_data[model]["requests_ok"].add(rid)
+                model_data[model]["tokens_total"] += tokens
+                model_data[model]["cost_total"] += cost
+                if latency:
+                    model_data[model]["latencies"].append(latency)
+
+            elif status == "error":
+                timeseries_data[bucket_key]["errors"] += 1
+                user_data[user_id]["requests"].add(rid)
+                user_data[user_id]["errors"] += 1
+                model_data[model]["requests"].add(rid)
+                model_data[model]["errors"] += 1
+
+
         # Calculate totals from rid_status (control-grade: last status per rid)
         requests_total = len(rid_status)
         pending_open_count = sum(1 for _, (_, status) in rid_status.items() if status == "pending")
@@ -349,9 +391,7 @@ def get_summary_v2(
                 "errors": data["errors"]
             })
         
-        # DEBUG: Log processing summary
-        print(f"[SUMMARY_V2] Processed {total_lines} total lines, {matched_lines} matched time range")
-        print(f"[SUMMARY_V2] Final: {requests_total} requests, {requests_ok} ok, {error_count} errors")
+
 
         return {
             "time_range": {

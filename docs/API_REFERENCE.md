@@ -27,7 +27,12 @@ GET /health
 **Response:**
 ```json
 {
-  "status": "ok"
+  "ok": true,
+  "time": 1772446338,
+  "uptime_seconds": 233,
+  "litellm": "healthy",
+  "disk_free_gb": 53.35,
+  "active_users": 4
 }
 ```
 
@@ -295,16 +300,35 @@ Cookie: mw_dashboard_token=<jwt_token>
 **Response:**
 ```json
 {
-  "llm_calls_total": 1245,
-  "admin_ops_total": 23,
-  "pending_count": 5,
-  "breakdown": {
-    "chat_completions": 1200,
-    "audio_transcriptions": 30,
-    "image_generations": 15
-  }
+  "time_range": {
+    "start": "2026-03-02T01:20:17Z",
+    "end": "2026-03-03T01:20:17Z",
+    "bucket_size": "hour"
+  },
+  "totals": {
+    "requests_total": 45,
+    "requests_ok": 42,
+    "error_count": 3,
+    "error_rate_percent": 6.67,
+    "tokens_total": 15000,
+    "cost_total_usd": 0.025,
+    "p95_latency_ms": 1250.5,
+    "chat_calls": 40,
+    "image_calls": 2,
+    "audio_calls": 3
+  },
+  "breakdown_by_user": [...],
+  "breakdown_by_model": [...],
+  "timeseries": [...]
 }
 ```
+
+**Query Parameters:**
+- `minutes` (int) — Time window (default: 60)
+- `start` / `end` (ISO datetime) — Custom time range
+- `bucket` (string) — Timeseries granularity: "auto", "minute", "hour", "day"
+
+**Data Source:** PostgreSQL `mw_audit_log` table (fallback: `audit.jsonl`)
 
 **Status Codes:**
 - `200 OK` - Summary retrieved
@@ -564,12 +588,19 @@ All errors follow OpenAI format:
 
 ## 📊 Usage Tracking
 
-All requests are tracked in `logs/audit.jsonl`:
+All requests are tracked in PostgreSQL (`mw_audit_log` table) with file backup to `logs/audit.jsonl`:
 
+**Database query example:**
+```sql
+SELECT ts, user_id, model, tokens_total, cost_usd, status
+FROM mw_audit_log
+WHERE ts >= NOW() - INTERVAL '24 hours'
+ORDER BY ts DESC;
+```
+
+**File backup format (audit.jsonl):**
 ```jsonl
-{"timestamp":"2025-12-22T10:40:15Z","event":"chat_completion","subkey":"sk_user_abc123","model":"gpt-4","tokens":1234,"duration":2.5}
-{"timestamp":"2025-12-22T10:41:20Z","event":"quota_exceeded","subkey":"sk_user_abc123","attempted":101,"quota":100}
-{"timestamp":"2025-12-22T10:42:00Z","event":"subkey_created","subkey":"sk_user_new456","admin_key":"admin_***456"}
+{"ts":"2026-03-03T10:40:15+07:00","rid":"mw_abc123","user_id":"user1","model":"chat-gpt-4o-mini","status":"ok","tokens_total":1234,"cost_usd":0.001}
 ```
 
 ---
@@ -622,5 +653,5 @@ curl http://localhost:5000/v1/_mw/summary -b cookies.txt
 
 ---
 
-**Last Updated:** December 22, 2025  
-**API Version:** 1.0 (OpenAI-compatible)
+**Last Updated:** March 3, 2026  
+**API Version:** 2.0 (DB-backed, OpenAI-compatible)

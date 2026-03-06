@@ -4,10 +4,14 @@ import { authenticate, stopDashboardLoops, setSummaryInterval } from './auth.js'
 import { setTimeRange, applyCustomRange, initAuditFilters } from './filters.js';
 import { switchTab } from './tabs.js';
 import { initCharts } from './charts.js';
-import { loadSummary, connectEventStream } from './usage.js';
+import { loadSummary, connectEventStream, refreshTables } from './usage.js';
 import { loadAccessData, connectAccessStream } from './access.js';
 import { applyLogFilters, resetLogFilters, loadMoreLogs, exportLogsToExcel } from './logs.js';
 import { updateStatus } from './utils.js';
+import {
+	showCreateUserModal, showEditUserModal, closeUserModal, saveUser,
+	deleteUser, rotateUserKey, toggleUserActive
+} from './users.js';
 
 // Expose a stable API for inline HTML handlers (window.dashboardAPI.*)
 export async function initAPI() {
@@ -19,7 +23,16 @@ export async function initAPI() {
 		applyLogFilters,
 		resetLogFilters,
 		loadMoreLogs,
-		exportLogsToExcel
+		exportLogsToExcel,
+		refreshUsage: refreshTables,
+		// User CRUD
+		showCreateUserModal,
+		showEditUserModal,
+		closeUserModal,
+		saveUser,
+		deleteUser,
+		rotateUserKey,
+		toggleUserActive
 	};
 
 	// One-time UI init

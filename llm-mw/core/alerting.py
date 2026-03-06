@@ -18,20 +18,42 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
-from config import DATA_DIR, logger
+from config import DATA_DIR, BACKUP_DATA_DIR, logger
 from core.auth import load_users, save_users, get_lock
 
 
 # ─── File paths ───────────────────────────────────────────────
 
-ALERT_CONFIG_FILE = os.path.join(DATA_DIR, "alert_config.json")
-SYSTEM_ALERTS_FILE = os.path.join(DATA_DIR, "system_alerts.json")
+ALERT_CONFIG_FILE = os.path.join(BACKUP_DATA_DIR, "alert_config.json")
+SYSTEM_ALERTS_FILE = os.path.join(BACKUP_DATA_DIR, "system_alerts.json")
 
 
-# ─── Config helpers ───────────────────────────────────────────
+def _db_available() -> bool:
+    """Check if database pool is initialized."""
+    try:
+        from core.db import _pool
+        return _pool is not None
+    except Exception:
+        return False
+
+
+# ─── Config helpers (DB + file fallback) ──────────────────────
 
 def load_alert_config() -> dict:
-    """Load alert configuration from data/alert_config.json."""
+    """Load alert configuration. DB first, then file fallback."""
+    if _db_available():
+        try:
+            from core.db import db_conn
+            with db_conn() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT config_value FROM mw_config WHERE config_key = 'alert_config'")
+                row = cur.fetchone()
+                cur.close()
+            if row:
+                return row[0]
+        except Exception:
+            pass
+    # File fallback
     if not os.path.exists(ALERT_CONFIG_FILE):
         return {"smtp": {"enabled": False}}
     with open(ALERT_CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -39,13 +61,42 @@ def load_alert_config() -> dict:
 
 
 def save_alert_config(config: dict):
-    """Save alert config back to file."""
+    """Save alert config to DB + file backup."""
+    if _db_available():
+        try:
+            from core.db import db_conn
+            with db_conn() as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO mw_config (config_key, config_value, updated_at)
+                    VALUES ('alert_config', %s, now())
+                    ON CONFLICT (config_key) DO UPDATE SET
+                        config_value = EXCLUDED.config_value,
+                        updated_at = now()
+                """, (json.dumps(config),))
+                cur.close()
+        except Exception:
+            pass
+    # Always write file backup
     with open(ALERT_CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
 
 def load_system_alerts() -> dict:
-    """Load system-level alert tracking (budget milestones)."""
+    """Load system-level alert tracking. DB first, then file fallback."""
+    if _db_available():
+        try:
+            from core.db import db_conn
+            with db_conn() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT config_value FROM mw_config WHERE config_key = 'system_alerts'")
+                row = cur.fetchone()
+                cur.close()
+            if row:
+                return row[0]
+        except Exception:
+            pass
+    # File fallback
     if not os.path.exists(SYSTEM_ALERTS_FILE):
         return {}
     with open(SYSTEM_ALERTS_FILE, "r", encoding="utf-8") as f:
@@ -56,9 +107,26 @@ def load_system_alerts() -> dict:
 
 
 def save_system_alerts(alerts: dict):
-    """Save system alert tracking."""
+    """Save system alert tracking to DB + file backup."""
+    if _db_available():
+        try:
+            from core.db import db_conn
+            with db_conn() as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO mw_config (config_key, config_value, updated_at)
+                    VALUES ('system_alerts', %s, now())
+                    ON CONFLICT (config_key) DO UPDATE SET
+                        config_value = EXCLUDED.config_value,
+                        updated_at = now()
+                """, (json.dumps(alerts),))
+                cur.close()
+        except Exception:
+            pass
+    # Always write file backup
     with open(SYSTEM_ALERTS_FILE, "w", encoding="utf-8") as f:
         json.dump(alerts, f, indent=2, ensure_ascii=False)
+
 
 
 # ─── Main alert check ────────────────────────────────────────

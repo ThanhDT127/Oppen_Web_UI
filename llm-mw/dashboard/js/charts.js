@@ -1,112 +1,259 @@
-// Chart.js initialization and updates
+// Chart.js initialization and updates — Enhanced version
+// Includes: line charts (cost, tokens, requests), donut charts (users, models, request types)
 import { formatTimestamp } from './utils.js';
 
+// Chart instances
 export let costChart = null;
 export let tokensChart = null;
+export let requestsChart = null;
+export let requestTypeChart = null;
+export let userCostChart = null;
+export let modelCostChart = null;
 
-// Initialize Chart.js charts
-export function initCharts() {
-    const chartConfig = {
+// Color palette for donut/pie charts
+const COLORS = [
+    '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
+    '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#6366f1',
+    '#84cc16', '#e11d48', '#0ea5e9', '#a855f7', '#22c55e',
+    '#eab308', '#64748b', '#d946ef', '#0891b2', '#dc2626'
+];
+const OTHERS_COLOR = '#475569'; // grey for "Others" slice
+const MAX_SLICES = 10; // Max slices before grouping into "Others"
+
+// Shared line chart config
+function lineChartConfig(label, color) {
+    return {
         type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: label,
+                data: [],
+                borderColor: color,
+                backgroundColor: color + '1a',
+                tension: 0.3,
+                fill: true,
+                pointRadius: 2,
+                pointHoverRadius: 5,
+                borderWidth: 2
+            }]
+        },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    borderColor: '#475569',
+                    borderWidth: 1,
+                    titleColor: '#e2e8f0',
+                    bodyColor: '#cbd5e1',
+                    padding: 10,
+                    cornerRadius: 8
+                }
             },
             scales: {
                 x: {
-                    ticks: { color: '#94a3b8' },
-                    grid: { color: '#334155' }
+                    ticks: { color: '#64748b', maxRotation: 45, font: { size: 11 } },
+                    grid: { color: '#1e293b' }
                 },
                 y: {
-                    ticks: { color: '#94a3b8' },
-                    grid: { color: '#334155' }
+                    ticks: { color: '#64748b', font: { size: 11 } },
+                    grid: { color: '#1e293b' },
+                    beginAtZero: true
                 }
             }
         }
     };
-
-    costChart = new Chart(
-        document.getElementById('costChart').getContext('2d'),
-        {
-            ...chartConfig,
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Cost (USD)',
-                    data: [],
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            }
-        }
-    );
-
-    tokensChart = new Chart(
-        document.getElementById('tokensChart').getContext('2d'),
-        {
-            ...chartConfig,
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Tokens',
-                    data: [],
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            }
-        }
-    );
 }
 
-// Update charts with timeseries data from summary
+// Shared donut chart config
+function donutChartConfig() {
+    return {
+        type: 'doughnut',
+        data: { labels: [], datasets: [{ data: [], backgroundColor: COLORS, borderWidth: 0, hoverBorderWidth: 2, hoverBorderColor: '#e2e8f0' }] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#94a3b8', font: { size: 11 }, padding: 8,
+                        usePointStyle: true, boxWidth: 8,
+                        // Limit legend items to prevent overflow
+                        generateLabels: function (chart) {
+                            const data = chart.data;
+                            if (!data.labels.length) return [];
+                            return data.labels.map((label, i) => ({
+                                text: label.length > 25 ? label.substring(0, 22) + '...' : label,
+                                fillStyle: data.datasets[0].backgroundColor[i],
+                                strokeStyle: 'transparent',
+                                lineWidth: 0,
+                                pointStyle: 'circle',
+                                hidden: false,
+                                index: i
+                            }));
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    borderColor: '#475569',
+                    borderWidth: 1,
+                    titleColor: '#e2e8f0',
+                    bodyColor: '#cbd5e1',
+                    padding: 10,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function (ctx) {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                            return `${ctx.label}: $${ctx.parsed.toFixed(4)} (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    };
+}
+
+// Group items into top N + "Others"
+function groupWithOthers(labels, values, maxSlices = MAX_SLICES) {
+    if (labels.length <= maxSlices) {
+        return {
+            labels: labels,
+            values: values,
+            colors: COLORS.slice(0, labels.length)
+        };
+    }
+    const topLabels = labels.slice(0, maxSlices - 1);
+    const topValues = values.slice(0, maxSlices - 1);
+    const othersCount = labels.length - (maxSlices - 1);
+    const othersSum = values.slice(maxSlices - 1).reduce((a, b) => a + b, 0);
+    topLabels.push(`Others (${othersCount} items)`);
+    topValues.push(othersSum);
+    const colors = COLORS.slice(0, maxSlices - 1);
+    colors.push(OTHERS_COLOR);
+    return { labels: topLabels, values: topValues, colors };
+}
+
+// Initialize all charts
+export function initCharts() {
+    costChart = new Chart(document.getElementById('costChart').getContext('2d'), lineChartConfig('Cost (USD)', '#10b981'));
+    tokensChart = new Chart(document.getElementById('tokensChart').getContext('2d'), lineChartConfig('Tokens', '#3b82f6'));
+    requestsChart = new Chart(document.getElementById('requestsChart').getContext('2d'), lineChartConfig('Requests', '#f59e0b'));
+
+    // Request type pie
+    const rtConfig = donutChartConfig();
+    rtConfig.options.plugins.tooltip.callbacks.label = function (ctx) {
+        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+        const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+        return `${ctx.label}: ${ctx.parsed} (${pct}%)`;
+    };
+    requestTypeChart = new Chart(document.getElementById('requestTypeChart').getContext('2d'), rtConfig);
+
+    // User cost donut
+    userCostChart = new Chart(document.getElementById('userCostChart').getContext('2d'), donutChartConfig());
+
+    // Model cost donut
+    modelCostChart = new Chart(document.getElementById('modelCostChart').getContext('2d'), donutChartConfig());
+}
+
+// Update all charts with summary data
 export async function updateCharts(summaryData) {
-    if (!summaryData || !summaryData.timeseries || !costChart || !tokensChart) {
-        console.log('Charts not ready or no timeseries data available');
-        return;
-    }
-    
-    const timeseries = summaryData.timeseries;
-    
+    if (!summaryData || !costChart) return;
+
+    // --- Timeseries line charts ---
+    const timeseries = summaryData.timeseries || [];
+
     if (timeseries.length === 0) {
-        // No data - show empty charts
-        costChart.data.labels = [];
-        costChart.data.datasets[0].data = [];
-        costChart.update();
-        
-        tokensChart.data.labels = [];
-        tokensChart.data.datasets[0].data = [];
-        tokensChart.update();
-        return;
-    }
-    
-    // Extract labels and data from timeseries
-    const labels = timeseries.map(bucket => {
-        // Format timestamp for display (BE sends "ts" not "bucket_start")
-        const date = new Date(bucket.ts);
-        return date.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            month: 'short',
-            day: 'numeric'
+        [costChart, tokensChart, requestsChart].forEach(c => {
+            c.data.labels = [];
+            c.data.datasets[0].data = [];
+            c.update();
         });
-    });
-    
-    const costData = timeseries.map(bucket => bucket.cost_usd || 0);  // BE sends "cost_usd"
-    const tokensData = timeseries.map(bucket => bucket.tokens_total || 0);
-    
-    // Update cost chart
-    costChart.data.labels = labels;
-    costChart.data.datasets[0].data = costData;
-    costChart.update();
-    
-    // Update tokens chart
-    tokensChart.data.labels = labels;
-    tokensChart.data.datasets[0].data = tokensData;
-    tokensChart.update();
+    } else {
+        const labels = timeseries.map(b => {
+            const d = new Date(b.ts);
+            return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' });
+        });
+
+        costChart.data.labels = labels;
+        costChart.data.datasets[0].data = timeseries.map(b => b.cost_usd || 0);
+        costChart.update();
+
+        tokensChart.data.labels = labels;
+        tokensChart.data.datasets[0].data = timeseries.map(b => b.tokens_total || 0);
+        tokensChart.update();
+
+        requestsChart.data.labels = labels;
+        requestsChart.data.datasets[0].data = timeseries.map(b => b.requests_total || 0);
+        requestsChart.update();
+    }
+
+    // --- Request type pie chart ---
+    if (summaryData.totals) {
+        const t = summaryData.totals;
+        const types = [];
+        const values = [];
+        if (t.chat_calls > 0) { types.push('Chat'); values.push(t.chat_calls); }
+        if (t.image_calls > 0) { types.push('Image'); values.push(t.image_calls); }
+        if (t.audio_calls > 0) { types.push('Audio'); values.push(t.audio_calls); }
+        if (t.video_calls > 0) { types.push('Video'); values.push(t.video_calls); }
+
+        if (values.length === 0) { types.push('No data'); values.push(1); }
+
+        requestTypeChart.data.labels = types;
+        requestTypeChart.data.datasets[0].data = values;
+        requestTypeChart.data.datasets[0].backgroundColor = COLORS.slice(0, values.length);
+        requestTypeChart.update();
+    }
+
+    // --- User cost donut chart ---
+    updateUserCostChart(summaryData.breakdown_by_user || []);
+
+    // --- Model cost donut chart ---
+    updateModelCostChart(summaryData.breakdown_by_model || []);
+}
+
+// Exported: update user cost donut chart (called from usage.js on Top-N/Sort change)
+export function updateUserCostChart(users) {
+    if (!userCostChart) return;
+    if (users.length > 0) {
+        const grouped = groupWithOthers(
+            users.map(u => u.user_id),
+            users.map(u => u.cost_usd || 0)
+        );
+        userCostChart.data.labels = grouped.labels;
+        userCostChart.data.datasets[0].data = grouped.values;
+        userCostChart.data.datasets[0].backgroundColor = grouped.colors;
+    } else {
+        userCostChart.data.labels = ['No data'];
+        userCostChart.data.datasets[0].data = [1];
+        userCostChart.data.datasets[0].backgroundColor = ['#334155'];
+    }
+    userCostChart.update();
+}
+
+// Exported: update model cost donut chart (called from usage.js on Top-N/Sort change)
+export function updateModelCostChart(models) {
+    if (!modelCostChart) return;
+    if (models.length > 0) {
+        const grouped = groupWithOthers(
+            models.map(m => m.model?.replace('chat-', '') || 'unknown'),
+            models.map(m => m.cost_usd || 0)
+        );
+        modelCostChart.data.labels = grouped.labels;
+        modelCostChart.data.datasets[0].data = grouped.values;
+        modelCostChart.data.datasets[0].backgroundColor = grouped.colors;
+    } else {
+        modelCostChart.data.labels = ['No data'];
+        modelCostChart.data.datasets[0].data = [1];
+        modelCostChart.data.datasets[0].backgroundColor = ['#334155'];
+    }
+    modelCostChart.update();
 }

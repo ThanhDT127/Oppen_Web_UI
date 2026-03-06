@@ -1,6 +1,6 @@
 # CHECK LIST TÍNH NĂNG OPEN WEBUI
 
-> **Ngày cập nhật**: 2026-02-10  
+> **Ngày cập nhật**: 2026-03-03  
 > **Phiên bản hệ thống**: Open WebUI + LiteLLM + Middleware + PostgreSQL/PGVector
 
 ---
@@ -32,7 +32,7 @@
 | 5 | | Quản lý user (Admin) | Admin có thể: thêm/xoá user, đổi role, reset password, xem danh sách user | Admin → Settings → Users | Đã có | OK | |
 | 6 | | Access Control trên Knowledge | Mỗi Knowledge Collection có thể giới hạn quyền truy cập theo user/group | Cấu hình trong Knowledge Settings | Đã có | OK | Hỗ trợ JSON access_control |
 | 7 | | Access Control trên Model | Admin có thể giới hạn model nào user nào được dùng | Admin → Settings → Models | Đã có | OK | |
-| 8 | Quản lý log (Admin) | Log hoạt động API requests | Middleware ghi log mọi request: user, model, tokens, cost, timestamp | Xem file `logs/middleware.requests.log` | Đã có | OK | |
+| 8 | Quản lý log (Admin) | Log hoạt động API requests | Middleware ghi log mọi request: user, model, tokens, cost, timestamp | Dashboard → Logs tab hoặc Access tab | Đã có | OK | Lưu trong PostgreSQL (mw_audit_log, mw_request_log) + file backup |
 | 9 | | Dashboard quản trị | Xem tổng quan chi phí, số request, top users, top models | `http://<server>:5000/dashboard` | Đã có | OK | Middleware dashboard |
 
 ---
@@ -131,12 +131,12 @@
 
 | STT | Nhóm tính năng | Tính năng cụ thể | Hướng dẫn sử dụng / Mô tả | Câu lệnh ví dụ | Trạng thái | Kết quả test | Ghi chú |
 |-----|----------------|-------------------|----------------------------|----------------|-----------|-------------|---------|
-| 1 | Quota | Giới hạn chi phí / user / tháng | Cấu hình trong `users.json`: mỗi user có `limit_usd` | — | Đã có | OK | |
+| 1 | Quota | Giới hạn chi phí / user / tháng | Cấu hình qua Dashboard hoặc API: mỗi user có `limit_cost_usd` | — | Đã có | OK | Lưu trong PostgreSQL (mw_users) |
 | 2 | | Cảnh báo khi gần hết quota | User nhận thông báo khi sử dụng gần hết quota | — | Đã có | OK | |
 | 3 | | Chặn khi hết quota | Từ chối request khi user vượt quota | — | Đã có | OK | HTTP 429 |
-| 4 | Sub-keys | Cấp API key riêng | Mỗi user/nhóm có sub-key riêng biệt | — | Đã có | OK | Trong `users.json` |
-| 5 | Cost tracking | Ghi log chi phí từng request | Log: model, input_tokens, output_tokens, cost_usd, user, timestamp | — | Đã có | OK | `middleware.requests.log` |
-| 6 | | Tính chi phí theo bảng giá | Bảng giá riêng cho từng model, cập nhật trong `prices.json` | — | Đã có | OK | |
+| 4 | Sub-keys | Cấp API key riêng | Mỗi user/nhóm có sub-key riêng biệt | — | Đã có | OK | Trong DB (mw_users), backup `users.json` |
+| 5 | Cost tracking | Ghi log chi phí từng request | Log: model, input_tokens, output_tokens, cost_usd, user, timestamp | — | Đã có | OK | DB (mw_audit_log) + file backup |
+| 6 | | Tính chi phí theo bảng giá | Bảng giá riêng cho từng model, lưu trong DB (backup: `prices.json`) | — | Đã có | OK | |
 | 7 | Dashboard | Xem báo cáo chi phí | Dashboard web hiển thị: tổng chi phí, theo user, theo model, theo ngày | `http://<server>:5000/dashboard` | Đã có | OK | |
 
 ---
@@ -145,7 +145,7 @@
 
 | STT | Nhóm tính năng | Tính năng cụ thể | Hướng dẫn sử dụng / Mô tả | Câu lệnh ví dụ | Trạng thái | Kết quả test | Ghi chú |
 |-----|----------------|-------------------|----------------------------|----------------|-----------|-------------|---------|
-| 1 | PostgreSQL | Database chính | PostgreSQL 16, lưu toàn bộ data (users, chats, knowledge, vectors) | — | Đã có | OK | 32 tables, 65 indexes |
+| 1 | PostgreSQL | Database chính | PostgreSQL 16, lưu toàn bộ data (users, chats, knowledge, vectors) | — | Đã có | OK | 32 tables (openwebui) + 6 tables (middleware) |
 | 2 | | PGVector extension | Vector similarity search cho RAG, HNSW index | — | Đã có | OK | v0.8.0 |
 | 3 | | Persistent storage | Docker volume `postgres_data` giữ data khi restart | — | Đã có | OK | |
 | 4 | Docker | 4 containers orchestra | PostgreSQL + LiteLLM + Middleware + Open WebUI | `docker compose up -d` | Đã có | OK | |
@@ -195,7 +195,7 @@
 | 12 | | Đổi embedding model | Chuyển đổi giữa local / OpenAI embeddings | ENV: `RAG_EMBEDDING_MODEL=...` | Đã có | OK | |
 | 13 | Cấu hình hệ thống | WebUI settings | Cấu hình: signup, default model, banner, v.v. | Admin → Settings → General | Đã có | OK | |
 | 14 | | Connections | Cấu hình kết nối đến LLM providers | Admin → Settings → Connections | Đã có | OK | |
-| 15 | Giám sát | Request logs | Xem log chi tiết từng API request | `logs/middleware.requests.log` | Đã có | OK | |
+| 15 | Giám sát | Request logs | Xem log chi tiết từng API request | Dashboard → Logs tab (DB: mw_audit_log) | Đã có | OK | |
 | 16 | | Application logs | Xem lỗi, warning, events | `logs/middleware.log` | Đã có | OK | |
 | 17 | | Cost dashboard | Báo cáo chi phí theo user/model/thời gian | `http://<server>:5000/dashboard` | Đã có | OK | |
 

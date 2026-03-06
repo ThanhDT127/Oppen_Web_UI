@@ -12,8 +12,8 @@ from typing import Dict, Any, List, Optional
 from fastapi import Request, HTTPException
 from pydantic import BaseModel
 
-from config import USERS_FILE, MW_SECRET, LOG_DIR, logger
-from core.auth import load_users, save_users, hash_subkey, find_user
+from config import USERS_FILE, MW_SECRET, LOG_DIR, BACKUP_LOG_DIR, logger
+from core.auth import load_users, save_users, hash_subkey, find_user, delete_user as auth_delete_user
 from threading import Lock
 import os
 from logging.handlers import RotatingFileHandler
@@ -33,7 +33,7 @@ def _get_admin_audit_logger():
         _admin_audit_logger = logging.getLogger("llm_mw_admin_audit")
         if not _admin_audit_logger.handlers:
             _admin_audit_logger.setLevel(logging.INFO)
-            audit_file = os.path.join(LOG_DIR, "admin_audit.jsonl")
+            audit_file = os.path.join(BACKUP_LOG_DIR, "admin_audit.jsonl")
             handler = RotatingFileHandler(
                 audit_file, maxBytes=20_000_000, backupCount=5, encoding="utf-8"
             )
@@ -383,6 +383,49 @@ async def enable_user(request: Request, user_id: str):
         }
 
 
+async def delete_user_endpoint(request: Request, user_id: str):
+    """
+    DELETE /v1/_mw/admin/users/{user_id}
+    Permanently delete a user
+    """
+    from utils.auth_guard import require_admin_or_session
+    require_admin_or_session(request)
+    
+    with _user_lock:
+        users = load_users()
+        
+        # Check user exists
+        user = next((u for u in users if u["user_id"] == user_id), None)
+        if not user:
+            raise HTTPException(404, f"User {user_id} not found")
+        
+        # Prevent self-deletion
+        if hasattr(request.state, 'mw_user_id') and request.state.mw_user_id == user_id:
+            raise HTTPException(400, "Cannot delete yourself")
+        
+        # Delete from DB + JSON
+        deleted = auth_delete_user(user_id)
+        if not deleted:
+            raise HTTPException(500, f"Failed to delete user {user_id}")
+        
+        # Audit trail
+        _write_admin_audit(
+            actor="admin_session",
+            action="delete_user",
+            target_user=user_id,
+            changes={"deleted": True, "role": user.get("role"), "active": user.get("active")},
+            status="ok",
+            request=request
+        )
+        
+        logger.info(f"Deleted user: {user_id}")
+        
+        return {
+            "message": f"User {user_id} deleted permanently",
+            "user_id": user_id
+        }
+
+
 def get_admin_audit(
     request: Request,
     minutes: Optional[int] = None,
@@ -396,7 +439,7 @@ def get_admin_audit(
     from utils.auth_guard import require_admin_or_session
     require_admin_or_session(request)
     
-    audit_file = os.path.join(LOG_DIR, "admin_audit.jsonl")
+    audit_file = os.path.join(BACKUP_LOG_DIR, "admin_audit.jsonl")
     
     if not os.path.exists(audit_file):
         return {"audit_trail": [], "total": 0}

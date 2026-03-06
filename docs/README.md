@@ -42,11 +42,13 @@ User → Open WebUI (3000) → Middleware (5000) → LiteLLM (4000) → OpenAI/G
 | Document | Description |
 |----------|-------------|
 | [USER_GUIDE_VI.md](docs/USER_GUIDE_VI.md) | Hướng dẫn sử dụng (Vietnamese) |
-| [DEPLOYMENT_VI.md](docs/DEPLOYMENT_VI.md) | Hướng dẫn triển khai (Vietnamese) |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture |
 | [API_REFERENCE.md](docs/API_REFERENCE.md) | API endpoints |
 | [USER_MANAGEMENT.md](docs/USER_MANAGEMENT.md) | User & quota management |
 | [DASHBOARD.md](docs/DASHBOARD.md) | Admin dashboard |
+| [database-architecture.md](docs/database-architecture.md) | Database schema (32 tables) |
+| [rag-architecture.md](docs/rag-architecture.md) | RAG architecture detail |
+| [system-overview-report.md](docs/system-overview-report.md) | Báo cáo tổng quan hệ thống |
 
 ## ⚡ Commands
 
