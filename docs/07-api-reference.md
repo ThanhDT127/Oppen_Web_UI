@@ -1,30 +1,30 @@
-# 📚 API REFERENCE - OPPEN WEB UI
+# Tài liệu API - LLM Middleware
 
-Complete documentation for all API endpoints in the LLM Middleware (Port 5000).
+Tài liệu đầy đủ cho tất cả API endpoints trong LLM Middleware (Port 5000).
 
 ---
 
-## 🌐 Base URL
+## URL Gốc
 
 ```
 http://localhost:5000
 ```
 
-All endpoints use OpenAI-compatible format unless specified otherwise.
+Tất cả endpoints sử dụng định dạng tương thích OpenAI trừ khi có ghi chú khác.
 
 ---
 
-## 🔓 Public Endpoints (No Auth Required)
+## Endpoints Công khai (Không cần Xác thực)
 
-### Health Check
+### Kiểm tra Sức khỏe
 
 ```http
 GET /health
 ```
 
-**Description:** Check if middleware service is running.
+**Mô tả:** Kiểm tra middleware có đang chạy không.
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "ok": true,
@@ -36,20 +36,20 @@ GET /health
 }
 ```
 
-**Status Codes:**
-- `200 OK` - Service healthy
+**Mã trạng thái:**
+- `200 OK` - Dịch vụ hoạt động bình thường
 
 ---
 
-### Model List
+### Danh sách Model
 
 ```http
 GET /v1/models
 ```
 
-**Description:** Get list of available LLM models from LiteLLM proxy.
+**Mô tả:** Lấy danh sách các mô hình LLM từ LiteLLM proxy.
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "object": "list",
@@ -70,21 +70,21 @@ GET /v1/models
 }
 ```
 
-**Status Codes:**
-- `200 OK` - Models retrieved successfully
-- `502 Bad Gateway` - LiteLLM proxy unavailable
+**Mã trạng thái:**
+- `200 OK` - Lấy danh sách thành công
+- `502 Bad Gateway` - LiteLLM proxy không khả dụng
 
 ---
 
-## 🔐 Authenticated Endpoints (Subkey Required)
+## Endpoints Yêu cầu Xác thực (Cần Subkey)
 
-All chat endpoints require a valid subkey in the `Authorization` header:
+Tất cả endpoints chat yêu cầu subkey hợp lệ trong header `Authorization`:
 
 ```
 Authorization: Bearer sk_user_abc123def456
 ```
 
-### Chat Completion (Non-Streaming)
+### Chat Completion (Không Streaming)
 
 ```http
 POST /v1/chat/completions
@@ -92,7 +92,7 @@ Content-Type: application/json
 Authorization: Bearer <subkey>
 ```
 
-**Request Body:**
+**Nội dung Request:**
 ```json
 {
   "model": "gpt-4-turbo",
@@ -112,7 +112,7 @@ Authorization: Bearer <subkey>
 }
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "id": "chatcmpl-abc123",
@@ -137,11 +137,11 @@ Authorization: Bearer <subkey>
 }
 ```
 
-**Status Codes:**
-- `200 OK` - Completion successful
-- `401 Unauthorized` - Invalid or missing subkey
-- `403 Forbidden` - Quota exceeded
-- `502 Bad Gateway` - LiteLLM proxy error
+**Mã trạng thái:**
+- `200 OK` - Hoàn thành thành công
+- `401 Unauthorized` - Subkey không hợp lệ hoặc thiếu
+- `403 Forbidden` - Vượt quá quota
+- `502 Bad Gateway` - Lỗi LiteLLM proxy
 
 ---
 
@@ -153,7 +153,7 @@ Content-Type: application/json
 Authorization: Bearer <subkey>
 ```
 
-**Request Body:**
+**Nội dung Request:**
 ```json
 {
   "model": "gpt-4-turbo",
@@ -167,7 +167,7 @@ Authorization: Bearer <subkey>
 }
 ```
 
-**Response:** Server-Sent Events (SSE) stream
+**Phản hồi:** Server-Sent Events (SSE) stream
 
 ```
 data: {"id":"chatcmpl-xyz","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4-turbo","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
@@ -181,14 +181,14 @@ data: {"id":"chatcmpl-xyz","object":"chat.completion.chunk","created":1234567890
 data: [DONE]
 ```
 
-**Status Codes:**
-- `200 OK` - Stream started successfully
-- `401 Unauthorized` - Invalid subkey
-- `403 Forbidden` - Quota exceeded
+**Mã trạng thái:**
+- `200 OK` - Stream bắt đầu thành công
+- `401 Unauthorized` - Subkey không hợp lệ
+- `403 Forbidden` - Vượt quá quota
 
 ---
 
-### Audio Transcription
+### Chuyển đổi Giọng nói thành Văn bản
 
 ```http
 POST /v1/audio/transcriptions
@@ -196,13 +196,13 @@ Content-Type: multipart/form-data
 Authorization: Bearer <subkey>
 ```
 
-**Request Body:**
+**Nội dung Request:**
 ```
 --boundary
 Content-Disposition: form-data; name="file"; filename="audio.mp3"
 Content-Type: audio/mpeg
 
-<binary audio data>
+<dữ liệu âm thanh nhị phân>
 --boundary
 Content-Disposition: form-data; name="model"
 
@@ -210,38 +210,38 @@ whisper-1
 --boundary--
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "text": "This is the transcribed text from the audio file."
 }
 ```
 
-**Supported Formats:** MP3, MP4, WAV, M4A, WEBM
+**Định dạng hỗ trợ:** MP3, MP4, WAV, M4A, WEBM
 
-**Status Codes:**
-- `200 OK` - Transcription successful
-- `400 Bad Request` - Invalid file format
-- `401 Unauthorized` - Invalid subkey
+**Mã trạng thái:**
+- `200 OK` - Chuyển đổi thành công
+- `400 Bad Request` - Định dạng file không hợp lệ
+- `401 Unauthorized` - Subkey không hợp lệ
 
 ---
 
-## 🔒 Admin Endpoints (Admin Key Required)
+## Endpoints Quản trị (Cần Admin Key)
 
-All admin endpoints require ADMIN_KEY in the `Authorization` header:
+Tất cả endpoints admin yêu cầu ADMIN_KEY trong header `Authorization`:
 
 ```
 Authorization: Bearer admin_master_key_456
 ```
 
-### Dashboard Login
+### Đăng nhập Dashboard
 
 ```http
 POST /dashboard/login
 Content-Type: application/json
 ```
 
-**Request Body:**
+**Nội dung Request:**
 ```json
 {
   "username": "admin",
@@ -249,7 +249,7 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "success": true,
@@ -257,47 +257,47 @@ Content-Type: application/json
 }
 ```
 
-**Sets Cookie:**
+**Thiết lập Cookie:**
 ```
 mw_dashboard_token=<jwt_token>; Path=/; HttpOnly; Max-Age=14400
 ```
 
-**Status Codes:**
-- `200 OK` - Login successful (JWT cookie set)
-- `401 Unauthorized` - Invalid credentials
+**Mã trạng thái:**
+- `200 OK` - Đăng nhập thành công (đã thiết lập JWT cookie)
+- `401 Unauthorized` - Thông tin đăng nhập không hợp lệ
 
 ---
 
-### Dashboard Logout
+### Đăng xuất Dashboard
 
 ```http
 POST /dashboard/logout
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "success": true
 }
 ```
 
-**Clears Cookie:** `mw_dashboard_token`
+**Xóa Cookie:** `mw_dashboard_token`
 
-**Status Codes:**
-- `200 OK` - Logout successful
+**Mã trạng thái:**
+- `200 OK` - Đăng xuất thành công
 
 ---
 
-### Summary Dashboard (JWT Auth)
+### Tổng hợp Dashboard (Xác thực JWT)
 
 ```http
 GET /v1/_mw/summary
 Cookie: mw_dashboard_token=<jwt_token>
 ```
 
-**Description:** Get aggregated metrics for dashboard display.
+**Mô tả:** Lấy dữ liệu metrics tổng hợp để hiển thị dashboard.
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "time_range": {
@@ -323,29 +323,29 @@ Cookie: mw_dashboard_token=<jwt_token>
 }
 ```
 
-**Query Parameters:**
-- `minutes` (int) — Time window (default: 60)
-- `start` / `end` (ISO datetime) — Custom time range
-- `bucket` (string) — Timeseries granularity: "auto", "minute", "hour", "day"
+**Tham số truy vấn:**
+- `minutes` (int) - Khoảng thời gian (mặc định: 60)
+- `start` / `end` (ISO datetime) - Khoảng thời gian tùy chỉnh
+- `bucket` (string) - Độ chi tiết timeseries: "auto", "minute", "hour", "day"
 
-**Data Source:** PostgreSQL `mw_audit_log` table (fallback: `audit.jsonl`)
+**Nguồn dữ liệu:** Bảng PostgreSQL `mw_audit_log` (dự phòng: `audit.jsonl`)
 
-**Status Codes:**
-- `200 OK` - Summary retrieved
-- `403 Forbidden` - Invalid or expired JWT token
+**Mã trạng thái:**
+- `200 OK` - Lấy tổng hợp thành công
+- `403 Forbidden` - JWT token không hợp lệ hoặc hết hạn
 
 ---
 
-### Get Usage Statistics
+### Thống kê Sử dụng
 
 ```http
 GET /admin/usage
 X-Admin-Key: <admin_key>
 ```
 
-**Description:** View all user usage statistics (subkeys scrubbed for security).
+**Mô tả:** Xem thống kê sử dụng của tất cả user (subkey đã ẩn vì bảo mật).
 
-**Response:**
+**Phản hồi:**
 ```json
 [
   {
@@ -363,29 +363,13 @@ X-Admin-Key: <admin_key>
       "used_tokens": 12000,
       "used_cost_usd": 0.035
     }
-  },
-  {
-    "user_id": "user1",
-    "active": true,
-    "allowed_models": ["gpt-4", "gpt-3.5-turbo"],
-    "used_tokens": 89500,
-    "used_cost_usd": 0.245,
-    "quota": {
-      "period": "weekly",
-      "timezone": "Asia/Bangkok",
-      "limit_tokens": 200000,
-      "limit_cost_usd": 10.0,
-      "period_start": 1734912000000,
-      "used_tokens": 25000,
-      "used_cost_usd": 0.065
-    }
   }
 ]
 ```
 
-**Status Codes:**
-- `200 OK` - Usage retrieved
-- `403 Forbidden` - Invalid admin key
+**Mã trạng thái:**
+- `200 OK` - Lấy thống kê thành công
+- `403 Forbidden` - Admin key không hợp lệ
 
 ---
 
@@ -397,34 +381,34 @@ Content-Type: application/json
 X-Admin-Key: <admin_key>
 ```
 
-**Description:** Reset period-based quota for specific user or all users.
+**Mô tả:** Reset quota theo chu kỳ cho user cụ thể hoặc tất cả users.
 
-**Request Body:**
+**Nội dung Request:**
 ```json
 {
   "user_id": "user1"
 }
 ```
 
-**Omit `user_id` to reset all users:**
+**Bỏ `user_id` để reset tất cả user:**
 ```json
 {}
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "ok": true
 }
 ```
 
-**Status Codes:**
-- `200 OK` - Quota reset successfully
-- `403 Forbidden` - Invalid admin key
+**Mã trạng thái:**
+- `200 OK` - Reset quota thành công
+- `403 Forbidden` - Admin key không hợp lệ
 
 ---
 
-### Reconcile Usage
+### Đối chiếu Dữ liệu Sử dụng (Reconcile)
 
 ```http
 POST /admin/reconcile
@@ -432,9 +416,9 @@ Content-Type: application/json
 X-Admin-Key: <admin_key>
 ```
 
-**Description:** Manually reconcile streaming request usage from LiteLLM logs.
+**Mô tả:** Đối chiếu thủ công dữ liệu sử dụng streaming request từ log LiteLLM.
 
-**Request Body:**
+**Nội dung Request:**
 ```json
 {
   "request_id": "mw_abc123def456",
@@ -442,7 +426,7 @@ X-Admin-Key: <admin_key>
 }
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "ok": true,
@@ -456,23 +440,23 @@ X-Admin-Key: <admin_key>
 }
 ```
 
-**Status Codes:**
-- `200 OK` - Usage reconciled
-- `403 Forbidden` - Invalid admin key
-- `404 Not Found` - Request ID or user not found
+**Mã trạng thái:**
+- `200 OK` - Đối chiếu thành công
+- `403 Forbidden` - Admin key không hợp lệ
+- `404 Not Found` - Không tìm thấy request ID hoặc user
 
 ---
 
-### Stream Admin Operations (SSE)
+### Stream Sự kiện Quản trị (SSE)
 
 ```http
 GET /v1/_mw/stream
 Cookie: mw_dashboard_token=<jwt_token>
 ```
 
-**Description:** Real-time stream of admin operations for dashboard monitoring.
+**Mô tả:** Stream real-time các sự kiện quản trị để giám sát dashboard.
 
-**Response:** Server-Sent Events
+**Phản hồi:** Server-Sent Events
 
 ```
 event: subkey_created
@@ -485,46 +469,46 @@ event: subkey_deleted
 data: {"subkey":"sk_user_old456","timestamp":"2025-12-22T10:37:00Z"}
 ```
 
-**Event Types:**
-- `subkey_created` - New subkey created
-- `subkey_updated` - Quota or enabled status changed
-- `subkey_deleted` - Subkey removed
-- `quota_exceeded` - User hit quota limit
-- `chat_completion` - Chat request processed
+**Các loại sự kiện:**
+- `subkey_created` - Subkey mới được tạo
+- `subkey_updated` - Quota hoặc trạng thái active thay đổi
+- `subkey_deleted` - Subkey bị xóa
+- `quota_exceeded` - User đạt giới hạn quota
+- `chat_completion` - Chat request đã xử lý
 
-**Status Codes:**
-- `200 OK` - Stream started
-- `403 Forbidden` - Invalid JWT token
+**Mã trạng thái:**
+- `200 OK` - Stream bắt đầu
+- `403 Forbidden` - JWT token không hợp lệ
 
 ---
 
-## 📋 Common Parameters
+## Tham số Chung
 
-### Chat Completion Parameters
+### Tham số Chat Completion
 
-| Parameter           | Type         | Required | Default | Description                       |
-| ------------------- | ------------ | -------- | ------- | --------------------------------- |
-| `model`             | string       | ✅       | -       | Model ID (e.g., "gpt-4-turbo")    |
-| `messages`          | array        | ✅       | -       | Conversation history              |
-| `temperature`       | float        | ❌       | 0.7     | Sampling temperature (0-2)        |
-| `max_tokens`        | integer      | ❌       | -       | Maximum response length           |
-| `stream`            | boolean      | ❌       | false   | Enable streaming response         |
-| `top_p`             | float        | ❌       | 1.0     | Nucleus sampling threshold        |
-| `frequency_penalty` | float        | ❌       | 0.0     | Repetition penalty (-2 to 2)      |
-| `presence_penalty`  | float        | ❌       | 0.0     | Topic diversity penalty (-2 to 2) |
-| `stop`              | string/array | ❌       | null    | Stop sequences                    |
-| `user`              | string       | ❌       | -       | End-user identifier for tracking  |
+| Tham số              | Kiểu        | Bắt buộc | Mặc định | Mô tả                                 |
+| -------------------- | ----------- | -------- | -------- | --------------------------------------|
+| `model`              | string      | Co       | -        | ID model (vd: "gpt-4-turbo")          |
+| `messages`           | array       | Co       | -        | Lịch sử hội thoại                     |
+| `temperature`        | float       | Không    | 0.7      | Nhiệt độ lấy mẫu (0-2)                |
+| `max_tokens`         | integer     | Không    | -        | Độ dài phản hồi tối đa                |
+| `stream`             | boolean     | Không    | false    | Bật phản hồi streaming                |
+| `top_p`              | float       | Không    | 1.0      | Ngưỡng lấy mẫu nucleus                |
+| `frequency_penalty`  | float       | Không    | 0.0      | Phạt lặp lại (-2 đến 2)               |
+| `presence_penalty`   | float       | Không    | 0.0      | Phạt đa dạng chủ đề (-2 đến 2)        |
+| `stop`               | string/array| Không    | null     | Chuỗi dừng                            |
+| `user`               | string      | Không    | -        | Định danh người dùng cuối để theo dõi |
 
-### Message Object
+### Đối tượng Message
 
 ```json
 {
   "role": "user|assistant|system",
-  "content": "Text content or array for multimodal"
+  "content": "Nội dung text hoặc mảng cho multimodal"
 }
 ```
 
-**Multimodal Message (with images):**
+**Message Multimodal (kèm hình ảnh):**
 ```json
 {
   "role": "user",
@@ -545,9 +529,9 @@ data: {"subkey":"sk_user_old456","timestamp":"2025-12-22T10:37:00Z"}
 
 ---
 
-## 🚨 Error Responses
+## Phản hồi Lỗi
 
-All errors follow OpenAI format:
+Tất cả lỗi theo định dạng OpenAI:
 
 ```json
 {
@@ -559,38 +543,38 @@ All errors follow OpenAI format:
 }
 ```
 
-### Error Codes
+### Mã Lỗi
 
-| HTTP Status | Error Type              | Description                |
-| ----------- | ----------------------- | -------------------------- |
-| 400         | `invalid_request_error` | Malformed request body     |
-| 401         | `authentication_error`  | Missing or invalid API key |
-| 403         | `quota_exceeded_error`  | User quota limit reached   |
-| 404         | `not_found_error`       | Resource does not exist    |
-| 429         | `rate_limit_error`      | Too many requests          |
-| 500         | `internal_error`        | Server-side error          |
-| 502         | `gateway_error`         | LiteLLM proxy unavailable  |
-
----
-
-## 🔄 Rate Limiting
-
-**Current Implementation:** No global rate limiting (controlled by LiteLLM proxy).
-
-**Per-User Limits:** Enforced via subkey quotas:
-- Each subkey has a `quota` (max simultaneous requests)
-- Exceeding quota returns `403 Forbidden`
-- Quota resets automatically when requests complete
-
-**Future Enhancement:** Token-based rate limiting (requests per minute).
+| HTTP Status | Loại lỗi                 | Mô tả                        |
+| ----------- | ------------------------ | ---------------------------- |
+| 400         | `invalid_request_error`  | Request body không hợp lệ    |
+| 401         | `authentication_error`   | Thiếu hoặc sai API key       |
+| 403         | `quota_exceeded_error`   | Đã đạt giới hạn quota user   |
+| 404         | `not_found_error`        | Tài nguyên không tồn tại     |
+| 429         | `rate_limit_error`       | Quá nhiều request            |
+| 500         | `internal_error`         | Lỗi phía server              |
+| 502         | `gateway_error`          | LiteLLM proxy không khả dụng |
 
 ---
 
-## 📊 Usage Tracking
+## Giới hạn Tốc độ
 
-All requests are tracked in PostgreSQL (`mw_audit_log` table) with file backup to `logs/audit.jsonl`:
+**Triển khai hiện tại:** Không có giới hạn tốc độ toàn cục (kiểm soát bởi LiteLLM proxy).
 
-**Database query example:**
+**Giới hạn Per-User:** Thực thi qua quota subkey:
+- Mỗi subkey có `quota` (số request đồng thời tối đa)
+- Vượt quota trả về `403 Forbidden`
+- Quota tự động reset khi request hoàn thành
+
+**Nâng cấp tương lai:** Giới hạn tốc độ dựa trên token (requests mỗi phút).
+
+---
+
+## Theo dõi Sử dụng
+
+Tất cả request được theo dõi trong PostgreSQL (bảng `mw_audit_log`) với bản sao lưu file `logs/audit.jsonl`:
+
+**Ví dụ truy vấn database:**
 ```sql
 SELECT ts, user_id, model, tokens_total, cost_usd, status
 FROM mw_audit_log
@@ -598,16 +582,16 @@ WHERE ts >= NOW() - INTERVAL '24 hours'
 ORDER BY ts DESC;
 ```
 
-**File backup format (audit.jsonl):**
+**Định dạng bản sao lưu file (audit.jsonl):**
 ```jsonl
 {"ts":"2026-03-03T10:40:15+07:00","rid":"mw_abc123","user_id":"user1","model":"chat-gpt-4o-mini","status":"ok","tokens_total":1234,"cost_usd":0.001}
 ```
 
 ---
 
-## 🧪 Testing Endpoints
+## Ví dụ Kiểm thử
 
-### cURL Examples
+### Ví dụ cURL
 
 **Chat Completion:**
 ```bash
@@ -621,7 +605,7 @@ curl -X POST http://localhost:5000/v1/chat/completions \
   }'
 ```
 
-**Create Subkey:**
+**Tạo Subkey:**
 ```bash
 curl -X POST http://localhost:5000/v1/_mw/subkey \
   -H "Authorization: Bearer admin_master_key_456" \
@@ -629,7 +613,7 @@ curl -X POST http://localhost:5000/v1/_mw/subkey \
   -d '{"quota": 100, "note": "Test user"}'
 ```
 
-**Dashboard Login:**
+**Đăng nhập Dashboard:**
 ```bash
 curl -X POST http://localhost:5000/dashboard/login \
   -H "Content-Type: application/json" \
@@ -637,21 +621,20 @@ curl -X POST http://localhost:5000/dashboard/login \
   -d '{"username": "admin", "password": "admin_master_key_456"}'
 ```
 
-**Get Summary (with cookie):**
+**Lấy Tổng hợp (dùng cookie):**
 ```bash
 curl http://localhost:5000/v1/_mw/summary -b cookies.txt
 ```
 
 ---
 
-## 🔗 Related Documentation
+## Tài liệu Liên quan
 
-- [Architecture Overview](ARCHITECTURE.md) - System design & data flow
-- [Dashboard Guide](DASHBOARD.md) - Admin UI usage
-- [Quick Start](QUICKSTART.md) - Installation & setup
-- [README](../README.md) - Project overview
+- [Kiến trúc hệ thống](03-architecture.md) - Thiết kế hệ thống và luồng dữ liệu
+- [Dashboard Admin](08-dashboard.md) - Hướng dẫn sử dụng giao diện admin
+- [Quản lý người dùng](09-user-management.md) - CRUD user và quản lý quota
 
 ---
 
-**Last Updated:** March 3, 2026  
-**API Version:** 2.0 (DB-backed, OpenAI-compatible)
+**Cập nhật lần cuối:** 7 tháng 3, 2026  
+**Phiên bản API:** 2.0 (DB-backed, tương thích OpenAI)
