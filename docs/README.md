@@ -1,26 +1,26 @@
 # Open WebUI Stack
 
-A fully-featured AI chat platform with middleware authentication, quota management, and multi-provider LLM support.
+Nền tảng chat AI đầy đủ tính năng với middleware xác thực, quản lý quota, và hỗ trợ đa nhà cung cấp LLM.
 
-## 🚀 Quick Start
+## Khởi động Nhanh
 
 ```bash
-# Clone & setup
+# Clone & thiết lập
 git clone https://github.com/your-org/oppen-web-ui.git
 cd oppen-web-ui
 
-# Configure
+# Cấu hình
 cp .env.example .env
-# Edit .env with your API keys
+# Sửa .env với API keys của bạn
 
-# Run
+# Chạy
 docker compose up -d
 
-# Access
+# Truy cập
 open http://localhost:3000
 ```
 
-## 📦 Architecture
+## Kiến trúc
 
 ```
 User → Open WebUI (3000) → Middleware (5000) → LiteLLM (4000) → OpenAI/Gemini
@@ -28,69 +28,73 @@ User → Open WebUI (3000) → Middleware (5000) → LiteLLM (4000) → OpenAI/G
                                             PostgreSQL (5432)
 ```
 
-## 🤖 Supported Models
+## Mô hình Hỗ trợ
 
-| Prefix | Type                     | Examples                          |
-| ------ | ------------------------ | --------------------------------- |
-| `mm-`  | Multimodal (text+vision) | `mm-gpt-5`, `mm-gemini-2.5-flash` |
-| `img-` | Image Generation         | `img-dalle-3`, `img-gemini-flash` |
-| `tts-` | Text-to-Speech           | `tts-gpt-4o-mini`                 |
-| `stt-` | Speech-to-Text           | `stt-gpt-4o`, `stt-gpt-4o-mini`   |
+| Tiền tố | Loại                          | Ví dụ                              |
+| ------- | ----------------------------- | ---------------------------------- |
+| `mm-`   | Đa phương thức (text+vision)  | `mm-gpt-5`, `mm-gemini-2.5-flash` |
+| `img-`  | Tạo ảnh                       | `img-dalle-3`, `img-gemini-flash`  |
+| `tts-`  | Text-to-Speech                | `tts-gpt-4o-mini`                  |
+| `stt-`  | Speech-to-Text                | `stt-gpt-4o`, `stt-gpt-4o-mini`   |
 
-## 📖 Documentation
+## Tài liệu
 
-| Document                                                    | Description                    |
-| ----------------------------------------------------------- | ------------------------------ |
-| [USER_GUIDE_VI.md](docs/USER_GUIDE_VI.md)                   | Hướng dẫn sử dụng (Vietnamese) |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md)                     | System architecture            |
-| [API_REFERENCE.md](docs/API_REFERENCE.md)                   | API endpoints                  |
-| [USER_MANAGEMENT.md](docs/USER_MANAGEMENT.md)               | User & quota management        |
-| [DASHBOARD.md](docs/DASHBOARD.md)                           | Admin dashboard                |
-| [database-architecture.md](docs/database-architecture.md)   | Database schema (32 tables)    |
-| [rag-architecture.md](docs/rag-architecture.md)             | RAG architecture detail        |
-| [system-overview-report.md](docs/system-overview-report.md) | Báo cáo tổng quan hệ thống     |
+| Tài liệu                                                       | Mô tả                            |
+| -------------------------------------------------------------- | -------------------------------- |
+| [01-tong-quan-he-thong.md](docs/01-tong-quan-he-thong.md)      | Tổng quan hệ thống               |
+| [02-tai-lieu-van-hanh.md](docs/02-tai-lieu-van-hanh.md)        | Tài liệu vận hành                |
+| [03-architecture.md](docs/03-architecture.md)                  | Kiến trúc Middleware             |
+| [04-architecture-diagrams.md](docs/04-architecture-diagrams.md)| Sơ đồ kiến trúc                  |
+| [05-database-architecture.md](docs/05-database-architecture.md)| Kiến trúc Database (32 bảng)     |
+| [06-rag-architecture.md](docs/06-rag-architecture.md)          | Kiến trúc RAG chi tiết           |
+| [07-api-reference.md](docs/07-api-reference.md)                | Tài liệu API endpoints           |
+| [08-dashboard.md](docs/08-dashboard.md)                        | Dashboard Admin                  |
+| [09-user-management.md](docs/09-user-management.md)            | Quản lý người dùng               |
+| [10-user-guide-vi.md](docs/10-user-guide-vi.md)                | Hướng dẫn sử dụng                |
+| [11-system-overview-report.md](docs/11-system-overview-report.md)| Báo cáo tổng quan hệ thống     |
+| [12-checklist-tinh-nang.md](docs/12-checklist-tinh-nang.md)    | Checklist tính năng              |
 
-## ⚡ Commands
+## Lệnh Thường dùng
 
 ```bash
-# Start all services
+# Khởi động tất cả services
 docker compose up -d
 
-# Stop all services
+# Dừng tất cả services
 docker compose down
 
-# Rebuild after config changes
+# Rebuild sau khi thay đổi cấu hình
 docker compose up -d --build
 
-# View logs
+# Xem logs
 docker compose logs -f middleware
 
-# Health check
+# Kiểm tra sức khỏe
 curl http://localhost:5000/health
 ```
 
-## 🔑 API Keys Required
+## API Keys Cần thiết
 
 - **OpenAI**: [platform.openai.com](https://platform.openai.com)
 - **Gemini**: [aistudio.google.com](https://aistudio.google.com)
 
-## 📁 Project Structure
+## Cấu trúc Dự án
 
 ```
-├── docker-compose.yml      # Main orchestration
-├── .env.example            # Environment template
+├── docker-compose.yml      # Điều phối chính
+├── .env.example            # Template môi trường
 ├── litellm/
-│   └── litellm_config.yaml # Model definitions
-├── llm-mw/                 # Middleware source
+│   └── litellm_config.yaml # Định nghĩa models
+├── llm-mw/                 # Mã nguồn Middleware
 │   ├── api/                # API endpoints
 │   ├── core/               # Auth, quota, cost
 │   ├── data/               # users.json, prices.json
 │   └── Dockerfile
-├── docs/                   # Documentation
+├── docs/                   # Tài liệu
 └── tests/                  # Playwright tests
 ```
 
-## 🧪 Testing
+## Kiểm thử
 
 ```bash
 cd tests
@@ -98,6 +102,6 @@ npm install
 npx playwright test
 ```
 
-## 📄 License
+## Giấy phép
 
 MIT

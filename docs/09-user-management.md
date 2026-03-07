@@ -1,18 +1,18 @@
-# User Management Guide
+# Hướng dẫn Quản lý Người dùng
 
-## Overview
+## Tổng quan
 
-The LLM Middleware now includes comprehensive user management with RBAC (Role-Based Access Control), key lifecycle management, and audit trail for administrative operations.
+LLM Middleware bao gồm hệ thống quản lý người dùng toàn diện với RBAC (Role-Based Access Control), quản lý vòng đời khóa API, và audit trail cho các thao tác quản trị.
 
-## User Schema
+## Schema Người dùng
 
-Each user in `llm-mw/data/users.json` has the following structure:
+Mỗi user trong bảng `mw_users` (PostgreSQL) có cấu trúc sau:
 
 ```json
 {
   "user_id": "admin",
-  "role": "admin",  // New: admin | manager | user
-  "subkey_hash": "...",  // Hash only, plaintext never stored long-term
+  "role": "admin",  // admin | manager | user
+  "subkey_hash": "...",  // Chỉ lưu hash, plaintext không bao giờ lưu lâu dài
   "active": true,
   "allowed_models": ["*"],
   "quota": {
@@ -28,36 +28,36 @@ Each user in `llm-mw/data/users.json` has the following structure:
 }
 ```
 
-### Roles
+### Vai trò (Roles)
 
-- **admin**: Full access to all admin endpoints (user management)
-- **manager**: (Future) Read-only admin access
-- **user**: Standard API user with quota limits
+- **admin**: Toàn quyền truy cập các endpoint quản trị (quản lý user)
+- **manager**: (Dự kiến) Quyền admin chỉ đọc
+- **user**: Người dùng API tiêu chuẩn với giới hạn quota
 
 ## Migration
 
-To add RBAC to existing users.json:
+Để thêm RBAC cho users.json hiện có:
 
 ```bash
 python scripts/migrate_users_rbac.py
 ```
 
-This script:
-1. Backs up current users.json
-2. Adds 'role' field (first user gets 'admin', others get 'user')
-3. Validates and saves
+Script này sẽ:
+1. Sao lưu users.json hiện tại
+2. Thêm trường 'role' (user đầu tiên nhận 'admin', còn lại nhận 'user')
+3. Xác thực và lưu
 
-## Admin API Endpoints
+## Các Endpoint Quản trị
 
-All endpoints require admin authentication (cookie session or X-Admin-Key header).
+Tất cả endpoint yêu cầu xác thực admin (cookie session hoặc header X-Admin-Key).
 
-### List Users
+### Danh sách Người dùng
 
 ```bash
 GET /v1/_mw/admin/users
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "users": [
@@ -73,11 +73,11 @@ GET /v1/_mw/admin/users
 }
 ```
 
-**Note:** Keys and hashes are scrubbed from response.
+**Lưu ý:** Các khóa và hash được ẩn khỏi phản hồi.
 
 ---
 
-### Create User
+### Tạo Người dùng
 
 ```bash
 POST /v1/_mw/admin/users
@@ -95,21 +95,21 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "message": "User created successfully",
   "user": {...},
-  "subkey": "sk_abc123...",  // ⚠️ Shown ONLY once!
+  "subkey": "sk_abc123...",  // Chỉ hiển thị 1 LẦN DUY NHẤT!
   "warning": "Save this subkey securely. It will not be shown again."
 }
 ```
 
-**⚠️ CRITICAL:** Copy the `subkey` immediately. It cannot be retrieved later.
+**QUAN TRỌNG:** Sao chép subkey ngay lập tức. Không thể khôi phục sau này.
 
 ---
 
-### Update User
+### Cập nhật Người dùng
 
 ```bash
 PATCH /v1/_mw/admin/users/{user_id}
@@ -123,7 +123,7 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "message": "User updated successfully",
@@ -135,37 +135,37 @@ Content-Type: application/json
 }
 ```
 
-**Fields:** All fields are optional. Only provided fields will be updated.
+**Các trường:** Tất cả đều tùy chọn. Chỉ các trường được cung cấp mới được cập nhật.
 
 ---
 
-### Rotate Key
+### Xoay vòng Khóa (Rotate Key)
 
 ```bash
 POST /v1/_mw/admin/users/{user_id}/rotate_key
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "message": "Key rotated successfully",
   "user_id": "user1",
-  "subkey": "sk_new_key_xyz...",  // ⚠️ Shown ONLY once!
+  "subkey": "sk_new_key_xyz...",  // Chỉ hiển thị 1 LẦN DUY NHẤT!
   "warning": "Save this subkey securely. The old key is now invalid."
 }
 ```
 
-**⚠️ IMPORTANT:** The old key is immediately invalidated.
+**QUAN TRỌNG:** Khóa cũ bị vô hiệu hóa ngay lập tức.
 
 ---
 
-### Delete User
+### Xóa Người dùng
 
 ```bash
 DELETE /v1/_mw/admin/users/{user_id}
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "message": "User alice deleted",
@@ -173,20 +173,20 @@ DELETE /v1/_mw/admin/users/{user_id}
 }
 ```
 
-**⚠️ IMPORTANT:**
-- Deletion is permanent — removes from both DB and JSON backup
-- Self-deletion is prevented (admin cannot delete themselves)
-- Requires double confirmation in Dashboard UI
+**QUAN TRỌNG:**
+- Xóa là vĩnh viễn - xóa khỏi cả DB và bản sao lưu JSON
+- Không cho phép tự xóa (admin không thể xóa chính mình)
+- Yêu cầu xác nhận 2 lần trên giao diện Dashboard
 
 ---
 
-### Disable User
+### Tắt Tài khoản (Disable)
 
 ```bash
 POST /v1/_mw/admin/users/{user_id}/disable
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "message": "User user1 disabled successfully",
@@ -194,17 +194,17 @@ POST /v1/_mw/admin/users/{user_id}/disable
 }
 ```
 
-Disabled users cannot authenticate (403 Forbidden).
+Người dùng bị tắt không thể xác thực (trả về 403 Forbidden).
 
 ---
 
-### Enable User
+### Bật lại Tài khoản (Enable)
 
 ```bash
 POST /v1/_mw/admin/users/{user_id}/enable
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "message": "User user1 enabled successfully",
@@ -214,36 +214,36 @@ POST /v1/_mw/admin/users/{user_id}/enable
 
 ---
 
-## Dashboard CRUD UI
+## Giao diện Quản lý trên Dashboard
 
-Full user management is available via the Admin Dashboard at `http://<server>:5000/dashboard` → **Users** tab.
+Quản lý người dùng đầy đủ có sẵn tại Dashboard Admin `http://<server>:5000/dashboard` > tab **Users**.
 
-### Available Actions
+### Các Thao tác
 
-| Action            | Button      | Description                                |
-| ----------------- | ----------- | ------------------------------------------ |
-| **Add User**      | ➕ Add User | Create new user with generated subkey      |
-| **Edit User**     | ✏️          | Modify quota, models, role, period, active |
-| **Delete User**   | 🗑️          | Remove user (double confirmation)          |
-| **Rotate Key**    | 🔑          | Invalidate old key, generate new one       |
-| **Toggle Active** | 🔴/🟢       | Enable/disable user (403 when disabled)    |
+| Thao tác            | Nút         | Mô tả                                              |
+| ------------------- | ----------- | -------------------------------------------------- |
+| **Thêm user**       | Add User    | Tạo user mới với subkey tự sinh                    |
+| **Sửa user**        | Edit        | Sửa quota, models, role, period, active            |
+| **Xóa user**        | Delete      | Xóa user (xác nhận 2 lần)                          |
+| **Xoay khóa**       | Rotate Key  | Vô hiệu khóa cũ, tạo khóa mới                      |
+| **Bật/Tắt**         | Toggle      | Bật/tắt tài khoản (403 khi bị tắt)                 |
 
-### Subkey Display
+### Hiển thị Subkey
 
-- After **Create** or **Rotate Key**, a popup shows the plaintext subkey
-- Admin must copy it immediately — it will **NOT** be shown again
-- Dashboard table shows only masked hash (`abc...xyz`)
-- Subkeys are hashed with HMAC-SHA256 using `MW_SECRET`
+- Sau khi **Tạo** hoặc **Xoay khóa**, popup hiển thị subkey dạng plaintext
+- Admin phải sao chép ngay lập tức - sẽ **KHÔNG** hiển thị lại
+- Bảng Dashboard chỉ hiển thị hash đã ẩn (`abc...xyz`)
+- Subkeys được hash bằng HMAC-SHA256 sử dụng `MW_SECRET`
 
 ---
 
-### Admin Audit Trail
+### Nhật ký Kiểm toán Quản trị (Admin Audit Trail)
 
 ```bash
 GET /v1/_mw/admin/audit?minutes=1440
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "audit_trail": [
@@ -262,49 +262,49 @@ GET /v1/_mw/admin/audit?minutes=1440
 }
 ```
 
-**Query params:**
-- `minutes`: Time window (default: 1440 = 24 hours)
-- `start` / `end`: ISO datetime strings for custom range
+**Tham số truy vấn:**
+- `minutes`: Khoảng thời gian (mặc định: 1440 = 24 giờ)
+- `start` / `end`: Chuỗi ISO datetime cho khoảng tùy chỉnh
 
-## Audit Log File
+## File Nhật ký Kiểm toán
 
-Admin operations are logged to `logs/admin_audit.jsonl` (rotating, 20MB max, 5 backups).
+Các thao tác quản trị được ghi vào `logs/admin_audit.jsonl` (rotating, tối đa 20MB, 5 bản sao lưu).
 
-Each entry includes:
-- `ts`: Timestamp (ISO UTC)
-- `actor`: Admin session identifier
-- `action`: Operation performed (create_user, update_user, rotate_key, disable_user, enable_user)
-- `target_user`: User ID affected
-- `changes`: Summary of changes made
+Mỗi bản ghi bao gồm:
+- `ts`: Thời gian (ISO UTC)
+- `actor`: Định danh phiên admin
+- `action`: Thao tác thực hiện (create_user, update_user, rotate_key, disable_user, enable_user)
+- `target_user`: User ID bị ảnh hưởng
+- `changes`: Tóm tắt các thay đổi
 - `status`: ok | error
-- `ip`: Client IP address
-- `user_agent`: Client user agent
+- `ip`: Địa chỉ IP client
+- `user_agent`: User agent client
 
-## Security Best Practices
+## Thực hành Bảo mật Tốt nhất
 
-1. **Key Storage:**
-   - Never log or display subkeys except on create/rotate
-   - Only hashes (HMAC-SHA256) are stored in users.json
-   - Use environment variable `MW_SECRET` for hash salt
+1. **Lưu trữ Khóa:**
+   - Không bao giờ ghi log hoặc hiển thị subkey ngoại trừ khi tạo/xoay
+   - Chỉ lưu hash (HMAC-SHA256) trong database
+   - Sử dụng biến môi trường `MW_SECRET` làm salt hash
 
-2. **Key Rotation:**
-   - Rotate keys periodically (e.g., every 90 days)
-   - Rotate immediately if key is compromised
-   - Old key is invalidated instantly
+2. **Xoay vòng Khóa:**
+   - Xoay khóa định kỳ (ví dụ: mỗi 90 ngày)
+   - Xoay ngay lập tức nếu khóa bị lộ
+   - Khóa cũ bị vô hiệu hóa tức thì
 
 3. **RBAC:**
-   - Assign 'admin' role sparingly
-   - Use 'user' role for API consumers
-   - Future: 'manager' role for read-only admin access
+   - Cấp vai trò 'admin' hạn chế
+   - Dùng vai trò 'user' cho người dùng API
+   - Tương lai: vai trò 'manager' cho quyền admin chỉ đọc
 
-4. **Audit Trail:**
-   - Review admin_audit.jsonl regularly
-   - Monitor for unauthorized admin operations
-   - Correlate with IP addresses for investigation
+4. **Nhật ký Kiểm toán:**
+   - Rà soát admin_audit.jsonl định kỳ
+   - Giám sát các thao tác admin trái phép
+   - Đối chiếu với địa chỉ IP để điều tra
 
-## Examples
+## Ví dụ
 
-### Create User via curl
+### Tạo User qua curl
 
 ```bash
 curl -X POST http://localhost:5000/v1/_mw/admin/users \
@@ -319,36 +319,36 @@ curl -X POST http://localhost:5000/v1/_mw/admin/users \
   }'
 ```
 
-### Rotate Key via curl
+### Xoay Khóa qua curl
 
 ```bash
 curl -X POST http://localhost:5000/v1/_mw/admin/users/alice/rotate_key \
   -H "X-Admin-Key: $ADMIN_KEY"
 ```
 
-### Disable User via curl
+### Tắt User qua curl
 
 ```bash
 curl -X POST http://localhost:5000/v1/_mw/admin/users/alice/disable \
   -H "X-Admin-Key: $ADMIN_KEY"
 ```
 
-## Troubleshooting
+## Xử lý Sự cố
 
-### Error: "Invalid admin key or session"
+### Lỗi: "Invalid admin key or session"
 
-**Solution:** 
-- For curl: Use `-H "X-Admin-Key: $ADMIN_KEY"`
-- For dashboard: Login with admin key to get session cookie
+**Giải pháp:**
+- Với curl: Dùng `-H "X-Admin-Key: $ADMIN_KEY"`
+- Với dashboard: Đăng nhập bằng admin key để lấy session cookie
 
-### Error: "User already exists"
+### Lỗi: "User already exists"
 
-**Solution:** User IDs must be unique. Choose a different user_id or update existing user.
+**Giải pháp:** User ID phải là duy nhất. Chọn user_id khác hoặc cập nhật user hiện có.
 
-### Key lost, can't authenticate
+### Mất khóa, không xác thực được
 
-**Solution:** Admin must rotate the key and provide new one. Old key cannot be recovered.
+**Giải pháp:** Admin phải xoay khóa và cung cấp khóa mới. Khóa cũ không thể khôi phục.
 
-### Audit log not found
+### Không tìm thấy nhật ký kiểm toán
 
-**Solution:** Admin audit log is created on first admin operation. File path: `logs/admin_audit.jsonl`
+**Giải pháp:** Nhật ký kiểm toán admin được tạo khi có thao tác admin đầu tiên. Đường dẫn file: `logs/admin_audit.jsonl`
