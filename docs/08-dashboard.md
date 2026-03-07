@@ -1567,26 +1567,26 @@ logs/
 
 **Fields Chi Tiết:**
 
-| Field | Type | Mô tả | Ví dụ |
-|-------|------|-------|-------|
-| `ts` | string | Timestamp (ISO 8601, Asia/Ho_Chi_Minh) | `2025-12-27T15:23:45+07:00` |
-| `rid` | string | Request ID (unique) | `mw_843ef9b738434b42` |
-| `user_id` | string | User identifier | `admin`, `user1` |
-| `endpoint` | string | API endpoint path | `/v1/chat/completions` |
-| `model` | string/null | LLM model name | `gpt-4o-mini`, `gemini-2.5-flash` |
-| `status` | string | Request status | `ok`, `error`, `pending`, `reconciled` |
-| `status_code` | int | HTTP status code | 200, 403, 500 |
-| `latency_ms` | float/null | Response time (milliseconds) | 1234.5 |
-| `tokens_in` | int | Input/prompt tokens | 100 |
-| `tokens_out` | int | Output/completion tokens | 200 |
-| `tokens_total` | int | Total tokens (in + out) | 300 |
-| `cost_usd` | float | Cost in USD (6 decimals) | 0.012340 |
-| `image_count` | int/null | Image generation requests | 1, null |
-| `tts_chars` | int/null | Text-to-speech characters | 150, null |
-| `stt_seconds` | float/null | Speech-to-text duration | 30.5, null |
-| `video_count` | int/null | Video generation requests | 1, null |
-| `error_type` | string/null | Error category | `auth`, `quota`, `provider`, `system` |
-| `error_message` | string/null | Error message (truncated 500 chars) | `Invalid API key` |
+| Field           | Type        | Mô tả                                  | Ví dụ                                  |
+| --------------- | ----------- | -------------------------------------- | -------------------------------------- |
+| `ts`            | string      | Timestamp (ISO 8601, Asia/Ho_Chi_Minh) | `2025-12-27T15:23:45+07:00`            |
+| `rid`           | string      | Request ID (unique)                    | `mw_843ef9b738434b42`                  |
+| `user_id`       | string      | User identifier                        | `admin`, `user1`                       |
+| `endpoint`      | string      | API endpoint path                      | `/v1/chat/completions`                 |
+| `model`         | string/null | LLM model name                         | `gpt-4o-mini`, `gemini-2.5-flash`      |
+| `status`        | string      | Request status                         | `ok`, `error`, `pending`, `reconciled` |
+| `status_code`   | int         | HTTP status code                       | 200, 403, 500                          |
+| `latency_ms`    | float/null  | Response time (milliseconds)           | 1234.5                                 |
+| `tokens_in`     | int         | Input/prompt tokens                    | 100                                    |
+| `tokens_out`    | int         | Output/completion tokens               | 200                                    |
+| `tokens_total`  | int         | Total tokens (in + out)                | 300                                    |
+| `cost_usd`      | float       | Cost in USD (6 decimals)               | 0.012340                               |
+| `image_count`   | int/null    | Image generation requests              | 1, null                                |
+| `tts_chars`     | int/null    | Text-to-speech characters              | 150, null                              |
+| `stt_seconds`   | float/null  | Speech-to-text duration                | 30.5, null                             |
+| `video_count`   | int/null    | Video generation requests              | 1, null                                |
+| `error_type`    | string/null | Error category                         | `auth`, `quota`, `provider`, `system`  |
+| `error_message` | string/null | Error message (truncated 500 chars)    | `Invalid API key`                      |
 
 **Status Values:**
 - `ok` - Request thành công
@@ -2061,15 +2061,15 @@ curl http://localhost:5000/v1/_mw/summary?minutes=30 \
 
 **Metrics hiển thị (6 chỉ số chính):**
 
-| Label | Nguồn | Ý nghĩa |
-|-------|-------|---------|
-| **LLM Calls** | `llm_calls_total` | Tổng calls đến LLM (chat/image/audio/video) |
-| **Admin Ops** | `admin_ops_total` | Operations quản trị (reconcile, etc) |
-| **Pending** | `pending_count` | Streaming chưa reconcile |
-| **Error Rate** | `error_rate_percent` | % request lỗi |
-| **P95 Latency** | `p95_latency_ms` | Latency phân vị 95 |
-| **Tokens** | `tokens_total` | Tổng tokens (ok + reconciled) |
-| **Cost** | `cost_total_usd` | Tổng cost USD |
+| Label           | Nguồn                | Ý nghĩa                                     |
+| --------------- | -------------------- | ------------------------------------------- |
+| **LLM Calls**   | `llm_calls_total`    | Tổng calls đến LLM (chat/image/audio/video) |
+| **Admin Ops**   | `admin_ops_total`    | Operations quản trị (reconcile, etc)        |
+| **Pending**     | `pending_count`      | Streaming chưa reconcile                    |
+| **Error Rate**  | `error_rate_percent` | % request lỗi                               |
+| **P95 Latency** | `p95_latency_ms`     | Latency phân vị 95                          |
+| **Tokens**      | `tokens_total`       | Tổng tokens (ok + reconciled)               |
+| **Cost**        | `cost_total_usd`     | Tổng cost USD                               |
 
 **Breakdown LLM Calls:**
 - Hiển thị: `Chat: X | Image: Y | Audio: Z`

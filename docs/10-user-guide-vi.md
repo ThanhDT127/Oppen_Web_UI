@@ -50,11 +50,11 @@ Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware,
 
 ### 1.2 Docker Services
 
-| Service | Port | Chức Năng |
-|---------|------|-----------|
+| Service        | Port | Chức Năng            |
+| -------------- | ---- | -------------------- |
 | **Open WebUI** | 3000 | Giao diện người dùng |
-| **Middleware** | 5000 | Xác thực + Quota |
-| **LiteLLM** | 4000 | LLM Proxy |
+| **Middleware** | 5000 | Xác thực + Quota     |
+| **LiteLLM**    | 4000 | LLM Proxy            |
 | **PostgreSQL** | 5432 | Database + Vector DB |
 
 ---
@@ -63,39 +63,39 @@ Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware,
 
 ### Quy Ước Đặt Tên
 
-| Prefix | Chức Năng |
-|--------|-----------|
-| `mm-` | **Multimodal** - Chat text + hiểu ảnh |
-| `img-` | **Image Generation** - Tạo ảnh từ text |
+| Prefix | Chức Năng                                    |
+| ------ | -------------------------------------------- |
+| `mm-`  | **Multimodal** - Chat text + hiểu ảnh        |
+| `img-` | **Image Generation** - Tạo ảnh từ text       |
 | `tts-` | **Text-to-Speech** - Chuyển text thành audio |
 | `stt-` | **Speech-to-Text** - Chuyển audio thành text |
 
 ### Danh Sách Model
 
 #### Multimodal (Text + Vision)
-| Model | Provider | Ghi Chú |
-|-------|----------|---------|
-| `mm-gpt-5` | OpenAI | Flagship, reasoning mạnh nhất |
-| `mm-gpt-5-mini` | OpenAI | Cân bằng |
-| `mm-gpt-5-nano` | OpenAI | Nhanh, tiết kiệm |
-| `mm-gpt-4.1` | OpenAI | 1M context window |
-| `mm-gpt-4o` | OpenAI | Multimodal + audio |
-| `mm-gemini-2.5-pro` | Google | 1M context, reasoning |
-| `mm-gemini-2.5-flash` | Google | Nhanh, khuyến nghị |
-| `mm-gemini-3-pro` | Google | Latest flagship |
+| Model                 | Provider | Ghi Chú                       |
+| --------------------- | -------- | ----------------------------- |
+| `mm-gpt-5`            | OpenAI   | Flagship, reasoning mạnh nhất |
+| `mm-gpt-5-mini`       | OpenAI   | Cân bằng                      |
+| `mm-gpt-5-nano`       | OpenAI   | Nhanh, tiết kiệm              |
+| `mm-gpt-4.1`          | OpenAI   | 1M context window             |
+| `mm-gpt-4o`           | OpenAI   | Multimodal + audio            |
+| `mm-gemini-2.5-pro`   | Google   | 1M context, reasoning         |
+| `mm-gemini-2.5-flash` | Google   | Nhanh, khuyến nghị            |
+| `mm-gemini-3-pro`     | Google   | Latest flagship               |
 
 #### Image Generation
-| Model | Provider | Ghi Chú |
-|-------|----------|---------|
-| `img-dalle-3` | OpenAI | Chất lượng cao, cần org verification |
-| `img-gemini-flash` | Google | ✅ Khuyến nghị, không cần verification |
+| Model              | Provider | Ghi Chú                                |
+| ------------------ | -------- | -------------------------------------- |
+| `img-dalle-3`      | OpenAI   | Chất lượng cao, cần org verification   |
+| `img-gemini-flash` | Google   | ✅ Khuyến nghị, không cần verification |
 
 #### Audio
-| Model | Provider | Chức Năng |
-|-------|----------|-----------|
-| `tts-gpt-4o-mini` | OpenAI | Text → Audio |
-| `stt-gpt-4o` | OpenAI | Audio → Text (transcribe) |
-| `stt-gpt-4o-mini` | OpenAI | Transcribe nhanh |
+| Model             | Provider | Chức Năng                 |
+| ----------------- | -------- | ------------------------- |
+| `tts-gpt-4o-mini` | OpenAI   | Text → Audio              |
+| `stt-gpt-4o`      | OpenAI   | Audio → Text (transcribe) |
+| `stt-gpt-4o-mini` | OpenAI   | Transcribe nhanh          |
 
 ---
 
@@ -140,12 +140,12 @@ Câu hỏi → Tìm chunks liên quan → Ghép vào context → LLM trả lời
 
 **Admin Panel → Settings → Documents**
 
-| Tham Số | Mặc Định | Mô Tả |
-|---------|----------|-------|
-| Top K | 5 | Số chunks retrieve |
-| Chunk Size | 1000 | Kích thước mỗi chunk |
-| Chunk Overlap | 200 | Độ chồng lấp |
-| Hybrid Search | On | Vector + Keyword search |
+| Tham Số       | Mặc Định | Mô Tả                   |
+| ------------- | -------- | ----------------------- |
+| Top K         | 5        | Số chunks retrieve      |
+| Chunk Size    | 1000     | Kích thước mỗi chunk    |
+| Chunk Overlap | 200      | Độ chồng lấp            |
+| Hybrid Search | On       | Vector + Keyword search |
 
 ---
 
@@ -224,10 +224,10 @@ curl -X POST -H "X-Admin-Key: admin_key" \
 
 ### 6.1 Kiến Trúc — 2 Hệ Thống User
 
-| Hệ thống | Database | Vai trò |
-|----------|---------|--------|
-| **Open WebUI** | `openwebui` → bảng `user` | Đăng nhập web, phân quyền Admin/User |
-| **Middleware** | `middleware` → bảng `mw_users` | Xác thực API, quản lý quota, subkey |
+| Hệ thống       | Database                       | Vai trò                              |
+| -------------- | ------------------------------ | ------------------------------------ |
+| **Open WebUI** | `openwebui` → bảng `user`      | Đăng nhập web, phân quyền Admin/User |
+| **Middleware** | `middleware` → bảng `mw_users` | Xác thực API, quản lý quota, subkey  |
 
 > ⚠️ Hai hệ thống **độc lập** — user_id trong middleware không liên kết với user_id trong Open WebUI.
 
@@ -235,13 +235,13 @@ curl -X POST -H "X-Admin-Key: admin_key" \
 
 Truy cập: `http://<server>:5000/dashboard` → Tab **Users**
 
-| Thao tác | Cách làm |
-|----------|---------|
-| **Tạo user** | Nhấn ➕ Add User → Điền form → Create → Copy subkey |
-| **Sửa user** | Nhấn ✏️ → Sửa quota/model/role → Save |
-| **Xóa user** | Nhấn 🗑️ → Confirm 2 lần |
-| **Rotate key** | Nhấn 🔑 → Confirm → Copy subkey mới |
-| **Enable/Disable** | Nhấn 🔴/🟢 toggle |
+| Thao tác           | Cách làm                                            |
+| ------------------ | --------------------------------------------------- |
+| **Tạo user**       | Nhấn ➕ Add User → Điền form → Create → Copy subkey |
+| **Sửa user**       | Nhấn ✏️ → Sửa quota/model/role → Save               |
+| **Xóa user**       | Nhấn 🗑️ → Confirm 2 lần                             |
+| **Rotate key**     | Nhấn 🔑 → Confirm → Copy subkey mới                 |
+| **Enable/Disable** | Nhấn 🔴/🟢 toggle                                   |
 
 ### 6.3 Subkey — Bảo Mật
 
@@ -280,11 +280,11 @@ curl -X POST http://localhost:5000/v1/_mw/admin/users/alice/rotate_key \
 
 ### 7.1 Các Định Dạng
 
-| Công cụ | Mô Tả |
-|---------|--------|
-| **Xuất Excel** (.xlsx) | Trích xuất bảng biểu, auto-format số/ngày/tiền |
-| **Xuất PDF** | Xuất hội thoại, hỗ trợ tiếng Việt (font DejaVu) |
-| **Xuất Word** (.docx) | Xuất hội thoại dạng Word |
+| Công cụ                | Mô Tả                                           |
+| ---------------------- | ----------------------------------------------- |
+| **Xuất Excel** (.xlsx) | Trích xuất bảng biểu, auto-format số/ngày/tiền  |
+| **Xuất PDF**           | Xuất hội thoại, hỗ trợ tiếng Việt (font DejaVu) |
+| **Xuất Word** (.docx)  | Xuất hội thoại dạng Word                        |
 
 ### 7.2 Cách Sử Dụng
 
@@ -302,13 +302,13 @@ curl -X POST http://localhost:5000/v1/_mw/admin/users/alice/rotate_key \
 
 ### 8.1 Lỗi Thường Gặp
 
-| Lỗi | Nguyên Nhân | Giải Pháp |
-|-----|-------------|-----------|
-| 401 Missing sub-key | Thiếu Authorization header | Thêm `Bearer <subkey>` |
-| 403 Invalid sub-key | Subkey sai hoặc user bị disable | Kiểm tra DB hoặc rotate key |
-| 403 Model not allowed | Model bị chặn | Thêm vào allowed_models |
-| 403 Quota exceeded | Hết quota | Reset hoặc tăng limit |
-| 502 LiteLLM unavailable | LiteLLM chưa chạy | Kiểm tra container |
+| Lỗi                     | Nguyên Nhân                     | Giải Pháp                   |
+| ----------------------- | ------------------------------- | --------------------------- |
+| 401 Missing sub-key     | Thiếu Authorization header      | Thêm `Bearer <subkey>`      |
+| 403 Invalid sub-key     | Subkey sai hoặc user bị disable | Kiểm tra DB hoặc rotate key |
+| 403 Model not allowed   | Model bị chặn                   | Thêm vào allowed_models     |
+| 403 Quota exceeded      | Hết quota                       | Reset hoặc tăng limit       |
+| 502 LiteLLM unavailable | LiteLLM chưa chạy               | Kiểm tra container          |
 
 ### 8.2 Kiểm Tra Service
 
@@ -341,12 +341,12 @@ curl http://localhost:5000/v1/models \
 
 ### URLs
 
-| Service | URL |
-|---------|-----|
-| Open WebUI | http://localhost:3000 |
-| Middleware API | http://localhost:5000 |
-| LiteLLM | http://localhost:4000 |
-| Dashboard | http://localhost:5000/dashboard |
+| Service        | URL                             |
+| -------------- | ------------------------------- |
+| Open WebUI     | http://localhost:3000           |
+| Middleware API | http://localhost:5000           |
+| LiteLLM        | http://localhost:4000           |
+| Dashboard      | http://localhost:5000/dashboard |
 
 ### Commands
 

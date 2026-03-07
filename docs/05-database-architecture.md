@@ -25,10 +25,10 @@ Volume:           postgres_data (persistent)
 
 ### 1.2. Extensions
 
-| Extension | Version | Mục đích |
-|-----------|---------|---------|
-| `vector` (PGVector) | 0.8.0 | Vector similarity search cho RAG |
-| `plpgsql` | 1.0 | Procedural language (built-in) |
+| Extension           | Version | Mục đích                         |
+| ------------------- | ------- | -------------------------------- |
+| `vector` (PGVector) | 0.8.0   | Vector similarity search cho RAG |
+| `plpgsql`           | 1.0     | Procedural language (built-in)   |
 
 ---
 
@@ -359,23 +359,23 @@ Referenced by: channel_file
 
 ### 3.13. Các table phụ trợ
 
-| Table | Mục đích |
-|-------|---------|
-| `api_key` | API keys cho external access |
-| `config` | System configuration (JSON) |
-| `feedback` | User feedback trên responses |
-| `folder` | Chat folder organization |
-| `function` | Custom Python functions |
-| `group` + `group_member` | User groups |
-| `channel` + `channel_member` + `channel_webhook` + `channel_file` | Channels (team chat) |
-| `chatidtag` + `tag` | Chat tagging system |
-| `message_reaction` | Reactions trên messages |
-| `note` | User notes |
-| `oauth_session` | OAuth login sessions |
-| `prompt` | Saved prompt templates |
-| `tool` | Custom tools |
-| `alembic_version` | DB migration version tracking |
-| `migratehistory` | Migration history |
+| Table                                                             | Mục đích                      |
+| ----------------------------------------------------------------- | ----------------------------- |
+| `api_key`                                                         | API keys cho external access  |
+| `config`                                                          | System configuration (JSON)   |
+| `feedback`                                                        | User feedback trên responses  |
+| `folder`                                                          | Chat folder organization      |
+| `function`                                                        | Custom Python functions       |
+| `group` + `group_member`                                          | User groups                   |
+| `channel` + `channel_member` + `channel_webhook` + `channel_file` | Channels (team chat)          |
+| `chatidtag` + `tag`                                               | Chat tagging system           |
+| `message_reaction`                                                | Reactions trên messages       |
+| `note`                                                            | User notes                    |
+| `oauth_session`                                                   | OAuth login sessions          |
+| `prompt`                                                          | Saved prompt templates        |
+| `tool`                                                            | Custom tools                  |
+| `alembic_version`                                                 | DB migration version tracking |
+| `migratehistory`                                                  | Migration history             |
 
 ---
 
@@ -533,15 +533,15 @@ ix_chat_file_chat_id, ix_chat_file_file_id
 
 ## 5. Data Size & Statistics (Hiện tại)
 
-| Metric | Giá trị |
-|--------|---------|
-| Tổng tables (openwebui DB) | 32 |
-| Tổng tables (middleware DB) | 6 |
-| Tổng indexes | 65+ |
-| DB Extensions | vector (pgvector 0.8.0) |
-| Document chunks | 1 chunk (collection: "knowledge-bases") |
-| document_chunk table size | ~80 KB |
-| Index method | HNSW (cosine similarity) |
+| Metric                      | Giá trị                                 |
+| --------------------------- | --------------------------------------- |
+| Tổng tables (openwebui DB)  | 32                                      |
+| Tổng tables (middleware DB) | 6                                       |
+| Tổng indexes                | 65+                                     |
+| DB Extensions               | vector (pgvector 0.8.0)                 |
+| Document chunks             | 1 chunk (collection: "knowledge-bases") |
+| document_chunk table size   | ~80 KB                                  |
+| Index method                | HNSW (cosine similarity)                |
 
 ---
 
@@ -550,12 +550,12 @@ ix_chat_file_chat_id, ix_chat_file_file_id
 ### 6.1. PGVector Performance Benchmarks
 
 | Số vectors | HNSW Index Build | Search Latency | RAM Usage |
-|-----------|-----------------|---------------|-----------|
-| 1,000 | < 1 giây | < 1ms | ~6 MB |
-| 10,000 | ~5 giây | < 5ms | ~60 MB |
-| 100,000 | ~1 phút | < 10ms | ~600 MB |
-| 1,000,000 | ~10 phút | < 50ms | ~6 GB |
-| 10,000,000 | ~2 giờ | < 100ms | ~60 GB |
+| ---------- | ---------------- | -------------- | --------- |
+| 1,000      | < 1 giây         | < 1ms          | ~6 MB     |
+| 10,000     | ~5 giây          | < 5ms          | ~60 MB    |
+| 100,000    | ~1 phút          | < 10ms         | ~600 MB   |
+| 1,000,000  | ~10 phút         | < 50ms         | ~6 GB     |
+| 10,000,000 | ~2 giờ           | < 100ms        | ~60 GB    |
 
 > Với vector(1536): mỗi vector = 1536 × 4 bytes = 6.14 KB raw data
 
@@ -565,7 +565,7 @@ ix_chat_file_chat_id, ix_chat_file_file_id
 -- Tăng ef_search cho recall tốt hơn (default: 40)
 SET hnsw.ef_search = 100;
 
--- Tăng work_mem cho sorts lớn
+-- Tăng work_mem chồ sơrts lớn
 SET work_mem = '256MB';
 
 -- Parallel queries
@@ -574,13 +574,13 @@ SET max_parallel_workers_per_gather = 4;
 
 ### 6.3. Giới hạn
 
-| Giới hạn | Giá trị |
-|----------|---------|
-| Max vector dimensions | 16,000 (PGVector limit) |
-| Max rows/table | ~2 tỷ (PostgreSQL limit) |
-| Max database size | Unlimited (disk-limited) |
-| Max connections | 100 (default, configurable) |
-| Docker volume | Unlimited (disk-limited) |
+| Giới hạn              | Giá trị                     |
+| --------------------- | --------------------------- |
+| Max vector dimensions | 16,000 (PGVector limit)     |
+| Max rows/table        | ~2 tỷ (PostgreSQL limit)    |
+| Max database size     | Unlimited (disk-limited)    |
+| Max connections       | 100 (default, configurable) |
+| Docker volume         | Unlimited (disk-limited)    |
 
 ---
 
@@ -631,42 +631,42 @@ docker run --rm -v oppen_web_ui_openwebui_data:/data -v $(pwd):/backup \
 
 ### 8.1. Đang có (Hiện tại)
 
-| Feature | Status |
-|---------|--------|
+| Feature                        | Status    |
+| ------------------------------ | --------- |
 | PostgreSQL 16 + PGVector 0.8.0 | ✅ Active |
-| HNSW vector index | ✅ Active |
-| Knowledge Collections | ✅ Active |
-| File uploads (PDF, DOCX, TXT) | ✅ Active |
-| Hybrid Search (BM25 + Vector) | ✅ Active |
-| User authentication | ✅ Active |
-| Chat history persistence | ✅ Active |
-| User memory | ✅ Active |
-| Channels (team chat) | ✅ Active |
-| Persistent Docker volumes | ✅ Active |
+| HNSW vector index              | ✅ Active |
+| Knowledge Collections          | ✅ Active |
+| File uploads (PDF, DOCX, TXT)  | ✅ Active |
+| Hybrid Search (BM25 + Vector)  | ✅ Active |
+| User authentication            | ✅ Active |
+| Chat history persistence       | ✅ Active |
+| User memory                    | ✅ Active |
+| Channels (team chat)           | ✅ Active |
+| Persistent Docker volumes      | ✅ Active |
 
 ### 8.2. Đã cấu hình nhưng chưa tận dụng
 
-| Feature | Status | Ghi chú |
-|---------|--------|---------|
-| Groups & Access Control | ⚠️ Chưa dùng | Tables có nhưng chưa tạo groups |
-| Custom Functions & Tools | ⚠️ Chưa dùng | Infrastructure sẵn sàng |
-| Prompt Templates | ⚠️ Chưa dùng | Table `prompt` trống |
-| Notes | ⚠️ Chưa dùng | Table `note` trống |
-| Feedback system | ⚠️ Chưa dùng | Table `feedback` trống |
+| Feature                  | Status       | Ghi chú                         |
+| ------------------------ | ------------ | ------------------------------- |
+| Groups & Access Control  | ⚠️ Chưa dùng | Tables có nhưng chưa tạo groups |
+| Custom Functions & Tools | ⚠️ Chưa dùng | Infrastructure sẵn sàng         |
+| Prompt Templates         | ⚠️ Chưa dùng | Table `prompt` trống            |
+| Notes                    | ⚠️ Chưa dùng | Table `note` trống              |
+| Feedback system          | ⚠️ Chưa dùng | Table `feedback` trống          |
 
 ### 8.3. Có thể nâng cấp (Kế hoạch tương lai)
 
-| Feature | Cách làm |
-|---------|---------|
-| Better Vietnamese support | Đổi embedding model sang multilingual |
-| Larger file uploads | Tăng `RAG_FILE_MAX_SIZE` |
-| More users | Tạo sub-keys và groups |
-| External embedding (OpenAI) | Set `RAG_EMBEDDING_ENGINE=openai` |
-| Full-text search (FTS) | `CREATE INDEX ON document_chunk USING GIN(to_tsvector('vietnamese', text))` |
-| Document version control | Custom tool hoặc function |
-| Scheduled backup | Cron job + pg_dump |
-| Read replicas | PostgreSQL streaming replication |
-| Connection pooling | PgBouncer container |
+| Feature                     | Cách làm                                                                    |
+| --------------------------- | --------------------------------------------------------------------------- |
+| Better Vietnamese support   | Đổi embedding model sang multilingual                                       |
+| Larger file uploads         | Tăng `RAG_FILE_MAX_SIZE`                                                    |
+| More users                  | Tạo sub-keys và groups                                                      |
+| External embedding (OpenAI) | Set `RAG_EMBEDDING_ENGINE=openai`                                           |
+| Full-text search (FTS)      | `CREATE INDEX ON document_chunk USING GIN(to_tsvector('vietnamese', text))` |
+| Document version control    | Custom tool hoặc function                                                   |
+| Scheduled backup            | Cron job + pg_dump                                                          |
+| Read replicas               | PostgreSQL streaming replication                                            |
+| Connection pooling          | PgBouncer container                                                         |
 
 ---
 

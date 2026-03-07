@@ -220,13 +220,13 @@ Full user management is available via the Admin Dashboard at `http://<server>:50
 
 ### Available Actions
 
-| Action | Button | Description |
-|--------|--------|-------------|
-| **Add User** | ➕ Add User | Create new user with generated subkey |
-| **Edit User** | ✏️ | Modify quota, models, role, period, active |
-| **Delete User** | 🗑️ | Remove user (double confirmation) |
-| **Rotate Key** | 🔑 | Invalidate old key, generate new one |
-| **Toggle Active** | 🔴/🟢 | Enable/disable user (403 when disabled) |
+| Action            | Button      | Description                                |
+| ----------------- | ----------- | ------------------------------------------ |
+| **Add User**      | ➕ Add User | Create new user with generated subkey      |
+| **Edit User**     | ✏️          | Modify quota, models, role, period, active |
+| **Delete User**   | 🗑️          | Remove user (double confirmation)          |
+| **Rotate Key**    | 🔑          | Invalidate old key, generate new one       |
+| **Toggle Active** | 🔴/🟢       | Enable/disable user (403 when disabled)    |
 
 ### Subkey Display
 
