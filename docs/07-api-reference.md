@@ -502,18 +502,18 @@ data: {"subkey":"sk_user_old456","timestamp":"2025-12-22T10:37:00Z"}
 
 ### Chat Completion Parameters
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `model` | string | ✅ | - | Model ID (e.g., "gpt-4-turbo") |
-| `messages` | array | ✅ | - | Conversation history |
-| `temperature` | float | ❌ | 0.7 | Sampling temperature (0-2) |
-| `max_tokens` | integer | ❌ | - | Maximum response length |
-| `stream` | boolean | ❌ | false | Enable streaming response |
-| `top_p` | float | ❌ | 1.0 | Nucleus sampling threshold |
-| `frequency_penalty` | float | ❌ | 0.0 | Repetition penalty (-2 to 2) |
-| `presence_penalty` | float | ❌ | 0.0 | Topic diversity penalty (-2 to 2) |
-| `stop` | string/array | ❌ | null | Stop sequences |
-| `user` | string | ❌ | - | End-user identifier for tracking |
+| Parameter           | Type         | Required | Default | Description                       |
+| ------------------- | ------------ | -------- | ------- | --------------------------------- |
+| `model`             | string       | ✅       | -       | Model ID (e.g., "gpt-4-turbo")    |
+| `messages`          | array        | ✅       | -       | Conversation history              |
+| `temperature`       | float        | ❌       | 0.7     | Sampling temperature (0-2)        |
+| `max_tokens`        | integer      | ❌       | -       | Maximum response length           |
+| `stream`            | boolean      | ❌       | false   | Enable streaming response         |
+| `top_p`             | float        | ❌       | 1.0     | Nucleus sampling threshold        |
+| `frequency_penalty` | float        | ❌       | 0.0     | Repetition penalty (-2 to 2)      |
+| `presence_penalty`  | float        | ❌       | 0.0     | Topic diversity penalty (-2 to 2) |
+| `stop`              | string/array | ❌       | null    | Stop sequences                    |
+| `user`              | string       | ❌       | -       | End-user identifier for tracking  |
 
 ### Message Object
 
@@ -561,15 +561,15 @@ All errors follow OpenAI format:
 
 ### Error Codes
 
-| HTTP Status | Error Type | Description |
-|-------------|------------|-------------|
-| 400 | `invalid_request_error` | Malformed request body |
-| 401 | `authentication_error` | Missing or invalid API key |
-| 403 | `quota_exceeded_error` | User quota limit reached |
-| 404 | `not_found_error` | Resource does not exist |
-| 429 | `rate_limit_error` | Too many requests |
-| 500 | `internal_error` | Server-side error |
-| 502 | `gateway_error` | LiteLLM proxy unavailable |
+| HTTP Status | Error Type              | Description                |
+| ----------- | ----------------------- | -------------------------- |
+| 400         | `invalid_request_error` | Malformed request body     |
+| 401         | `authentication_error`  | Missing or invalid API key |
+| 403         | `quota_exceeded_error`  | User quota limit reached   |
+| 404         | `not_found_error`       | Resource does not exist    |
+| 429         | `rate_limit_error`      | Too many requests          |
+| 500         | `internal_error`        | Server-side error          |
+| 502         | `gateway_error`         | LiteLLM proxy unavailable  |
 
 ---
 

@@ -29,13 +29,13 @@ RAG (Retrieval-Augmented Generation) là kỹ thuật cho phép LLM trả lời 
 
 ### 1.2. Các thành phần chính
 
-| Thành phần | Technology | Vai trò |
-|-----------|-----------|---------|
-| Vector DB | PostgreSQL + PGVector 0.8.0 | Lưu trữ và tìm kiếm vector embeddings |
-| Embedding Model | `sentence-transformers/all-MiniLM-L6-v2` | Chuyển text thành vector 384 chiều |
-| Text Splitter | Character-based splitter | Chia document thành chunks |
-| Search | Hybrid (BM25 + Vector) | Kết hợp keyword search + semantic search |
-| Index | HNSW (Hierarchical Navigable Small World) | Tìm kiếm approximate nearest neighbors |
+| Thành phần      | Technology                                | Vai trò                                  |
+| --------------- | ----------------------------------------- | ---------------------------------------- |
+| Vector DB       | PostgreSQL + PGVector 0.8.0               | Lưu trữ và tìm kiếm vector embeddings    |
+| Embedding Model | `sentence-transformers/all-MiniLM-L6-v2`  | Chuyển text thành vector 384 chiều       |
+| Text Splitter   | Character-based splitter                  | Chia document thành chunks               |
+| Search          | Hybrid (BM25 + Vector)                    | Kết hợp keyword search + semantic search |
+| Index           | HNSW (Hierarchical Navigable Small World) | Tìm kiếm approximate nearest neighbors   |
 
 ---
 
@@ -238,14 +238,14 @@ LLM: Theo tài liệu nội bộ (nguồn: HR_Policy.pdf, trang 15),
 
 ### 4.1. Giới hạn cấu hình hiện tại
 
-| Thông số | Giá trị | Ghi chú |
-|---------|---------|---------|
-| File size tối đa | **10 MB** | `RAG_FILE_MAX_SIZE=10` |
-| Số files / lần upload | **10 files** | `RAG_FILE_MAX_COUNT=10` |
-| Chunk size | 1000 ký tự | ~150-200 từ tiếng Việt |
-| Chunk overlap | 200 ký tự | ~30-40 từ overlap |
-| Embedding dimension | 384 (model) / 1536 (DB) | Model output 384, DB cấp phát 1536 |
-| Max input tokens (embedding) | 256 tokens | Chunk dài hơn sẽ bị truncate khi embed |
+| Thông số                     | Giá trị                 | Ghi chú                                |
+| ---------------------------- | ----------------------- | -------------------------------------- |
+| File size tối đa             | **10 MB**               | `RAG_FILE_MAX_SIZE=10`                 |
+| Số files / lần upload        | **10 files**            | `RAG_FILE_MAX_COUNT=10`                |
+| Chunk size                   | 1000 ký tự              | ~150-200 từ tiếng Việt                 |
+| Chunk overlap                | 200 ký tự               | ~30-40 từ overlap                      |
+| Embedding dimension          | 384 (model) / 1536 (DB) | Model output 384, DB cấp phát 1536     |
+| Max input tokens (embedding) | 256 tokens              | Chunk dài hơn sẽ bị truncate khi embed |
 
 ### 4.2. Ví dụ: Upload văn bản 100 trang
 
@@ -295,16 +295,16 @@ Giải pháp nếu muốn xử lý:
 
 ### 4.4. Giới hạn thực tế và khuyến nghị
 
-| Tình huống | Khả thi? | Ghi chú |
-|-----------|---------|---------|
-| PDF 10 trang | ✅ Tốt | Xử lý < 10 giây |
-| PDF 100 trang | ✅ Tốt | Xử lý < 1 phút |
-| PDF 500 trang | ✅ Khả thi | Xử lý 2-5 phút |
-| PDF 1000+ trang | ⚠️ Cần monitor | Có thể timeout, cần tăng config |
-| File > 10 MB | ❌ Bị chặn | Cần tăng `RAG_FILE_MAX_SIZE` |
-| File > 100 MB | ⚠️ Cần tuning | Tăng RAM, timeout, chunk processing |
-| 100 files nhỏ | ✅ Khả thi | Upload theo batch 10 files |
-| Tiếng Việt | ⚠️ Hạn chế | Model `all-MiniLM-L6-v2` optimize cho EN |
+| Tình huống      | Khả thi?       | Ghi chú                                  |
+| --------------- | -------------- | ---------------------------------------- |
+| PDF 10 trang    | ✅ Tốt         | Xử lý < 10 giây                          |
+| PDF 100 trang   | ✅ Tốt         | Xử lý < 1 phút                           |
+| PDF 500 trang   | ✅ Khả thi     | Xử lý 2-5 phút                           |
+| PDF 1000+ trang | ⚠️ Cần monitor | Có thể timeout, cần tăng config          |
+| File > 10 MB    | ❌ Bị chặn     | Cần tăng `RAG_FILE_MAX_SIZE`             |
+| File > 100 MB   | ⚠️ Cần tuning  | Tăng RAM, timeout, chunk processing      |
+| 100 files nhỏ   | ✅ Khả thi     | Upload theo batch 10 files               |
+| Tiếng Việt      | ⚠️ Hạn chế     | Model `all-MiniLM-L6-v2` optimize cho EN |
 
 ### 4.5. Nâng cấp khuyến nghị cho tiếng Việt
 
