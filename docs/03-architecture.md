@@ -1,13 +1,13 @@
-# 🏗️ ARCHITECTURE - OPPEN WEB UI
+﻿# 🏗️ ARCHITECTURE - OPPEN WEB UI
 
 ## 📐 System Overview
 
-The Oppen Web UI system consists of **4 Docker containers** on the same network, providing AI chat with auth, quota, and cost tracking.
+The Oppen Web UI system consists of **8 Docker containers** on the same network, providing AI chat with auth, quota, cost tracking, and web search.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         USER BROWSER                            │
-│             :3000 (Chat)    |    :5000 (Dashboard)              │
+│   https://openwebui.rangdong.com.vn:51122/ (HTTPS qua Nginx)    │
 └────────────────────────────────┬────────────────────────────────┘
                                  ▲
                                  │
@@ -17,22 +17,28 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 │  ┌── Docker Network: openwebui-network ─────────────────────────────────────────┐  │
 │  │                                                                              │  │
 │  │  ┌───────────────────────────────────────────────────────────────────────┐   │  │
-│  │  │                     OPEN WEBUI (Port 3000)                            │   │  │
+│  │  │                     OPEN WEBUI (Port 8080, 6 workers)                 │   │  │
 │  │  │  - Chat AI đa mô hình (text, image, audio)                            │   │  │
 │  │  │  - Quản lý hồ sơ & xác thực người dùng                                │   │  │
 │  │  │  - Lịch sử hội thoại & tìm kiếm RAG                                   │   │  │
-│  │  └──────────────────────────────┬────────────────────────────────────────┘   │  │
-│  │                                 │ OpenAI API Format                          │  │
-│  │                                 ▲                                            │  │
-│  │                                 │                                            │  │
-│  │                                 ▼                                            │  │
+│  │  │  - Web Search (gọi SearXNG khi LLM dùng Native Function Calling)      │   │  │
+│  │  └──────────┬───────────────────────────────────────┬────────────────────┘   │  │
+│  │             │ OpenAI API Format                     │ Web Search API         │  │
+│  │             ▲                                       ▼                        │  │
+│  │             │                          ┌────────────────────────┐            │  │
+│  │             │                          │  SEARXNG (Port 8080)   │            │  │
+│  │             │                          │  - Metasearch engine   │            │  │
+│  │             │                          │  - Brave, DDG, Bing    │            │  │
+│  │             │                          │  - JSON API (internal) │            │  │
+│  │             │                          └────────────────────────┘            │  │
+│  │             ▼                                                                │  │
 │  │  ┌──────────────────────────────────────────────┐   ┌─────────────────────┐  │  │
-│  │  │        LLM MIDDLEWARE (Port 5000)            │   │ POSTGRESQL (5432)   │  │  │
+│  │  │        LLM MIDDLEWARE (Port 5000, 4 workers) │   │ POSTGRESQL (5432)   │  │  │
 │  │  │                                              │   │                     │  │  │
 │  │  │  - Proxy AI: Chat, Image, Audio              │   │ Dữ liệu người dùng  │  │  │
 │  │  │    (stream & non-stream)                     │   │  - Tài khoản/Subkey │  │  │
 │  │  │                                              │   │  - Hạn mức (Quota)  │  │  │
-│  │  │  - Admin Dashboard                           │   │                     │  │  │
+│  │  │  - Admin Dashboard (qua Nginx /dashboard)    │   │                     │  │  │
 │  │  │    Biểu đồ, thống kê, top users/models       │   │ Bảng giá model      │  │  │
 │  │  │                                              │   │  - Cost/token input │  │  │
 │  │  │  - Quản lý User & Quota                      │◄-►│  - Cost/token output│  │  │
@@ -47,23 +53,77 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 │  │  │  - Xác thực & Bảo mật                        │   │  - Request đang chờ │  │  │
 │  │  │    Subkey hashing, JWT dashboard, auth guard │   │                     │  │  │
 │  │  └──────────────────────┬───────────────────────┘   └─────────────────────┘  │  │
-│  │                          Proxy to LiteLLM                                    │  │
+│  │                          Forward to LiteLLM                                  │  │
 │  │                         ▲                                                    │  │
 │  │                         │                                                    │  │
 │  │                         ▼                                                    │  │
 │  │  ┌───────────────────────────────────────────────────────────────────────┐   │  │
-│  │  │                   LITELLM PROXY (Port 4000)                           │   │  │
-│  │  │  - Đổi tên model: chat-gpt-5 -> openai/gpt-5 (23 models)              │   │  │
-│  │  │  - Định tuyến đa nhà cung cấp (OpenAI, Gemini, Grok, ...)             │   │  │
+│  │  │                   LITELLM PROXY (Port 4000, 4 workers)                │   │  │
+│  │  │  - Đổi tên model: chat-gpt-5 -> openai/gpt-5 (16 models)              │   │  │
+│  │  │  - Định tuyến đa nhà cung cấp (OpenAI, Gemini, Anthropic, XAI)        │   │  │
 │  │  └──────────────────────┬────────────────────────────────────────────────┘   │  │
 │  │                         │                                                    │  │
 │  └─────────────────────────┼────────────────────────────────────────────────────┘  │
 │                            │                                                       │
 ╚════════════════════════════╪═══════════════════════════════════════════════════════╝
                              │
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-         [OpenAI API]   [Gemini API]  [Other API]
+              ┌──────────────┼────────────────────────────┐
+              ▼              ▼              ▼              ▼    
+         [OpenAI API]   [Gemini API]  [XAI API]  [Anthropic API]
+```
+
+### Biểu đồ luồng Web Search (Native Function Calling)
+
+```
+  User: "Giá vàng hôm nay?"
+         │
+         ▼
+  ┌─── OPEN WEBUI ───────────────────────────────────────────────┐
+  │  1. Gửi prompt + tool_definition(web_search) tới LLM        │
+  │     POST /v1/chat/completions ──► Middleware ──► LiteLLM     │
+  └──────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌─── LLM (GPT-5 / Gemini) ────────────────────────────────────┐
+  │  2. LLM phân tích: cần thông tin realtime                    │
+  │     → Trả về tool_call: web_search(query="giá vàng hôm nay")│
+  └──────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌─── OPEN WEBUI ───────────────────────────────────────────────┐
+  │  3. Nhận tool_call → gọi SearXNG                             │
+  │     GET http://searxng:8080/search?q=giá+vàng&format=json    │
+  └──────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌─── SEARXNG (Port 8080) ──────────────────────────────────────┐
+  │  4. Tìm kiếm song song:                                     │
+  │     Google ──► kết quả                                       │
+  │     Brave  ──► kết quả    ──► Tổng hợp JSON (5 results)      │
+  │     DDG    ──► kết quả                                       │
+  └──────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌─── OPEN WEBUI ───────────────────────────────────────────────┐
+  │  5. Inject kết quả search vào context                        │
+  │     → Gọi LLM lần 2 với search results                      │
+  └──────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌─── LLM (Lần 2) ─────────────────────────────────────────────┐
+  │  6. Sinh câu trả lời dựa trên dữ liệu search                │
+  │     → Kèm citations (nguồn: giavang.org, baomoi.com)        │
+  └──────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌─── RESPONSE ─────────────────────────────────────────────────┐
+  │  "Giá vàng hôm nay (11/03/2026):                             │
+  │   - XAU: 5,217.46 USD/Ounce  [giavang.org]                  │
+  │   - SJC: 184.2 - 187.2 triệu VNĐ/lượng  [baomoi.com]"      │
+  │                                                              │
+  │  Chi phí: $0 (search) + LLM tokens only (qua Middleware)     │
+  │  📎 Retrieved 2 sources                                      │
+  └──────────────────────────────────────────────────────────────┘
 ```
 
 ### Giải thích thuật ngữ trong biểu đồ
@@ -73,7 +133,7 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 | Ký hiệu / Thuật ngữ      | Giải thích                                                                                      |
 | ------------------------ | ----------------------------------------------------------------------------------------------- |
 | `┌══ SERVER ══┐`         | Khung ngoài cùng — đại diện máy chủ vật lý hoặc VM chạy toàn bộ dịch vụ                         |
-| `┌── Docker Network ──┐` | Khung bên trong — mạng nội bộ Docker `openwebui-network`, 4 container giao tiếp qua tên service |
+| `┌── Docker Network ──┐` | Khung bên trong — mạng nội bộ Docker `openwebui-network`, 5 container giao tiếp qua tên service |
 | `┌── ... ──┐`            | Mỗi hộp nhỏ = 1 Docker container (dịch vụ chạy độc lập, có port riêng)                          |
 | `┌── ├── ──┤ ──┘`        | Các viền bên trong Middleware = phân chia 3 tầng code: API → Core → Utilities                   |
 
@@ -87,14 +147,15 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 | `Bearer subkey`     | Phương thức xác thực — header `Authorization: Bearer <khóa_user>` gửi kèm mỗi request      |
 | `Proxy to LiteLLM`  | Middleware chuyển tiếp request đến LiteLLM sau khi xác thực & kiểm tra quota               |
 
-#### 🧱 4 Docker Containers (Dịch vụ chính)
+#### 🧱 5 Docker Containers (Dịch vụ chính)
 
 | Container          | Port   | Giải thích chi tiết                                                                            |
 | ------------------ | ------ | ---------------------------------------------------------------------------------------------- |
-| **Open WebUI**     | `3000` | Giao diện web cho end-user — chat AI, quản lý hồ sơ, lịch sử hội thoại, RAG (tìm tài liệu)     |
+| **Open WebUI**     | `3000` | Giao diện web cho end-user — chat AI, quản lý hồ sơ, lịch sử hội thoại, RAG (	ìm tài liệu)     |
 | **LLM Middleware** | `5000` | Tầng trung gian do team phát triển (FastAPI/Python) — xác thực, quota, proxy, audit, dashboard |
 | **PostgreSQL**     | `5432` | CSDL quan hệ — 2 database: `openwebui` (chat + PGVector) và `middleware` (6 bảng `mw_*`)       |
 | **LiteLLM Proxy**  | `4000` | Proxy mã nguồn mở — aliasing tên model + route request đến đúng provider (OpenAI/Gemini/...)   |
+| **SearXNG**        | `8080` | Web search engine tự host (internal only) — tổng hợp kết quả từ Google, Brave, DuckDuckGo   |
 
 #### 📦 Cấu trúc bên trong LLM Middleware
 
@@ -136,7 +197,7 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 
 ## � Mô tả Tính năng Hệ thống
 
-> Hệ thống cung cấp **110+ tính năng** chia thành 11 nhóm chức năng chính.
+> Hệ thống cung cấp **116+ tính năng** chia thành 12 nhóm chức năng chính.
 > Chi tiết từng tính năng xem tại [checklist-tinh-nang.md](file:///c:/Code/openwebui_fetch/Oppen_Web_UI/docs/checklist-tinh-nang.md).
 
 ### 1. Phân quyền & Quản lý Người dùng
@@ -172,7 +233,17 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 | Chuyển model giữa chừng | Đổi model trong cùng 1 hội thoại bất kỳ lúc nào                     |
 | Memory                  | AI nhớ thông tin user giữa các hội thoại (lưu trong table `memory`) |
 
-### 3. Tạo ảnh AI (Image Generation)
+### 3. Web Search (SearXNG + Native Function Calling)
+
+| Tính năng                  | Mô tả                                                                   |
+| -------------------------- | ----------------------------------------------------------------------- |
+| SearXNG self-hosted        | Web search engine nội bộ, $0 chi phí, tổng hợp Google + Brave + DDG     |
+| Native Function Calling    | Model tự quyết định khi nào cần tìm kiếm web (không cần user bật thủ công) |
+| Source Citations           | Response kèm trích dẫn nguồn (tên website + URL) dạng chip/tag          |
+| Multi-engine aggregation   | SearXNG gọi nhiều search engine song song, tổng hợp kết quả chất lượng   |
+| Cấu hình per-model         | Mỗi model bật/tắt web search riêng biệt (Capabilities + Default Features) |
+
+### 4. Tạo ảnh AI (Image Generation)
 
 | Model              | Engine   | Mô tả                                                      |
 | ------------------ | -------- | ---------------------------------------------------------- |
@@ -180,7 +251,7 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 | `img-gemini-flash` | Gemini   | Tạo ảnh nhanh — phù hợp prototype, logo                    |
 | `img-gemini-pro`   | Gemini   | Tạo ảnh chất lượng cao — lên đến 4K                        |
 
-### 4. Giọng nói (Voice I/O)
+### 5. Giọng nói (Voice I/O)
 
 | Model             | Loại | Mô tả                                                         |
 | ----------------- | ---- | ------------------------------------------------------------- |
@@ -188,7 +259,7 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 | `stt-gpt-4o`      | STT  | Nhận dạng giọng nói → text (nhấn icon 🎤 trong chat)          |
 | `stt-gpt-4o-mini` | STT  | Phiên bản nhẹ, nhanh hơn, chi phí thấp                        |
 
-### 5. RAG — Knowledge Base (Cơ sở Tri thức)
+### 6. RAG — Knowledge Base (Cơ sở Tri thức)
 
 | Tính năng                | Mô tả                                                                     |
 | ------------------------ | ------------------------------------------------------------------------- |
@@ -203,7 +274,7 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 | Embedding local          | `paraphrase-multilingual-MiniLM-L12-v2` — 50+ ngôn ngữ, không gửi data ra |
 | PGVector                 | Vector storage trong PostgreSQL — dữ liệu không rời hệ thống              |
 
-### 6. Kiểm soát Chi phí & Quota (Middleware)
+### 7. Kiểm soát Chi phí & Quota (Middleware)
 
 | Tính năng              | Mô tả                                                               |
 | ---------------------- | ------------------------------------------------------------------- |
@@ -216,7 +287,7 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 | Bảng giá tùy chỉnh     | Admin cấu hình giá riêng cho từng model trong `mw_prices`           |
 | Email alert            | Cấu hình ngưỡng cảnh báo + email thông báo khi vượt ngưỡng          |
 
-### 7. Admin Dashboard (Middleware :5000)
+### 8. Admin Dashboard (Middleware :5000)
 
 | Thành phần            | Mô tả                                                                   |
 | --------------------- | ----------------------------------------------------------------------- |
@@ -231,7 +302,7 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 | **SSE Realtime**      | Live stream audit events — cập nhật dashboard không cần refresh         |
 | **JWT Auth**          | Đăng nhập admin bằng `ADMIN_KEY` → JWT cookie (4h), auto-logout         |
 
-### 8. Quản lý User qua Dashboard
+### 9. Quản lý User qua Dashboard
 
 | Tính năng               | Mô tả                                                 |
 | ----------------------- | ----------------------------------------------------- |
@@ -242,7 +313,7 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 | Xem quota status        | Hiển thị: used / limit / remaining / % sử dụng        |
 | Allowed models per user | Giới hạn user chỉ dùng được danh sách model nhất định |
 
-### 9. Công cụ Mở rộng (Custom Tools)
+### 10. Công cụ Mở rộng (Custom Tools)
 
 | Tool                 | Mô tả                                                                           |
 | -------------------- | ------------------------------------------------------------------------------- |
@@ -253,7 +324,7 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 | **Custom Functions** | Framework cho admin thêm Python functions tùy chỉnh                             |
 | **Custom Tools**     | Framework cho AI gọi function (function calling)                                |
 
-### 10. Bảo mật & Xác thực
+### 11. Bảo mật & Xác thực
 
 | Tính năng                | Mô tả                                                              |
 | ------------------------ | ------------------------------------------------------------------ |
@@ -264,7 +335,7 @@ The Oppen Web UI system consists of **4 Docker containers** on the same network,
 | Docker internal network  | Các container giao tiếp nội bộ — không expose port không cần thiết |
 | Dual-write audit         | Mọi request AI đều ghi vào DB + file backup — không thể xóa vết    |
 
-### 11. Hạ tầng & Vận hành
+### 12. Hạ tầng & Vận hành
 
 | Tính năng                | Mô tả                                                                    |
 | ------------------------ | ------------------------------------------------------------------------ |

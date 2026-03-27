@@ -42,3 +42,14 @@ tests/playwright-report/
 tests/.playwright/
 *.webm
 *.mp4
+
+# SSL certificates (CRITICAL - never commit private keys)
+nginx/ssl/
+
+# Agent configs (IDE-specific)
+.agent/
+.agents/
+
+# Temp files
+~c:\Code\openwebui_fetch\Oppen_Web_UI*
+test_tts.mp3

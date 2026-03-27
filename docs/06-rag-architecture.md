@@ -13,17 +13,17 @@ RAG (Retrieval-Augmented Generation) là kỹ thuật cho phép LLM trả lời 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        INDEXING PHASE                              │
+│                        INDEXING PHASE                               │
 │                                                                     │
-│  User Upload File → Extract Text → Split Chunks → Embedding →     │
+│  User Upload File → Extract Text → Split Chunks → Embedding →       │
 │  Store in PGVector (document_chunk table)                           │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        RETRIEVAL PHASE                              │
 │                                                                     │
-│  User Query → Embedding Query → Vector Search (cosine similarity)  │
-│  → Top-K Chunks → Inject vào Prompt → LLM Generate Response       │
+│  User Query → Embedding Query → Vector Search (cosine similarity)   │
+│  → Top-K Chunks → Inject vào Prompt → LLM Generate Response         │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 

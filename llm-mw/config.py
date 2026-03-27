@@ -114,7 +114,7 @@ if not ADMIN_KEY:
 
 try:
     from core.db import init_pool
-    init_pool(DATABASE_URL)
+    init_pool(DATABASE_URL, minconn=5, maxconn=30)
 except Exception as _db_err:
     logger.error("Failed to initialize database pool: %s", str(_db_err))
     logger.warning("Middleware will run in FILE-ONLY mode (no PostgreSQL)")

@@ -1,0 +1,14 @@
+# SearXNG Rate Limiter Configuration
+# Prevents upstream search engines from blocking our instance
+
+[botdetection.ip_limit]
+# Internal network — no limits for Open WebUI
+link_token = false
+
+[botdetection.ip_lists]
+# Trust Docker internal network
+pass_ip = [
+    "172.16.0.0/12",    # Docker default network range
+    "10.0.0.0/8",       # Private network
+    "192.168.0.0/16",   # Local network
+]

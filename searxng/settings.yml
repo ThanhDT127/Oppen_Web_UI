@@ -1,0 +1,40 @@
+# SearXNG Settings — Production config with rate limiting
+# Reference: https://docs.searxng.org/admin/settings/settings.html
+
+use_default_settings: true
+
+general:
+  instance_name: "OpenWebUI Search"
+  debug: false
+  enable_metrics: false
+
+search:
+  safe_search: 0
+  default_lang: "auto"
+  formats:
+    - html
+    - json
+
+server:
+  port: 8080
+  bind_address: "0.0.0.0"
+  secret_key: "searxng-openwebui-secret-change-me"
+  limiter: false                   # Keep OFF until Nginx is set up (needs X-Forwarded-For)
+  public_instance: false
+  image_proxy: true
+
+# Disable Google engines (frequently blocks scrapers)
+engines:
+  - name: google
+    engine: google
+    disabled: true
+  - name: google news
+    engine: google_news
+    disabled: true
+  - name: google images
+    engine: google_images
+    disabled: true
+
+# Use Valkey (Redis successor) for caching
+valkey:
+  url: "redis://redis:6379/0"

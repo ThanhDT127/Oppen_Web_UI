@@ -5,3 +5,4 @@ httpx>=0.25.0
 python-dotenv>=1.0.0
 python-multipart>=0.0.6
 psycopg2-binary>=2.9.0
+apscheduler>=3.10.0

@@ -33,6 +33,23 @@
                 <div class="status-dot" id="statusDot"></div>
                 <span class="status-message" id="statusMessage">Authenticated ✓</span>
             </div>
+            <!-- Notification Bell -->
+            <div class="notif-bell-wrapper">
+                <button class="notif-bell" id="notifBell" onclick="window.notifAPI.toggle()" title="Notifications">
+                    🔔
+                    <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+                </button>
+                <div class="notif-panel" id="notifPanel" style="display:none">
+                    <div class="notif-panel-header">
+                        <span>🔔 Thông báo</span>
+                        <button onclick="window.notifAPI.markAllRead()" class="notif-mark-all"
+                            title="Đánh dấu tất cả đã đọc">✓ Tất cả</button>
+                    </div>
+                    <div class="notif-list" id="notifList">
+                        <div class="notif-empty">Đang tải...</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Time Filter -->
@@ -591,8 +608,10 @@
         const v = Date.now();
         const { initAuth } = await import(`/dashboard/js/auth.js?v=${v}`);
         const { initAPI } = await import(`/dashboard/js/main.js?v=${v}`);
+        const { initNotifications } = await import(`/dashboard/js/notifications.js?v=${v}`);
         await initAPI();
         initAuth();
+        initNotifications();
     </script>
 </body>
 

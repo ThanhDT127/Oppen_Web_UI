@@ -133,12 +133,12 @@ def save_system_alerts(alerts: dict):
 
 async def check_and_send_alerts(user_id: str, add_cost_usd: float = 0.0):
     """
-    Check quota thresholds and send admin emails if new milestones reached.
+    Check quota thresholds and send notifications.
     
     Runs ASYNC after quota bump — does NOT block user response.
-    Two checks:
-      1. Per-user quota vs their limit
-      2. Total system spend vs monthly budget
+    Three checks:
+      1. Per-user quota vs their limit → alert USER email + admin dashboard
+      2. Per-provider API budget → alert ADMIN email
     
     Args:
         user_id: The user who just made a request
@@ -146,236 +146,343 @@ async def check_and_send_alerts(user_id: str, add_cost_usd: float = 0.0):
     """
     try:
         config = load_alert_config()
-        if not config.get("smtp", {}).get("enabled"):
-            # SMTP disabled — only log threshold crossings
-            _check_thresholds_log_only(user_id, config)
-            return
+        smtp_enabled = config.get("smtp", {}).get("enabled", False)
 
         admin_alerts_cfg = config.get("admin_alerts", {})
         admin_emails = admin_alerts_cfg.get("emails", [])
-        if not admin_emails:
-            return
+
+        # Collect emails to send OUTSIDE the lock
+        pending_emails = []
+        pending_notifications = []
 
         lock = get_lock()
         with lock:
             users = load_users()
 
             # ═══════════════════════════════════════════
-            # CHECK 1: Per-user quota thresholds
+            # CHECK 1: Per-user quota → dashboard + user email
             # ═══════════════════════════════════════════
-            per_user_cfg = admin_alerts_cfg.get("per_user_quota", {})
-            if per_user_cfg.get("enabled"):
-                user = next((u for u in users if u.get("user_id") == user_id), None)
-                if user:
-                    _check_per_user_alerts(config, user, admin_emails)
+            user = next((u for u in users if u.get("user_id") == user_id), None)
+            if user:
+                quota = user.get("quota", {})
+                limit_cost = float(quota.get("limit_cost_usd", 0) or 0)
+                used_cost = float(quota.get("used_cost_usd", 0) or 0)
+
+                if limit_cost > 0:
+                    percent = (used_cost / limit_cost) * 100
+                    alerts_sent = user.setdefault("alerts_sent", {})
+
+                    # Admin dashboard thresholds
+                    admin_thresholds = admin_alerts_cfg.get("per_user_quota", {}).get("thresholds", [80, 95, 100])
+                    # User email thresholds
+                    user_cfg = config.get("user_alerts", {})
+                    user_thresholds = user_cfg.get("thresholds", [80, 95, 100])
+                    user_email_enabled = user_cfg.get("enabled") and user_cfg.get("send_email") and smtp_enabled
+
+                    # Merge all thresholds, use unified key
+                    all_thresholds = sorted(set(admin_thresholds + user_thresholds))
+
+                    for threshold in all_thresholds:
+                        key = f"alert_{threshold}"  # Unified key — prevents duplicates
+                        if percent >= threshold and key not in alerts_sent:
+                            # Determine level
+                            if threshold >= 100:
+                                level = "critical"
+                                notif_type = "quota_blocked"
+                                send_admin_email = True
+                            elif threshold >= 95:
+                                level = "warning"
+                                notif_type = "quota_critical"
+                                send_admin_email = False
+                            else:
+                                level = "info"
+                                notif_type = "quota_warning"
+                                send_admin_email = False
+
+                            title = f"User {user_id} đạt {threshold}% quota"
+                            message = (
+                                f"User {user_id} đã sử dụng ${used_cost:.2f}/${limit_cost:.2f} ({percent:.0f}%). "
+                                f"Còn lại: ${limit_cost - used_cost:.2f}"
+                            )
+                            metadata = {
+                                "user_id": user_id,
+                                "percent": round(percent, 1),
+                                "used_usd": round(used_cost, 4),
+                                "limit_usd": round(limit_cost, 2),
+                                "threshold": threshold,
+                            }
+
+                            # Queue dashboard notification
+                            pending_notifications.append({
+                                "user_id": user_id,
+                                "type": notif_type,
+                                "level": level,
+                                "title": title,
+                                "message": message,
+                                "metadata": metadata,
+                                "send_email_realtime": send_admin_email,
+                            })
+
+                            # Queue user email (if enabled)
+                            if user_email_enabled and threshold in user_thresholds:
+                                user_email = _get_user_email(user_id)
+                                if user_email:
+                                    pending_emails.append({
+                                        "type": "user_quota",
+                                        "to": user_email,
+                                        "user_id": user_id,
+                                        "threshold": threshold,
+                                        "used": used_cost,
+                                        "limit": limit_cost,
+                                        "percent": percent,
+                                    })
+
+                            # Mark as sent (unified key)
+                            alerts_sent[key] = datetime.now(timezone.utc).isoformat()
+                            logger.info(
+                                "alert_threshold user=%s threshold=%d%% level=%s",
+                                user_id, threshold, level
+                            )
 
             # ═══════════════════════════════════════════
-            # CHECK 2: Total system budget
+            # CHECK 2: Per-provider API budget → notify ADMIN
             # ═══════════════════════════════════════════
-            budget_cfg = admin_alerts_cfg.get("api_budget", {})
-            if budget_cfg.get("enabled"):
-                _check_system_budget_alerts(config, users, admin_emails)
+            api_budgets = admin_alerts_cfg.get("api_budgets", {})
+            if api_budgets and admin_emails:
+                _check_provider_budget_alerts(
+                    config, api_budgets, admin_emails,
+                    pending_notifications, pending_emails
+                )
 
             save_users(users)
+
+        # ═══════════════════════════════════════════
+        # OUTSIDE LOCK: send notifications + emails (non-blocking)
+        # ═══════════════════════════════════════════
+        for notif in pending_notifications:
+            try:
+                from core.notification import send_notification
+                await send_notification(**notif)
+            except Exception as e:
+                logger.error("alert_notification_failed: %s", str(e))
+
+        if pending_emails and smtp_enabled:
+            smtp_cfg = config.get("smtp", {})
+            for email_task in pending_emails:
+                try:
+                    await asyncio.to_thread(
+                        _send_queued_email, smtp_cfg, email_task
+                    )
+                except Exception as e:
+                    logger.error("alert_email_failed: %s", str(e))
 
     except Exception as e:
         logger.error("alert_check_failed user=%s: %s", user_id, str(e))
         # NEVER raise — alert failures must not block users
 
 
-def _check_thresholds_log_only(user_id: str, config: dict):
-    """Log threshold crossings without sending emails (SMTP disabled mode)."""
-    try:
-        users = load_users()
-        user = next((u for u in users if u.get("user_id") == user_id), None)
-        if not user:
-            return
+def _send_queued_email(smtp_cfg: dict, email_task: dict):
+    """Send a queued email. Called via asyncio.to_thread() to avoid blocking."""
+    task_type = email_task.get("type")
+    if task_type == "user_quota":
+        user_id = email_task["user_id"]
+        threshold = email_task["threshold"]
+        used = email_task["used"]
+        limit = email_task["limit"]
+        percent = email_task["percent"]
 
-        quota = user.get("quota", {})
-        limit = float(quota.get("limit_cost_usd", 0) or 0)
-        used = float(quota.get("used_cost_usd", 0) or 0)
+        if threshold >= 100:
+            subject = f"🚨 Quota hết — Tài khoản {user_id} đã đạt 100% hạn mức"
+        elif threshold >= 95:
+            subject = f"⚠️ Cảnh báo quota — {user_id} đạt {threshold}%"
+        else:
+            subject = f"ℹ️ Nhắc nhở quota — {user_id} đạt {threshold}%"
 
-        if limit > 0:
-            percent = (used / limit) * 100
-            thresholds = config.get("admin_alerts", {}).get("per_user_quota", {}).get("thresholds", [50, 70, 90, 100])
-            alerts_sent = user.setdefault("alerts_sent", {})
-
-            for threshold in thresholds:
-                milestone_key = f"cost_usd_{threshold}"
-                if percent >= threshold and milestone_key not in alerts_sent:
-                    logger.info(
-                        "alert_threshold_crossed user=%s threshold=%d%% used=$%.2f limit=$%.2f (email disabled)",
-                        user_id, threshold, used, limit
-                    )
-                    alerts_sent[milestone_key] = datetime.now(timezone.utc).isoformat()
-
-            lock = get_lock()
-            with lock:
-                all_users = load_users()
-                for u in all_users:
-                    if u.get("user_id") == user_id:
-                        u["alerts_sent"] = alerts_sent
-                        break
-                save_users(all_users)
-    except Exception as e:
-        logger.error("alert_log_only_failed user=%s: %s", user_id, str(e))
-
-
-def _check_per_user_alerts(config: dict, user: dict, admin_emails: list):
-    """Check per-user quota thresholds and send admin emails."""
-    quota = user.get("quota", {})
-    limit = float(quota.get("limit_cost_usd", 0) or 0)
-    used = float(quota.get("used_cost_usd", 0) or 0)
-
-    if limit <= 0:
-        return  # No cost limit set — skip
-
-    percent = (used / limit) * 100
-    alerts_sent = user.setdefault("alerts_sent", {})
-    thresholds = config["admin_alerts"]["per_user_quota"].get("thresholds", [50, 70, 90, 100])
-    user_id = user.get("user_id", "unknown")
-
-    for threshold in thresholds:
-        milestone_key = f"cost_usd_{threshold}"
-
-        if percent >= threshold and milestone_key not in alerts_sent:
-            logger.info(
-                "alert_sending user=%s threshold=%d%% used=$%.2f limit=$%.2f",
-                user_id, threshold, used, limit
+        body = (
+            f"Xin chào {user_id},\n\n"
+            f"Tài khoản của bạn đã sử dụng {percent:.0f}% hạn mức chi phí.\n\n"
+            f"  • Đã dùng: ${used:.4f}\n"
+            f"  • Hạn mức:  ${limit:.2f}\n"
+            f"  • Còn lại:  ${limit - used:.4f}\n\n"
+        )
+        if threshold >= 100:
+            body += (
+                "❌ Tài khoản của bạn đã BỊ CHẶN do hết hạn mức.\n"
+                "Vui lòng liên hệ admin để được nâng hạn mức.\n"
             )
-            # Send email (async in thread)
-            try:
-                _send_admin_email_per_user(
-                    config, user_id,
-                    percent=percent, used=used, limit=limit,
-                    threshold=threshold
-                )
-            except Exception as e:
-                logger.error("alert_email_failed user=%s threshold=%d: %s", user_id, threshold, str(e))
+        else:
+            body += "Vui lòng sử dụng tiết kiệm để tránh bị chặn.\n"
 
-            # Mark as sent regardless (prevent retry flooding)
-            alerts_sent[milestone_key] = datetime.now(timezone.utc).isoformat()
+        _smtp_send(smtp_cfg, [email_task["to"]], subject, body)
+        logger.info("user_quota_email_sent user=%s email=%s threshold=%d%%",
+                    user_id, email_task["to"], threshold)
 
 
-def _check_system_budget_alerts(config: dict, users: list, admin_emails: list):
-    """Check total system budget thresholds."""
-    budget_cfg = config["admin_alerts"]["api_budget"]
-    monthly_budget = float(budget_cfg.get("monthly_budget_usd", 0) or 0)
-
-    if monthly_budget <= 0:
-        return
-
-    total_spend = sum(
-        float(u.get("quota", {}).get("used_cost_usd", 0) or 0)
-        for u in users
-    )
-    total_percent = (total_spend / monthly_budget) * 100
-
+def _check_provider_budget_alerts(
+    config: dict, api_budgets: dict, admin_emails: list,
+    pending_notifications: list, pending_emails: list
+):
+    """Check per-provider API budget thresholds from audit log.
+    Queues notifications and emails instead of sending directly."""
     system_alerts = load_system_alerts()
-    thresholds = budget_cfg.get("thresholds", [50, 70, 90, 100])
 
-    for threshold in thresholds:
-        key = f"budget_{threshold}"
-        if total_percent >= threshold and key not in system_alerts:
-            logger.info(
-                "alert_system_budget threshold=%d%% spend=$%.2f budget=$%.2f",
-                threshold, total_spend, monthly_budget
-            )
-            try:
-                _send_admin_email_system_budget(
-                    config,
-                    total_spend=total_spend,
-                    budget=monthly_budget,
-                    percent=total_percent,
-                    threshold=threshold,
-                    users=users
+    # Calculate spend per provider from audit log
+    provider_spend = _get_provider_spend()
+
+    for provider_name, pcfg in api_budgets.items():
+        if not pcfg.get("enabled", True):
+            continue
+
+        budget = float(pcfg.get("budget_usd", 0) or 0)
+        if budget <= 0:
+            continue
+
+        spend = provider_spend.get(provider_name, 0.0)
+        percent = (spend / budget) * 100
+        thresholds = pcfg.get("thresholds", [70, 90, 100])
+
+        for threshold in thresholds:
+            key = f"provider_{provider_name}_{threshold}"
+            if percent >= threshold and key not in system_alerts:
+                if threshold >= 100:
+                    level = "critical"
+                    send_email = True
+                elif threshold >= 90:
+                    level = "warning"
+                    send_email = False
+                else:
+                    level = "info"
+                    send_email = False
+
+                title = f"API {provider_name.upper()} đạt {threshold}% budget (${spend:.2f}/${budget:.2f})"
+                message = (
+                    f"Chi phí {provider_name.upper()} tháng này: ${spend:.2f}/{budget:.2f} ({percent:.0f}%). "
+                    f"Còn lại: ${budget - spend:.2f}"
                 )
-            except Exception as e:
-                logger.error("alert_budget_email_failed threshold=%d: %s", threshold, str(e))
+                metadata = {
+                    "provider": provider_name,
+                    "spend_usd": round(spend, 2),
+                    "budget_usd": round(budget, 2),
+                    "percent": round(percent, 1),
+                    "threshold": threshold,
+                }
 
-            system_alerts[key] = datetime.now(timezone.utc).isoformat()
+                logger.info(
+                    "alert_provider_budget provider=%s threshold=%d%% spend=$%.2f budget=$%.2f email=%s",
+                    provider_name, threshold, spend, budget, send_email
+                )
+
+                # Queue notification (will be sent outside lock)
+                pending_notifications.append({
+                    "user_id": None,
+                    "type": "budget_provider",
+                    "level": level,
+                    "title": title,
+                    "message": message,
+                    "metadata": metadata,
+                    "send_email_realtime": send_email,
+                })
+
+                system_alerts[key] = datetime.now(timezone.utc).isoformat()
 
     save_system_alerts(system_alerts)
 
 
+def _get_provider_spend() -> dict:
+    """Calculate current month spending per provider from audit log."""
+    try:
+        from core.db import db_conn, _pool
+        if _pool is None:
+            return {}
+
+        config = load_alert_config()
+        api_budgets = config.get("admin_alerts", {}).get("api_budgets", {})
+
+        result = {}
+        with db_conn() as conn:
+            cur = conn.cursor()
+            for provider_name, pcfg in api_budgets.items():
+                prefixes = pcfg.get("model_prefixes", [])
+                if not prefixes:
+                    continue
+
+                # Build LIKE conditions for model prefixes
+                like_conditions = " OR ".join(
+                    "model LIKE %s" for _ in prefixes
+                )
+                like_params = [f"{p}%" for p in prefixes]
+
+                cur.execute(f"""
+                    SELECT COALESCE(SUM(cost_usd), 0)
+                    FROM mw_audit_log
+                    WHERE ts >= date_trunc('month', now())
+                      AND ({like_conditions})
+                """, like_params)
+
+                spend = cur.fetchone()[0]
+                result[provider_name] = float(spend)
+
+            cur.close()
+        return result
+
+    except Exception as e:
+        logger.error("get_provider_spend_failed: %s", str(e))
+        return {}
+
+
+# _send_user_quota_email removed — unified into check_and_send_alerts
+# User emails are now queued as pending_emails and sent via asyncio.to_thread
+
+
+# Cache for OpenWebUI DB URL to avoid reparsing
+_openwebui_url_cache: Optional[str] = None
+
+
+def _get_user_email(user_id: str) -> str:
+    """
+    Get user email from Open WebUI database.
+    Uses a separate connection (not from MW pool) since it's a different database.
+    Caches the connection URL to avoid reparsing.
+    """
+    global _openwebui_url_cache
+
+    # Method 1: Check if user_id IS an email
+    if "@" in user_id:
+        return user_id
+
+    # Method 2: Query Open WebUI 'openwebui' database
+    try:
+        if _openwebui_url_cache is None:
+            db_url = os.environ.get("DATABASE_URL", "")
+            if not db_url:
+                return ""
+            from urllib.parse import urlparse
+            parsed = urlparse(db_url)
+            _openwebui_url_cache = db_url.replace(parsed.path, "/openwebui")
+
+        import psycopg2
+        conn = psycopg2.connect(_openwebui_url_cache, connect_timeout=3)
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT email FROM \"user\" WHERE name = %s OR email = %s LIMIT 1",
+                (user_id, user_id)
+            )
+            row = cur.fetchone()
+            cur.close()
+            if row and row[0]:
+                return row[0]
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.debug("get_user_email_openwebui_failed user=%s: %s", user_id, str(e))
+
+    return ""
+
+
 # ─── Email sending ────────────────────────────────────────────
-
-LEVEL_MAP = {
-    50: "ℹ️ INFO",
-    70: "⚠️ WARNING",
-    90: "🔴 CRITICAL",
-    100: "🚨 EMERGENCY"
-}
-
-
-def _send_admin_email_per_user(config: dict, user_id: str, *,
-                                percent: float, used: float, limit: float,
-                                threshold: int):
-    """Send per-user quota alert email to admins (blocking, run in thread)."""
-    smtp_cfg = config["smtp"]
-    admin_emails = config["admin_alerts"]["emails"]
-    level = LEVEL_MAP.get(threshold, "INFO")
-
-    subject = f"{level} — User {user_id} đạt {threshold}% quota"
-    body = f"""\
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{level} — Per-User Quota Alert
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-User:       {user_id}
-Quota:      ${used:.2f} / ${limit:.2f} ({percent:.0f}%)
-Còn lại:    ${limit - used:.2f}
-Mốc:        {threshold}%
-Thời gian:  {datetime.now().strftime('%Y-%m-%d %H:%M')}
-
-Quick Action:
-• Tăng quota: PATCH /v1/_mw/admin/users/{user_id}
-• Xem usage:  GET  /v1/_mw/summary
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-"""
-    _smtp_send(smtp_cfg, admin_emails, subject, body)
-
-
-def _send_admin_email_system_budget(config: dict, *,
-                                     total_spend: float, budget: float,
-                                     percent: float, threshold: int,
-                                     users: list):
-    """Send system budget alert with per-user breakdown."""
-    smtp_cfg = config["smtp"]
-    admin_emails = config["admin_alerts"]["emails"]
-    level = LEVEL_MAP.get(threshold, "INFO")
-
-    # Build user breakdown  
-    breakdown_lines = []
-    for u in sorted(users, key=lambda x: float(x.get("quota", {}).get("used_cost_usd", 0) or 0), reverse=True):
-        uid = u.get("user_id", "?")
-        u_cost = float(u.get("quota", {}).get("used_cost_usd", 0) or 0)
-        if u_cost > 0:
-            breakdown_lines.append(f"  • {uid}: ${u_cost:.2f}")
-
-    breakdown = "\n".join(breakdown_lines) if breakdown_lines else "  (no usage)"
-
-    subject = f"{level} — Tổng chi phí API đạt {threshold}% budget (${total_spend:.2f}/${budget:.2f})"
-    body = f"""\
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{level} — System Budget Alert
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Budget:     ${budget:.2f}/tháng
-Đã dùng:    ${total_spend:.2f} ({percent:.0f}%)
-Còn lại:    ${budget - total_spend:.2f}
-Mốc:        {threshold}%
-Thời gian:  {datetime.now().strftime('%Y-%m-%d %H:%M')}
-
-Chi tiết theo user:
-{breakdown}
-
-Action:
-• Dashboard: /dashboard
-• Summary:   GET /v1/_mw/summary
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-"""
-    _smtp_send(smtp_cfg, admin_emails, subject, body)
+# Dead code (_send_admin_email_per_user, _send_admin_email_system_budget) removed.
+# Email sending is now unified through _send_queued_email + asyncio.to_thread.
 
 
 def _smtp_send(smtp_cfg: dict, to_emails: list, subject: str, body: str):

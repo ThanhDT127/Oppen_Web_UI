@@ -1,56 +1,30 @@
 {
   "_schema": {
-    "version": 2,
+    "version": 3,
     "units": {
       "input_per_1m": "USD per 1,000,000 input tokens",
       "output_per_1m": "USD per 1,000,000 output tokens"
     },
-    "updated_utc": "2025-12-16",
+    "updated_utc": "2026-03-26",
     "sources": {
       "openai": "https://platform.openai.com/docs/pricing",
-      "gemini": "https://ai.google.dev/gemini-api/docs/pricing"
+      "gemini": "https://ai.google.dev/gemini-api/docs/pricing",
+      "xai": "https://docs.x.ai/docs/models#models-and-pricing",
+      "anthropic": "https://docs.anthropic.com/en/docs/about-claude/pricing"
     },
-    "notes": "These are list prices from the sources above. Middleware primarily trusts LiteLLM's x-litellm-response-cost; these values are a fallback. OpenAI's Text tokens table is tiered (Batch/Flex/Standard/Priority) and does not separate input vs output in the extracted table; we store Standard tier into both input_per_1m and output_per_1m for fallback only."
+    "notes": "4-provider pricing. Middleware primarily trusts LiteLLM x-litellm-response-cost; these values are fallback."
+  },
+  "gpt-5.4": {
+    "input_per_1m": 2.50,
+    "output_per_1m": 15.00
+  },
+  "gpt-5.2": {
+    "input_per_1m": 1.75,
+    "output_per_1m": 14.00
   },
   "gpt-5": {
     "input_per_1m": 1.25,
-    "output_per_1m": 1.25,
-    "tier": "standard"
-  },
-  "gpt-5-mini": {
-    "input_per_1m": 0.25,
-    "output_per_1m": 0.25,
-    "tier": "standard"
-  },
-  "gpt-5-nano": {
-    "input_per_1m": 0.05,
-    "output_per_1m": 0.05,
-    "tier": "standard"
-  },
-  "gpt-4o": {
-    "input_per_1m": 2.50,
-    "output_per_1m": 2.50,
-    "tier": "standard"
-  },
-  "gpt-4o-mini": {
-    "input_per_1m": 0.15,
-    "output_per_1m": 0.15,
-    "tier": "standard"
-  },
-  "gpt-4.1": {
-    "input_per_1m": 2.00,
-    "output_per_1m": 2.00,
-    "tier": "standard"
-  },
-  "gpt-4.1-mini": {
-    "input_per_1m": 0.40,
-    "output_per_1m": 0.40,
-    "tier": "standard"
-  },
-  "gpt-4.1-nano": {
-    "input_per_1m": 0.10,
-    "output_per_1m": 0.10,
-    "tier": "standard"
+    "output_per_1m": 10.00
   },
   "gpt-image-1.5": {
     "per_image_usd": {
@@ -70,7 +44,7 @@
         "1792x1024": 0.25
       }
     },
-    "notes": "OpenAI GPT Image 1.5 - latest model, 4x faster than gpt-image-1."
+    "notes": "OpenAI GPT Image 1.5 - latest, 4x faster than gpt-image-1."
   },
   "gpt-image-1": {
     "per_image_usd": {
@@ -89,88 +63,60 @@
         "1024x1792": 0.25,
         "1792x1024": 0.25
       }
-    },
-    "notes": "OpenAI image generation is priced per image (quality + size)."
-  },
-  "gpt-image-1-mini": {
-    "per_image_usd": {
-      "low": {
-        "1024x1024": 0.005,
-        "1024x1792": 0.006,
-        "1792x1024": 0.006
-      },
-      "medium": {
-        "1024x1024": 0.011,
-        "1024x1792": 0.015,
-        "1792x1024": 0.015
-      },
-      "high": {
-        "1024x1024": 0.036,
-        "1024x1792": 0.052,
-        "1792x1024": 0.052
-      }
-    },
-    "notes": "OpenAI image generation is priced per image (quality + size)."
-  },
-  "gpt-4o-mini-tts": {
-    "tts_usd_per_1m_chars": 15.0,
-    "tts_usd_per_minute": 0.015,
-    "notes": "OpenAI pricing includes $15 / 1M characters for TTS (generic), and also publishes $0.015/min for gpt-4o-mini-tts. Middleware uses chars-based fallback if LiteLLM doesn't return x-litellm-response-cost."
-  },
-  "gpt-4o-transcribe": {
-    "stt_usd_per_minute": 0.006
-  },
-  "gpt-4o-mini-transcribe": {
-    "stt_usd_per_minute": 0.003
-  },
-  "sora-2": {
-    "video_usd_per_second": 0.10
-  },
-  "sora-2-pro": {
-    "video_usd_per_second": 0.30,
-    "video_usd_per_second_by_size": {
-      "1024x1792": 0.50,
-      "1792x1024": 0.50
     }
   },
-  "gemini-2.5-pro": {
-    "input_per_1m": 1.25,
-    "output_per_1m": 10.0
+  "gemini-3.1-pro-preview": {
+    "input_per_1m": 2.00,
+    "output_per_1m": 12.00
+  },
+  "gemini-3.1-flash-lite-preview": {
+    "input_per_1m": 0.25,
+    "output_per_1m": 1.50
   },
   "gemini-2.5-flash": {
     "input_per_1m": 0.30,
     "output_per_1m": 2.50
   },
-  "gemini-2.5-flash-lite": {
-    "input_per_1m": 0.10,
-    "output_per_1m": 0.40
+  "gemini-3.1-flash-image-preview": {
+    "input_per_1m": 0.25,
+    "output_per_1m": 1.50,
+    "per_image_usd": 0.067
   },
-  "gemini-2.5-flash-image": {
-    "input_per_1m": 0.30,
-    "output_per_1m": 2.50,
-    "per_image_usd": 0.039
+  "gemini-3-pro-image-preview": {
+    "input_per_1m": 2.00,
+    "output_per_1m": 12.00,
+    "per_image_usd": 0.134
   },
-  "gemini-2.5-flash-preview-tts": {
-    "tts_text_input_per_1m_tokens": 0.50,
-    "tts_audio_output_per_1m_tokens": 10.0
+  "grok-4.20-reasoning": {
+    "input_per_1m": 2.00,
+    "output_per_1m": 6.00
   },
-  "gemini-2.5-flash-native-audio-preview-12-2025": {
-    "input_per_1m": 0.50,
-    "output_per_1m": 2.0,
-    "audio_input_per_1m_tokens": 3.0,
-    "audio_output_per_1m_tokens": 12.0
+  "grok-4-1-fast-reasoning": {
+    "input_per_1m": 0.20,
+    "output_per_1m": 0.50
   },
-  "gemini-2.0-flash": {
-    "input_per_1m": 0.10,
-    "output_per_1m": 0.40,
-    "audio_input_per_1m_tokens": 0.70
+  "grok-4-1-fast-non-reasoning": {
+    "input_per_1m": 0.20,
+    "output_per_1m": 0.50
   },
-  "gemini-2.0-flash-lite": {
-    "input_per_1m": 0.075,
-    "output_per_1m": 0.30
+  "grok-imagine-image": {
+    "per_image_usd": 0.05,
+    "notes": "xAI Grok Imagine standard image generation"
   },
-  "gemini-3-pro-preview": {
-    "input_per_1m": 2.0,
-    "output_per_1m": 12.0
+  "grok-imagine-image-pro": {
+    "per_image_usd": 0.10,
+    "notes": "xAI Grok Imagine Pro - higher quality, faster"
+  },
+  "claude-opus-4-6": {
+    "input_per_1m": 5.00,
+    "output_per_1m": 25.00
+  },
+  "claude-sonnet-4-6": {
+    "input_per_1m": 3.00,
+    "output_per_1m": 15.00
+  },
+  "claude-haiku-4-5": {
+    "input_per_1m": 1.00,
+    "output_per_1m": 5.00
   }
 }
