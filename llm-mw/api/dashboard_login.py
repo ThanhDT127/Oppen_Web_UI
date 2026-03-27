@@ -59,7 +59,7 @@ async def dashboard_login(request: Request):
         max_age=4 * 3600,  # 4 hours in seconds
         httponly=True,
         samesite="lax",  # Important: allows cookie in SSE requests
-        secure=False,  # Set True in production with HTTPS
+        secure=True,  # HTTPS required (Nginx handles SSL)
         path="/"
     )
     

@@ -10,17 +10,46 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-YOUR_DB_PASSWORD}
       POSTGRES_DB: openwebui
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+      TZ: Asia/Ho_Chi_Minh
+    # Step 2: PostgreSQL performance tuning for 32GB RAM
+    command: >
+      postgres
+      -c max_connections=300
+      -c shared_buffers=4GB
+      -c work_mem=16MB
+      -c effective_cache_size=8GB
+      -c maintenance_work_mem=256MB
+      -c wal_buffers=64MB
+      -c random_page_cost=1.1
+      -c checkpoint_completion_target=0.9
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init_pgvector.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "5432:5432"
+    # Step 5: Port closed for security (internal only)
+    # ports:
+    #   - "5432:5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U openwebui_user -d openwebui" ]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    # Step 3: Resource limits
+    deploy:
+      resources:
+        limits: { memory: 8G, cpus: '2' }
+        reservations: { memory: 4G }
+    networks:
+      - openwebui-network
+
+  # Redis (for SearXNG rate limiter)
+  redis:
+    image: redis:7-alpine
+    container_name: openwebui-redis
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { memory: 256M, cpus: '0.5' }
     networks:
       - openwebui-network
 
@@ -32,13 +61,23 @@ services:
       - LITELLM_MASTER_KEY=${LITELLM_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - TZ=Asia/Ho_Chi_Minh
     volumes:
       - ./litellm/litellm_config.yaml:/app/config.yaml:ro
       - litellm_logs:/app/logs
-    command: [ "--config", "/app/config.yaml", "--port", "4000", "--detailed_debug" ]
-    ports:
-      - "4000:4000"
+    # Step 1: 4 workers + remove detailed_debug for production
+    command: [ "--config", "/app/config.yaml", "--port", "4000", "--num_workers", "4" ]
+    # Step 5: Port closed for security (internal only)
+    # ports:
+    #   - "4000:4000"
     restart: unless-stopped
+    # Step 3: Resource limits
+    deploy:
+      resources:
+        limits: { memory: 4G, cpus: '4' }
+        reservations: { memory: 1G }
     networks:
       - openwebui-network
 
@@ -52,20 +91,61 @@ services:
       - LITELLM_BASE=http://litellm:4000/v1
       - LITELLM_KEY=${LITELLM_KEY}
       - ADMIN_KEY=${ADMIN_KEY}
+      - MW_PUBLIC_URL=https://openwebui.example.com:51122
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - DATABASE_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:-YOUR_DB_PASSWORD}@postgres:5432/middleware
+      - TZ=Asia/Ho_Chi_Minh
     volumes:
-      - ./llm-mw/users.json:/app/users.json
-      - ./llm-mw/prices.json:/app/prices.json:ro
+      - ./llm-mw/users.json:/app/data/users.json
+      - ./llm-mw/prices.json:/app/data/prices.json:ro
+      - ./llm-mw/data/alert_config.json:/app/data/alert_config.json
+      - ./llm-mw/data/system_alerts.json:/app/data/system_alerts.json
       - ./logs:/app/../logs
-    ports:
-      - "5000:5000"
+    # Port closed — accessed through Nginx
+    # ports:
+    #   - "5000:5000"
     depends_on:
-      - litellm
+      postgres:
+        condition: service_healthy
+      litellm:
+        condition: service_started
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
     restart: unless-stopped
+    # Step 3: Resource limits
+    deploy:
+      resources:
+        limits: { memory: 2G, cpus: '4' }
+        reservations: { memory: 512M }
+    networks:
+      - openwebui-network
+
+  # SearXNG - Self-hosted Meta Search Engine (Web Search for AI)
+  searxng:
+    image: searxng/searxng:latest
+    container_name: openwebui-searxng
+    volumes:
+      - ./searxng:/etc/searxng:rw
+      - searxng_data:/var/cache/searxng
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080
+      - SEARXNG_REDIS_URL=redis://redis:6379/0
+      - TZ=Asia/Ho_Chi_Minh
+    depends_on:
+      - redis
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    # Step 3: Resource limits
+    deploy:
+      resources:
+        limits: { memory: 1G, cpus: '1' }
     networks:
       - openwebui-network
 
@@ -95,27 +175,68 @@ services:
       - CHUNK_OVERLAP=200
       - RAG_TEXT_SPLITTER=character
       - ENABLE_RAG_HYBRID_SEARCH=true
-      - RAG_FILE_MAX_SIZE=50
+      - RAG_FILE_MAX_SIZE=2048
       - RAG_FILE_MAX_COUNT=10
 
       # LLM Connection via Middleware
       - OPENAI_API_BASE_URL=http://middleware:5000/v1
       - OPENAI_API_KEY=${SUBKEY_ADMIN}
 
+      # Web Search Configuration (SearXNG)
+      - ENABLE_RAG_WEB_SEARCH=true
+      - RAG_WEB_SEARCH_ENGINE=searxng
+      - SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>&format=json
+      - RAG_WEB_SEARCH_RESULT_COUNT=5
+      - RAG_WEB_SEARCH_CONCURRENT_REQUESTS=1
+
+      # Timezone
+      - TZ=Asia/Ho_Chi_Minh
+
       # WebUI Settings
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
       - ENABLE_SIGNUP=true
+      - DEFAULT_USER_ROLE=pending
       - PORT=8080
+
+      # Step 1: 6 workers for production
+      - UVICORN_WORKERS=6
     volumes:
       - openwebui_data:/app/backend/data
-    ports:
-      - "3000:8080"
+    # Port closed — accessed through Nginx
+    # ports:
+    #   - "3000:8080"
     depends_on:
       postgres:
         condition: service_healthy
       middleware:
         condition: service_started
+      searxng:
+        condition: service_healthy
     restart: unless-stopped
+    # Step 3: Resource limits
+    deploy:
+      resources:
+        limits: { memory: 10G, cpus: '6' }
+        reservations: { memory: 4G }
+    networks:
+      - openwebui-network
+
+  # Nginx Reverse Proxy + HTTPS
+  nginx:
+    image: nginx:alpine
+    container_name: openwebui-nginx
+    ports:
+      - "3000:3000"     # NAT: 51122 (public) → 3000 (server) → Nginx HTTPS
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - open-webui
+      - middleware
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { memory: 512M, cpus: '1' }
     networks:
       - openwebui-network
 
@@ -125,6 +246,8 @@ volumes:
   openwebui_data:
     driver: local
   litellm_logs:
+    driver: local
+  searxng_data:
     driver: local
 
 networks:

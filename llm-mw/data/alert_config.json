@@ -12,31 +12,52 @@
         "emails": [
             "admin@example.com"
         ],
-        "api_budget": {
-            "enabled": true,
-            "monthly_budget_usd": 500.00,
-            "thresholds": [
-                50,
-                70,
-                90,
-                100
-            ]
+        "api_budgets": {
+            "openai": {
+                "enabled": true,
+                "budget_usd": 100.00,
+                "thresholds": [
+                    70,
+                    90,
+                    100
+                ],
+                "model_prefixes": [
+                    "chat-gpt",
+                    "img-gpt",
+                    "tts-gpt",
+                    "stt-gpt"
+                ]
+            },
+            "gemini": {
+                "enabled": true,
+                "budget_usd": 50.00,
+                "thresholds": [
+                    80,
+                    100
+                ],
+                "model_prefixes": [
+                    "chat-gemini",
+                    "img-gemini"
+                ]
+            }
         },
         "per_user_quota": {
             "enabled": true,
             "thresholds": [
-                50,
-                70,
-                90,
+                80,
+                95,
                 100
             ]
         }
     },
     "user_alerts": {
         "enabled": true,
+        "send_email": true,
         "thresholds": [
             80,
-            95
-        ]
+            95,
+            100
+        ],
+        "email_source": "openwebui_db"
     }
 }

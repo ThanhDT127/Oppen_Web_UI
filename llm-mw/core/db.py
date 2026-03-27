@@ -198,6 +198,23 @@ CREATE TABLE IF NOT EXISTS mw_request_log (
     payload JSONB NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_reqlog_ts ON mw_request_log(ts);
+
+-- Notifications table (alert history for dashboard + digest)
+CREATE TABLE IF NOT EXISTS mw_notifications (
+    id          BIGSERIAL PRIMARY KEY,
+    ts          TIMESTAMPTZ DEFAULT now(),
+    user_id     TEXT,
+    type        TEXT NOT NULL,
+    level       TEXT DEFAULT 'info',
+    title       TEXT NOT NULL,
+    message     TEXT NOT NULL,
+    read        BOOLEAN DEFAULT false,
+    emailed     BOOLEAN DEFAULT false,
+    metadata    JSONB DEFAULT '{}'::jsonb
+);
+CREATE INDEX IF NOT EXISTS idx_notif_user ON mw_notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notif_read ON mw_notifications(read);
+CREATE INDEX IF NOT EXISTS idx_notif_ts   ON mw_notifications(ts);
 """
 
 

@@ -34,6 +34,7 @@ from api.user_admin import (
 from api.dashboard_login import dashboard_login, dashboard_logout
 from api.auth_check import get_auth_check
 from api.quota_status import get_quota_status, get_alert_config, update_alert_config, test_alert_email
+from api.notifications import list_notifications, unread_count, mark_notification_read, mark_all_read
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -47,10 +48,31 @@ async def lifespan(app: FastAPI):
     app.state.http_client = httpx.AsyncClient(limits=limits, timeout=timeout)
     app.state.start_time = time.time()
     logger.info("startup: http_client created")
+
+    # Start daily digest scheduler
+    try:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        from core.notification import send_daily_digest
+
+        scheduler = AsyncIOScheduler(timezone="Asia/Ho_Chi_Minh")
+        scheduler.add_job(send_daily_digest, 'cron', hour=8, minute=0, id='daily_digest')
+        scheduler.start()
+        app.state.scheduler = scheduler
+        logger.info("startup: daily_digest scheduler started (8:00 AM VN)")
+    except ImportError:
+        logger.warning("startup: apscheduler not installed — daily digest DISABLED")
+        app.state.scheduler = None
+    except Exception as e:
+        logger.error("startup: scheduler failed: %s", str(e))
+        app.state.scheduler = None
     
     yield
     
     # Shutdown
+    scheduler = getattr(app.state, "scheduler", None)
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
+        logger.info("shutdown: scheduler stopped")
     client = getattr(app.state, "http_client", None)
     if client is not None:
         try:
@@ -156,6 +178,12 @@ app.add_api_route("/v1/_mw/quota-status", get_quota_status, methods=["GET"])
 app.add_api_route("/v1/_mw/admin/alerts/config", get_alert_config, methods=["GET"])
 app.add_api_route("/v1/_mw/admin/alerts/config", update_alert_config, methods=["PUT"])
 app.add_api_route("/v1/_mw/admin/alerts/test-email", test_alert_email, methods=["POST"])
+
+# Notification endpoints
+app.add_api_route("/v1/_mw/admin/notifications", list_notifications, methods=["GET"])
+app.add_api_route("/v1/_mw/admin/notifications/unread", unread_count, methods=["GET"])
+app.add_api_route("/v1/_mw/admin/notifications/{notif_id}/read", mark_notification_read, methods=["POST"])
+app.add_api_route("/v1/_mw/admin/notifications/read-all", mark_all_read, methods=["POST"])
 
 # Dashboard auth endpoints
 app.add_api_route("/v1/_mw/dashboard/login", dashboard_login, methods=["POST"])
