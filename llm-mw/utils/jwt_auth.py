@@ -2,7 +2,6 @@
 JWT-based session authentication utilities.
 """
 
-import os
 import hmac
 import hashlib
 import json
@@ -11,8 +10,9 @@ from datetime import datetime, timedelta, timezone
 
 
 def get_jwt_secret() -> str:
-    """Get JWT secret from env or use default"""
-    return os.getenv("JWT_SECRET", "mw_default_jwt_secret_change_in_production")
+    """Get JWT secret from centralized config"""
+    from config import JWT_SECRET
+    return JWT_SECRET
 
 
 def create_session_token(admin_key: str, expiry_hours: int = 4) -> str:

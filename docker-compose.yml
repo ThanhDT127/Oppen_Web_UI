@@ -91,6 +91,8 @@ services:
       - LITELLM_BASE=http://litellm:4000/v1
       - LITELLM_KEY=${LITELLM_KEY}
       - ADMIN_KEY=${ADMIN_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - MW_SECRET=${MW_SECRET}
       - MW_PUBLIC_URL=https://openwebui.rangdong.com.vn:51122
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - DATABASE_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:-changeme123}@postgres:5432/middleware
@@ -171,12 +173,15 @@ services:
 
       # RAG Configuration
       - ENABLE_RAG=true
-      - CHUNK_SIZE=1000
-      - CHUNK_OVERLAP=200
+      - CHUNK_SIZE=1500
+      - CHUNK_OVERLAP=100
       - RAG_TEXT_SPLITTER=character
       - ENABLE_RAG_HYBRID_SEARCH=true
       - RAG_FILE_MAX_SIZE=2048
-      - RAG_FILE_MAX_COUNT=10
+      - RAG_FILE_MAX_COUNT=20
+
+      # Embedding batch size (default 1 is very slow on CPU)
+      - RAG_EMBEDDING_BATCH_SIZE=100
 
       # LLM Connection via Middleware
       - OPENAI_API_BASE_URL=http://middleware:5000/v1
@@ -198,7 +203,12 @@ services:
       - DEFAULT_USER_ROLE=pending
       - PORT=8080
 
-      # Step 1: 6 workers for production
+      # WebSocket Manager — required for UVICORN_WORKERS > 1 (Socket.IO state sync via Redis)
+      - ENABLE_WEBSOCKET_SUPPORT=true
+      - WEBSOCKET_MANAGER=redis
+      - WEBSOCKET_REDIS_URL=redis://redis:6379/1
+
+      # 6 workers for production (WebSocket coordinated via Redis)
       - UVICORN_WORKERS=6
     volumes:
       - openwebui_data:/app/backend/data
@@ -208,6 +218,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
       middleware:
         condition: service_started
       searxng:
