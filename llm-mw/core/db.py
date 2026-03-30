@@ -231,7 +231,10 @@ def _create_tables():
 
 def _auto_migrate_if_empty():
     """If tables are empty, import data from JSON files (one-time migration)."""
-    from config import DATA_DIR, BACKUP_DATA_DIR
+    # Compute paths locally to avoid circular import with config.py
+    _base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    DATA_DIR = os.path.join(_base, "data")
+    BACKUP_DATA_DIR = os.path.join(DATA_DIR, "backup")
 
     with db_conn() as conn:
         cur = conn.cursor()
