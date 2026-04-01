@@ -372,7 +372,11 @@
             </div>
             <div class="section">
                 <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>👥 User Management & Quota</span>
+                    <span>👥 User Management & Quota
+                        <span id="userCountBadge" class="badge" style="margin-left:10px; background:#334155; font-size:12px; padding:3px 10px; border-radius:12px;">
+                            Active: <span id="activeUserCount">-</span> / Total: <span id="totalUserCount">-</span>
+                        </span>
+                    </span>
                     <button class="btn btn-primary" onclick="window.dashboardAPI.showCreateUserModal()">➕ Add
                         User</button>
                 </div>

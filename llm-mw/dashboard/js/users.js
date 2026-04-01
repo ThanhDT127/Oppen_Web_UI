@@ -18,6 +18,12 @@ export async function loadUsers() {
         const users = data.users || [];
         _usersCache = users;
 
+        // Update active/total user count badges
+        const totalEl = document.getElementById('totalUserCount');
+        const activeEl = document.getElementById('activeUserCount');
+        if (totalEl) totalEl.textContent = users.length;
+        if (activeEl) activeEl.textContent = users.filter(u => u.active !== false).length;
+
         if (users.length === 0) {
             tbody.innerHTML = '<tr><td colspan="10" class="no-data">No users</td></tr>';
             return;
