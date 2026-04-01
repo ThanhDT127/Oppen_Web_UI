@@ -89,10 +89,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware - Allow calls from local tools/UI
+# CORS middleware - Allow calls from production domain + dashboard
+import os as _os
+_MW_PUBLIC_URL = _os.getenv("MW_PUBLIC_URL", "https://openwebui.example.com:51122")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[_MW_PUBLIC_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
