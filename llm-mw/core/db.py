@@ -230,7 +230,7 @@ def _create_tables():
 # ─── JSON → DB migration ─────────────────────────────────────
 
 def _auto_migrate_if_empty():
-    """If tables are empty, import data from JSON files (one-time migration)."""
+    """Import data from JSON files. Always syncs missing users on startup."""
     # Compute paths locally to avoid circular import with config.py
     _base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DATA_DIR = os.path.join(_base, "data")
@@ -244,15 +244,16 @@ def _auto_migrate_if_empty():
         user_count = cur.fetchone()[0]
 
         if user_count == 0:
-            logger.info("mw_users is empty — importing from JSON files...")
-            # Search in backup/ dir first, then fall back to old data/ dir
+            logger.info("mw_users is empty — full import from JSON files...")
             _import_users(conn, cur, BACKUP_DATA_DIR, DATA_DIR)
             _import_prices(conn, cur, BACKUP_DATA_DIR, DATA_DIR)
             _import_config(conn, cur, BACKUP_DATA_DIR, DATA_DIR)
             _import_pending(conn, cur, BACKUP_DATA_DIR, DATA_DIR)
             logger.info("JSON → DB migration complete")
         else:
-            logger.info("DB already has %d users — skipping auto-migration", user_count)
+            # Always sync missing users from JSON (ON CONFLICT DO NOTHING)
+            logger.info("DB has %d users — syncing missing users from JSON...", user_count)
+            _import_users(conn, cur, BACKUP_DATA_DIR, DATA_DIR)
 
         cur.close()
 
