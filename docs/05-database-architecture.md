@@ -192,6 +192,8 @@ Indexes:
 
 **Đây là table quan trọng nhất cho RAG.** Mỗi row = 1 text chunk + vector embedding.
 
+> ℹ️ **Embedding model**: `gemini-embedding-001` (native 3072-dim, giảm xuống 1536 qua middleware `dimensions` param). PGVector HNSW hỗ trợ tối đa 2000 dims.
+
 #### vmetadata example:
 ```json
 {
@@ -557,7 +559,7 @@ ix_chat_file_chat_id, ix_chat_file_file_id
 | 1,000,000  | ~10 phút         | < 50ms         | ~6 GB     |
 | 10,000,000 | ~2 giờ           | < 100ms        | ~60 GB    |
 
-> Với vector(1536): mỗi vector = 1536 × 4 bytes = 6.14 KB raw data
+> Với vector(1536) (Gemini embedding-001, giảm từ 3072 native): mỗi vector = 1536 × 4 bytes = 6.14 KB raw data
 
 ### 6.2. Tối ưu hóa
 

@@ -140,6 +140,7 @@ def get_summary_v2(
     # Define LLM endpoints
     LLM_ENDPOINTS = {
         "/v1/chat/completions": "chat",
+        "/v1/embeddings": "embedding",
         "/v1/images/generations": "image",
         "/v1/audio/transcriptions": "audio",
         "/v1/audio/speech": "audio",
@@ -178,7 +179,7 @@ def get_summary_v2(
     })
     
     # Breakdown by LLM type
-    llm_type_counts = {"chat": 0, "image": 0, "audio": 0, "video": 0}
+    llm_type_counts = {"chat": 0, "embedding": 0, "image": 0, "audio": 0, "video": 0}
     
     # Load entries from DB or file
     try:
@@ -409,6 +410,7 @@ def get_summary_v2(
                 "cost_total_usd": round(total_cost, 6),
                 "p95_latency_ms": round(p95_latency, 2) if p95_latency else None,
                 "chat_calls": llm_type_counts["chat"],
+                "embedding_calls": llm_type_counts["embedding"],
                 "image_calls": llm_type_counts["image"],
                 "audio_calls": llm_type_counts["audio"],
                 "video_calls": llm_type_counts["video"],

@@ -1,7 +1,7 @@
 # RAG (Retrieval-Augmented Generation) - Kiến trúc chi tiết
 
-> **Hệ thống**: Open WebUI + PostgreSQL + PGVector  
-> **Cập nhật**: 2026-02-09
+> **Hệ thống**: Open WebUI + PostgreSQL + PGVector + LLM Middleware  
+> **Cập nhật**: 2026-04-06
 
 ---
 
@@ -29,13 +29,14 @@ RAG (Retrieval-Augmented Generation) là kỹ thuật cho phép LLM trả lời 
 
 ### 1.2. Các thành phần chính
 
-| Thành phần      | Technology                                | Vai trò                                  |
-| --------------- | ----------------------------------------- | ---------------------------------------- |
-| Vector DB       | PostgreSQL + PGVector 0.8.0               | Lưu trữ và tìm kiếm vector embeddings    |
-| Embedding Model | `sentence-transformers/all-MiniLM-L6-v2`  | Chuyển text thành vector 384 chiều       |
-| Text Splitter   | Character-based splitter                  | Chia document thành chunks               |
-| Search          | Hybrid (BM25 + Vector)                    | Kết hợp keyword search + semantic search |
-| Index           | HNSW (Hierarchical Navigable Small World) | Tìm kiếm approximate nearest neighbors   |
+| Thành phần      | Technology                                | Vai trò                                            |
+| --------------- | ----------------------------------------- | -------------------------------------------------- |
+| Vector DB       | PostgreSQL + PGVector 0.8.0               | Lưu trữ và tìm kiếm vector embeddings              |
+| Embedding Model | `gemini-embedding-001` (qua Middleware)   | Chuyển text thành vector 1536 chiều (giảm từ 3072) |
+| Text Splitter   | Character-based splitter                  | Chia document thành chunks                         |
+| OCR Engine      | Apache Tika (Docker container)            | Extract text từ PDF scan, hình ảnh                 |
+| Search          | Hybrid (BM25 + Vector)                    | Kết hợp keyword search + semantic search           |
+| Index           | HNSW (Hierarchical Navigable Small World) | Tìm kiếm approximate nearest neighbors             |
 
 ---
 
@@ -53,9 +54,11 @@ ENABLE_RAG_HYBRID_SEARCH: true      # BM25 + Vector search
 RAG_FILE_MAX_SIZE: 10               # Tối đa 10 MB / file
 RAG_FILE_MAX_COUNT: 10              # Tối đa 10 files / lần upload
 
-# Embedding
-RAG_EMBEDDING_ENGINE: ""            # Local (Sentence Transformers)
-RAG_EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+# Embedding (qua Middleware → LiteLLM → Gemini API)
+RAG_EMBEDDING_ENGINE: openai
+RAG_EMBEDDING_MODEL: gemini-embedding-001
+RAG_EMBEDDING_OPENAI_API_BASE_URL: http://middleware:5000/v1
+RAG_EMBEDDING_OPENAI_API_KEY: ${SUBKEY_ADMIN}
 
 # Vector Database
 VECTOR_DB: pgvector
@@ -93,15 +96,17 @@ chunk_overlap = 200     # Overlap 200 ký tự để giữ context
 #### Bước 3: Embedding (Text → Vector)
 
 ```
-Model: sentence-transformers/all-MiniLM-L6-v2
-├── Output dimension: 384 vectors
-├── Max input tokens: 256 tokens (~200-300 từ tiếng Anh)
-├── Chạy local (không cần API key)
-├── Tốc độ: ~500-1000 chunks/giây trên CPU
-└── Hỗ trợ: tiếng Anh tốt nhất, tiếng Việt cơ bản
+Model: gemini-embedding-001 (qua Middleware → LiteLLM → Gemini API)
+├── Native dimension: 3072 vectors
+├── Middleware inject: dimensions=1536 (giảm để khớp PGVector HNSW max 2000)
+├── Thực tế lưu: 1536-dim vectors trong DB
+├── Chi phí: $0.15 / 1M tokens (Gemini API)
+├── Tốc độ: phụ thuộc network + Gemini API latency
+├── Hỗ trợ: 100+ ngôn ngữ, tiếng Việt tốt
+└── Luồng: Open WebUI → Middleware (inject dims) → LiteLLM → Gemini API
 ```
 
-> ⚠️ **Lưu ý quan trọng**: Table `document_chunk` hiện cấu hình `vector(1536)` (dimension 1536), nhưng model `all-MiniLM-L6-v2` chỉ output 384 chiều. Open WebUI tự xử lý padding/mapping. Nếu đổi sang OpenAI embeddings (`text-embedding-3-small`) sẽ dùng đúng 1536 chiều.
+> ⚠️ **Lưu ý quan trọng**: Middleware tự động inject `dimensions=1536` vào mọi embedding request. Gemini native output 3072-dim nhưng PGVector HNSW chỉ hỗ trợ tối đa 2000 dims. Dimension reduction qua API param đảm bảo tương thích với DB schema `vector(1536)`.
 
 #### Bước 4: Lưu vào PGVector
 
@@ -403,21 +408,23 @@ RAG_EMBEDDING_MODEL: text-embedding-3-small
           │  (port 8080) │       (files, uploads)
           └──────┬──────┘
                  │
-        ┌────────┼────────┐
-        │        │        │
-        ▼        ▼        ▼
-  ┌──────────┐ ┌────────┐ ┌───────────┐
-  │PostgreSQL│ │Embedding│ │Middleware │
-  │+ PGVector│ │ (local) │ │(port 5000)│
-  │(port 5432│ │MiniLM-v2│ └─────┬─────┘
-  └──────────┘ └────────┘       │
-                                ▼
-                          ┌──────────┐
-                          │ LiteLLM  │
-                          │(port 4000)│
-                          └──────────┘
-                                │
-                    ┌───────────┼───────────┐
-                    ▼           ▼           ▼
-              OpenAI API   Gemini API   Other APIs
+        ┌────────┼────────┬─────────┐
+        │        │        │         │
+        ▼        ▼        ▼         ▼
+  ┌──────────┐ ┌────────┐ ┌────────┐ ┌───────────┐
+  │PostgreSQL│ │ Tika   │ │ Embed  │ │Middleware │
+  │+ PGVector│ │ (OCR)  │ │Request │ │(port 5000)│
+  │(port 5432│ │(p.9998)│ │  ──────┼─┤inject dims│
+  └──────────┘ └────────┘ └────────┘ └─────┬─────┘
+                                           │
+                                     ┌──────────┐
+                                     │ LiteLLM  │
+                                     │(port 4000)│
+                                     └──────────┘
+                                           │
+                               ┌───────────┼───────────┐
+                               ▼           ▼           ▼
+                         OpenAI API   Gemini API   Other APIs
+                                    (embedding +
+                                     chat models)
 ```
