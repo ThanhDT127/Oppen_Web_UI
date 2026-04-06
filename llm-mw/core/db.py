@@ -263,11 +263,8 @@ def _auto_migrate_if_empty():
 
 def _backfill_subkey_hashes(conn, cur):
     """Generate subkey_hash for users who have plaintext subkey but NULL hash."""
-    import hmac as _hmac
-    import hashlib as _hashlib
-
-    # Get MW_SECRET for hashing
-    mw_secret = os.getenv("MW_SECRET", "default_secret_change_me")
+    # Use centralized hash_subkey() to avoid duplicating MW_SECRET logic
+    from core.auth import hash_subkey
 
     cur.execute("SELECT user_id, subkey FROM mw_users WHERE subkey IS NOT NULL AND subkey != '' AND subkey_hash IS NULL")
     rows = cur.fetchall()
@@ -276,11 +273,7 @@ def _backfill_subkey_hashes(conn, cur):
         return
 
     for user_id, subkey in rows:
-        subkey_hash = _hmac.new(
-            mw_secret.encode("utf-8"),
-            subkey.encode("utf-8"),
-            _hashlib.sha256
-        ).hexdigest()
+        subkey_hash = hash_subkey(subkey)
         cur.execute("UPDATE mw_users SET subkey_hash = %s WHERE user_id = %s", (subkey_hash, user_id))
         logger.info("Backfilled subkey_hash for user: %s", user_id)
 

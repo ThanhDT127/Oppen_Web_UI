@@ -128,11 +128,28 @@ model_list:
       api_key: os.environ/XAI_API_KEY
 
 # ============================================================
+# EMBEDDING MODELS
+# ============================================================
+
+  # Gemini Embedding (3072-dim native, reduced to 1536 via middleware)
+  # Middleware injects dimensions=1536 to stay within PGVector HNSW 2000-dim limit
+  - model_name: gemini-embedding-001
+    litellm_params:
+      model: gemini/gemini-embedding-001
+      api_key: os.environ/GEMINI_API_KEY
+
+# ============================================================
 # LITELLM SETTINGS
 # ============================================================
 
 litellm_settings:
   drop_params: true
+  # Auto-inject cache_control into system messages for Anthropic models
+  # Reduces input token cost by ~90% for repeated system prompts
+  # Safe for non-Anthropic models: drop_params=true strips unsupported params
+  cache_control_injection_points:
+    - location: "message"
+      role: "system"
   host: "0.0.0.0"
   port: 4000
   telemetry: false

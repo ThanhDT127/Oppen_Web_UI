@@ -226,15 +226,43 @@ def find_user(subkey: str) -> Optional[Dict[str, Any]]:
 def require_user(request: Request) -> Dict[str, Any]:
     """
     Require valid user authentication from Authorization header.
-    Raises HTTPException if authentication fails.
+    Raises HTTPException with differentiated error codes:
+      - 401: Missing Bearer token
+      - 401: Invalid sub-key (not found in DB)
+      - 403: User account is deactivated
     """
+    from config import logger
+
     auth = request.headers.get("Authorization", "")
+    client_ip = request.client.host if request.client else "unknown"
+    req_path = request.url.path
+
     if not auth.startswith("Bearer "):
+        logger.warning(
+            "auth_fail reason=missing_token path=%s client_ip=%s",
+            req_path, client_ip,
+        )
         raise HTTPException(401, "Missing sub-key")
+
     subkey = auth.split(" ", 1)[1].strip()
     user = find_user(subkey)
-    if not user or not user.get("active", True):
-        raise HTTPException(403, "Invalid or inactive sub-key")
+
+    if not user:
+        # Log first 8 chars of hashed subkey for debugging (safe to log)
+        hashed_prefix = hash_subkey(subkey)[:8]
+        logger.warning(
+            "auth_fail reason=invalid_subkey hash_prefix=%s path=%s client_ip=%s",
+            hashed_prefix, req_path, client_ip,
+        )
+        raise HTTPException(401, "Invalid sub-key")
+
+    if not user.get("active", True):
+        logger.warning(
+            "auth_fail reason=user_inactive user_id=%s path=%s client_ip=%s",
+            user.get("user_id"), req_path, client_ip,
+        )
+        raise HTTPException(403, "User account is deactivated")
+
     request.state.mw_user_id = user.get("user_id")
     return user
 

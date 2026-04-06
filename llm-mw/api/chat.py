@@ -29,6 +29,49 @@ async def _safe_alert_check(user_id: str, cost_usd: float):
         logger.error("alert_check_error user=%s: %s", user_id, str(e))
 
 
+def _get_quota_warning_text(user_id: str) -> str | None:
+    """
+    Check user's quota usage and return warning text if above threshold.
+    Returns None if no warning needed (unlimited or below 80%).
+    """
+    try:
+        from core.alerting import get_user_quota_status
+        status = get_user_quota_status(user_id)
+        if not status.get("found") or status.get("unlimited"):
+            return None
+        percent = status.get("percent_used", 0)
+        remaining = status.get("remaining_usd", 0)
+        used = status.get("used_cost_usd", 0)
+        limit = status.get("limit_cost_usd", 0)
+        if percent >= 100:
+            return (
+                f"\n\n---\n"
+                f"🚫 **Quota đã hết**: Bạn đã sử dụng hết quota tháng này "
+                f"(${used:.2f}/${limit:.2f}). "
+                f"Các request tiếp theo sẽ bị chặn. "
+                f"Vui lòng liên hệ admin để được nâng hạn mức."
+            )
+        elif percent >= 95:
+            return (
+                f"\n\n---\n"
+                f"🔴 **Cảnh báo quota**: Bạn đã sử dụng "
+                f"**{percent:.0f}%** quota tháng này "
+                f"(còn ~${remaining:.2f}). "
+                f"Vui lòng liên hệ admin nếu cần tăng quota."
+            )
+        elif percent >= 80:
+            return (
+                f"\n\n---\n"
+                f"⚠️ Bạn đã sử dụng "
+                f"**{percent:.0f}%** quota tháng này "
+                f"(còn ~${remaining:.2f})."
+            )
+        return None
+    except Exception as e:
+        logger.debug("quota_warning_check_error user=%s: %s", user_id, e)
+        return None
+
+
 def _is_image_generation_model(model: str) -> bool:
     """Check if model is an image generation model."""
     if not isinstance(model, str):
@@ -40,6 +83,46 @@ def _is_image_generation_model(model: str) -> bool:
         "-draw", "draw-",  # detect renamed models like gpt-draw-1
         "img-"  # detect models like img-gemini-flash, img-gpt-dalle-3
     ])
+
+
+def _normalize_provider_params(model: str, body: dict) -> None:
+    """
+    Normalize request parameters based on provider/model type.
+    Modifies body in-place to ensure compatibility across providers.
+
+    Handles:
+    - GPT-5+: max_tokens → max_completion_tokens
+    - xAI Grok: remove unsupported 'size' param
+    - Anthropic Claude: clamp temperature to [0, 1]
+    - General: ensure stream_options.include_usage for streaming
+    """
+    if not isinstance(model, str) or not isinstance(body, dict):
+        return
+
+    model_lower = model.lower()
+
+    # GPT-5+ models: max_tokens → max_completion_tokens
+    if model_lower.startswith(("gpt-5", "chat-gpt-5")):
+        if "max_tokens" in body and "max_completion_tokens" not in body:
+            body["max_completion_tokens"] = body.pop("max_tokens")
+            logger.debug("normalize: %s max_tokens → max_completion_tokens", model)
+
+    # xAI Grok: remove 'size' (uses aspect_ratio instead)
+    if any(k in model_lower for k in ["grok", "xai"]):
+        body.pop("size", None)
+
+    # Anthropic Claude: clamp temperature to [0, 1]
+    if "claude" in model_lower:
+        temp = body.get("temperature")
+        if isinstance(temp, (int, float)) and temp > 1.0:
+            body["temperature"] = min(temp, 1.0)
+            logger.debug("normalize: %s temperature clamped to 1.0", model)
+
+    # Ensure stream_options.include_usage for streaming requests
+    if body.get("stream"):
+        stream_opts = body.get("stream_options") or {}
+        stream_opts["include_usage"] = True
+        body["stream_options"] = stream_opts
 
 
 # --- Task prompt detection (Fix #3) ---
@@ -325,8 +408,13 @@ async def _handle_image_as_chat(request: Request, user: dict, model: str, body: 
         "model": model,
         "prompt": prompt,
         "n": 1,
-        "size": body.get("size", "1024x1024"),
     }
+    
+    # xAI Grok Imagine does NOT support 'size' param (uses aspect_ratio instead)
+    # Only add 'size' for providers that support it (OpenAI, DALL-E)
+    is_xai_model = any(k in model.lower() for k in ["grok", "xai"])
+    if not is_xai_model:
+        image_body["size"] = body.get("size", "1024x1024")
     
     # Call image generation API
     client: httpx.AsyncClient = request.app.state.http_client
@@ -342,7 +430,7 @@ async def _handle_image_as_chat(request: Request, user: dict, model: str, body: 
             from api.images import _generate_image_via_chat
             image_data = await _generate_image_via_chat(client, headers, image_messages, model)
         else:
-            # GPT Image / DALL-E models
+            # GPT Image / DALL-E / xAI Grok Imagine models
             # Check if user uploaded images → use /images/edits for editing
             uploaded_images = _extract_images_from_messages(messages)
             contextual_prompt = _build_contextual_prompt(messages, prompt)
@@ -350,11 +438,9 @@ async def _handle_image_as_chat(request: Request, user: dict, model: str, body: 
             from api.images import _IMAGE_MODEL_MAP
             litellm_model = _IMAGE_MODEL_MAP.get(model, model)
             
-
-
-            
-            if uploaded_images and "dalle" not in model.lower():
+            if uploaded_images and "dalle" not in model.lower() and not is_xai_model:
                 # User uploaded image(s) → use /images/edits endpoint
+                # Note: xAI Grok Imagine does not support /images/edits
                 detail_log(
                     "chat.image_edit",
                     request=request,
@@ -384,9 +470,19 @@ async def _handle_image_as_chat(request: Request, user: dict, model: str, body: 
                         except: raise HTTPException(resp.status_code, resp.text)
                     image_data = resp.json()
             else:
-                # No uploaded images → use /images/generations with contextual prompt
+                # No uploaded images (or xAI model) → use /images/generations
                 image_body["prompt"] = contextual_prompt
                 image_body["model"] = litellm_model
+                
+                detail_log(
+                    "chat.image_generations",
+                    request=request,
+                    user_id=user.get("user_id"),
+                    model=model,
+                    litellm_model=litellm_model,
+                    is_xai=is_xai_model,
+                    body_keys=list(image_body.keys()),
+                )
                 
                 resp = await client.post(
                     f"{LITELLM_BASE}/images/generations",
@@ -492,7 +588,7 @@ async def _handle_image_as_chat(request: Request, user: dict, model: str, body: 
         return JSONResponse(status_code=200, content=chat_response)
 
 
-async def _finalize_streaming(request: Request, user: dict, model: str, request_id: str, usage_data: dict):
+async def _finalize_streaming(request: Request, user: dict, model: str, request_id: str, usage_data: dict) -> str | None:
     """
     Finalize streaming request: Calculate cost, bump quota, write reconciled audit.
     
@@ -502,6 +598,9 @@ async def _finalize_streaming(request: Request, user: dict, model: str, request_
         model: Model name
         request_id: Request ID
         usage_data: Usage dict from stream (if stream_options.include_usage), or None
+    
+    Returns:
+        Quota warning text to inject into stream, or None.
     """
     try:
         prompt_tokens = 0
@@ -539,7 +638,7 @@ async def _finalize_streaming(request: Request, user: dict, model: str, request_
             logger.warning("stream_finalize rid=%s: USAGE MISSING - no tokens or cost from stream or log", request_id)
             # Don't write reconciled audit with zeros - this would pollute billable metrics
             # The pending audit remains, showing the request was made but usage wasn't captured
-            return
+            return None
         
         # Calculate cost if not from LiteLLM
         if cost_usd == 0.0 and total_tokens > 0:
@@ -567,6 +666,16 @@ async def _finalize_streaming(request: Request, user: dict, model: str, request_
                 _safe_alert_check(user["user_id"], cost_usd)
             )
         
+        # Extract cached tokens info (Anthropic prompt caching / Gemini implicit caching)
+        _usage_src = usage_data or {}
+        cached_tokens_created = int(_usage_src.get("cache_creation_input_tokens", 0))
+        cached_tokens_read = int(_usage_src.get("cache_read_input_tokens", 0))
+        # Gemini uses cached_content_token_count for implicit caching
+        cached_tokens_read = cached_tokens_read or int(_usage_src.get("cached_content_token_count", 0))
+        
+        if cached_tokens_read > 0 or cached_tokens_created > 0:
+            logger.info("stream_cache_info rid=%s created=%d read=%d", request_id, cached_tokens_created, cached_tokens_read)
+        
         # Write reconciled audit line (only if we have actual usage)
         write_audit_line({
             "ts": datetime.now(timezone.utc).isoformat(),
@@ -581,6 +690,8 @@ async def _finalize_streaming(request: Request, user: dict, model: str, request_
             "tokens_out": completion_tokens,
             "tokens_total": total_tokens,
             "cost_usd": cost_usd,
+            "cached_tokens_created": cached_tokens_created,
+            "cached_tokens_read": cached_tokens_read,
             "image_count": None,
             "tts_chars": None,
             "stt_seconds": None,
@@ -590,9 +701,14 @@ async def _finalize_streaming(request: Request, user: dict, model: str, request_
         })
         
         logger.info("stream_finalize_complete rid=%s tokens=%d cost=$%.6f", request_id, total_tokens, cost_usd)
+        
+        # Check quota warning AFTER bumping (so it reflects the latest usage)
+        warning_text = _get_quota_warning_text(user["user_id"])
+        return warning_text
     
     except Exception as e:
         logger.error("stream_finalize_error rid=%s: %s", request_id, str(e))
+        return None
 
 
 async def chat_completions(request: Request):
@@ -685,10 +801,8 @@ async def chat_completions(request: Request):
     # When users chat via OpenWebUI, it often sends `max_tokens`.
     # For gpt-5*, translate to `max_completion_tokens` to avoid responses that spend all tokens
     # on reasoning and return empty visible content.
-    if isinstance(model, str) and model.startswith("gpt-5"):
-        if "max_tokens" in body and "max_completion_tokens" not in body:
-            body["max_completion_tokens"] = body.get("max_tokens")
-            body.pop("max_tokens", None)
+    # Normalize provider-specific parameters (replaces old GPT-5 only handling)
+    _normalize_provider_params(model, body)
 
     # Use rid from audit_state (already generated)
     request_id = rid
@@ -749,7 +863,8 @@ async def _handle_streaming(request: Request, user: dict, model: str, body: dict
     # then stream bytes and always clean up.
     logger.info("stream_start rid=%s model=%s", request_id, model)
 
-    client = httpx.AsyncClient(timeout=600)
+    # Use shared connection pool from app.state (not a new client per request)
+    client = request.app.state.http_client
     detail_log(
         "upstream.request",
         request=request,
@@ -793,16 +908,15 @@ async def _handle_streaming(request: Request, user: dict, model: str, body: dict
             })
             
             remove_pending(request_id)
-            try:
-                await resp.aclose()
-            finally:
-                await client.aclose()
+            await resp.aclose()
+            # NOTE: Do NOT close client here — it's the shared pool from app.state
         logger.warning("stream_error rid=%s status=%s body=%s", request_id, resp.status_code, error_text[:500])
         raise HTTPException(resp.status_code, error_text)
 
     async def _iter_bytes():
         sampled: bytearray = bytearray()
         usage_data = None  # Track usage from stream_options.include_usage
+        done_sent = False  # Track if we intercepted [DONE]
         
         try:
             async for chunk in resp.aiter_bytes():
@@ -812,28 +926,44 @@ async def _handle_streaming(request: Request, user: dict, model: str, body: dict
                 # Try to extract usage from SSE data (stream_options.include_usage)
                 try:
                     chunk_str = chunk.decode("utf-8", errors="ignore")
-                    if chunk_str.startswith("data: ") and not chunk_str.startswith("data: [DONE]"):
-                        json_str = chunk_str[6:].strip()
-                        if json_str:
-                            chunk_data = json.loads(json_str)
-                            # Extract usage from final chunk
-                            if "usage" in chunk_data:
-                                usage_data = chunk_data["usage"]
+                    for line in chunk_str.split("\n"):
+                        line = line.strip()
+                        if line.startswith("data: ") and not line.startswith("data: [DONE]"):
+                            json_str = line[6:].strip()
+                            if json_str:
+                                chunk_data = json.loads(json_str)
+                                # Extract usage from final chunk
+                                if "usage" in chunk_data:
+                                    usage_data = chunk_data["usage"]
                 except Exception:
                     pass  # Ignore parsing errors
+                
+                # Intercept [DONE] marker — we'll send it after quota warning
+                chunk_str_raw = chunk.decode("utf-8", errors="ignore")
+                if "data: [DONE]" in chunk_str_raw:
+                    # Yield everything before [DONE]
+                    before_done = chunk_str_raw.replace("data: [DONE]\n\n", "").replace("data: [DONE]\n", "").replace("data: [DONE]", "")
+                    if before_done.strip():
+                        yield before_done.encode("utf-8")
+                    done_sent = True
+                    # Don't yield [DONE] yet — we'll add quota warning first
+                    continue
                 
                 yield chunk
         except (httpx.StreamClosed, httpx.RemoteProtocolError, asyncio.CancelledError):
             return
         finally:
             # Finalize streaming: reconcile usage and bump quota
-            await _finalize_streaming(request, user, model, request_id, usage_data)
+            warning_text = await _finalize_streaming(request, user, model, request_id, usage_data)
+            
+            # Inject quota warning as extra SSE chunk before [DONE]
+            # Note: We can only inject if we intercepted [DONE] (done_sent=True)
+            # If stream ended abnormally, skip injection
+            # (warning_text is set in _finalize_streaming after quota bump)
             
             remove_pending(request_id)
-            try:
-                await resp.aclose()
-            finally:
-                await client.aclose()
+            await resp.aclose()
+            # NOTE: Do NOT close client — shared pool from app.state
             logger.info("stream_end rid=%s", request_id)
             if sampled:
                 detail_log(
@@ -845,8 +975,38 @@ async def _handle_streaming(request: Request, user: dict, model: str, body: dict
                     sample=truncate_text(sampled.decode("utf-8", errors="ignore"), limit=4000),
                 )
 
+    # Wrap _iter_bytes to inject quota warning after stream ends
+    async def _iter_with_quota_warning():
+        warning_text_holder = [None]
+        
+        async for chunk in _iter_bytes():
+            yield chunk
+        
+        # After stream completes, check quota warning
+        # _finalize_streaming already ran in the finally block
+        # We need to check quota status here since we can now yield
+        warning_text = _get_quota_warning_text(user["user_id"])
+        if warning_text:
+            # Yield quota warning as an extra SSE content chunk
+            warning_chunk = {
+                "id": f"chatcmpl-{request_id}",
+                "object": "chat.completion.chunk",
+                "created": int(datetime.now(timezone.utc).timestamp()),
+                "model": model,
+                "choices": [{
+                    "index": 0,
+                    "delta": {"content": warning_text},
+                    "finish_reason": None
+                }]
+            }
+            yield f"data: {json.dumps(warning_chunk)}\n\n".encode("utf-8")
+            logger.info("stream_quota_warning_injected rid=%s user=%s", request_id, user["user_id"])
+        
+        # Send [DONE] marker last
+        yield b"data: [DONE]\n\n"
+
     return StreamingResponse(
-        _iter_bytes(),
+        _iter_with_quota_warning(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -897,6 +1057,15 @@ async def _handle_non_streaming(request: Request, user: dict, model: str, body: 
     completion_tokens = int(usage.get("completion_tokens", 0))
     total_tokens = int(usage.get("total_tokens", prompt_tokens + completion_tokens))
     
+    # Extract cached tokens info (Anthropic prompt caching / Gemini implicit caching)
+    cached_tokens_created = int(usage.get("cache_creation_input_tokens", 0))
+    cached_tokens_read = int(usage.get("cache_read_input_tokens", 0))
+    # Gemini uses cached_content_token_count for implicit caching
+    cached_tokens_read = cached_tokens_read or int(usage.get("cached_content_token_count", 0))
+    
+    if cached_tokens_read > 0 or cached_tokens_created > 0:
+        logger.info("cache_info rid=%s model=%s created=%d read=%d", request_id, model, cached_tokens_created, cached_tokens_read)
+    
     # Load prices for cost calculation
     from core.cost import load_prices
     prices = load_prices()
@@ -907,10 +1076,18 @@ async def _handle_non_streaming(request: Request, user: dict, model: str, body: 
 
     if limit_tokens > 0 and used_tokens + total_tokens > limit_tokens:
         set_error_state(request, "quota", f"Token quota exceeded")
-        raise HTTPException(403, f"Token quota exceeded for {user['user_id']} ({used_tokens + total_tokens}/{limit_tokens})")
+        raise HTTPException(403, detail={
+            "detail": f"⚠️ Bạn đã hết quota token tháng này (đã dùng {used_tokens + total_tokens:,}/{limit_tokens:,} tokens). Vui lòng liên hệ admin để được nâng hạn mức.",
+            "error_code": "QUOTA_EXCEEDED",
+            "quota_info": {"type": "tokens", "used": used_tokens + total_tokens, "limit": limit_tokens, "percent": round((used_tokens + total_tokens) / limit_tokens * 100, 1)}
+        })
     if limit_cost > 0 and used_cost + cost_usd > limit_cost + 1e-9:
         set_error_state(request, "quota", f"Cost quota exceeded")
-        raise HTTPException(403, f"Cost quota exceeded for {user['user_id']} (${used_cost + cost_usd:.2f}/${limit_cost:.2f})")
+        raise HTTPException(403, detail={
+            "detail": f"⚠️ Bạn đã hết quota tháng này (đã dùng ${used_cost + cost_usd:.2f}/${limit_cost:.2f}). Vui lòng liên hệ admin để được nâng hạn mức.",
+            "error_code": "QUOTA_EXCEEDED",
+            "quota_info": {"type": "cost", "used": round(used_cost + cost_usd, 4), "limit": round(limit_cost, 2), "percent": round((used_cost + cost_usd) / limit_cost * 100, 1)}
+        })
 
     enforce_and_bump_quota(user["user_id"], add_tokens=total_tokens, add_cost_usd=cost_usd)
 
@@ -918,6 +1095,19 @@ async def _handle_non_streaming(request: Request, user: dict, model: str, body: 
     asyncio.create_task(
         _safe_alert_check(user["user_id"], cost_usd)
     )
+
+    # Inject quota warning into response content (if above threshold)
+    warning_text = _get_quota_warning_text(user["user_id"])
+    if warning_text:
+        try:
+            choices = data.get("choices", [])
+            if choices and isinstance(choices, list):
+                msg = choices[0].get("message", {})
+                if isinstance(msg.get("content"), str):
+                    msg["content"] += warning_text
+                    logger.info("non_stream_quota_warning_injected rid=%s user=%s", request_id, user["user_id"])
+        except Exception as e:
+            logger.debug("quota_warning_inject_failed rid=%s: %s", request_id, e)
 
     data["_mw_user"] = user["user_id"]
     data["_mw_request_id"] = request_id

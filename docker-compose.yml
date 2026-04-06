@@ -151,6 +151,22 @@ services:
     networks:
       - openwebui-network
 
+  # Apache Tika - Document Extraction + OCR (Tesseract)
+  tika:
+    image: apache/tika:latest-full
+    container_name: openwebui-tika
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:9998/tika" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { memory: 2G, cpus: '1' }
+    networks:
+      - openwebui-network
+
   # Open WebUI Application
   open-webui:
     build:
@@ -167,9 +183,12 @@ services:
       - PGVECTOR_CREATE_EXTENSION=true
       - PGVECTOR_INDEX_METHOD=hnsw
 
-      # Embeddings using Sentence Transformers (local)
-      - RAG_EMBEDDING_ENGINE=
-      - RAG_EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+      # Embeddings using Gemini via LiteLLM (openai-compatible)
+      - RAG_EMBEDDING_ENGINE=openai
+      - RAG_EMBEDDING_MODEL=gemini-embedding-001
+      # Embedding connects through middleware for cost tracking & quota control
+      - RAG_EMBEDDING_OPENAI_API_BASE_URL=http://middleware:5000/v1
+      - RAG_EMBEDDING_OPENAI_API_KEY=${SUBKEY_ADMIN}
 
       # RAG Configuration
       - ENABLE_RAG=true
@@ -180,8 +199,8 @@ services:
       - RAG_FILE_MAX_SIZE=2048
       - RAG_FILE_MAX_COUNT=20
 
-      # Embedding batch size (default 1 is very slow on CPU)
-      - RAG_EMBEDDING_BATCH_SIZE=100
+      # Embedding batch size (reduced for Gemini API rate limits)
+      - RAG_EMBEDDING_BATCH_SIZE=50
 
       # LLM Connection via Middleware
       - OPENAI_API_BASE_URL=http://middleware:5000/v1
@@ -223,6 +242,8 @@ services:
       middleware:
         condition: service_started
       searxng:
+        condition: service_healthy
+      tika:
         condition: service_healthy
     restart: unless-stopped
     # Step 3: Resource limits

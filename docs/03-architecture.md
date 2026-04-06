@@ -1,4 +1,4 @@
-﻿# 🏗️ ARCHITECTURE - OPPEN WEB UI
+# 🏗️ ARCHITECTURE - OPPEN WEB UI
 
 ## 📐 System Overview
 
@@ -147,15 +147,16 @@ The Oppen Web UI system consists of **8 Docker containers** on the same network,
 | `Bearer subkey`     | Phương thức xác thực — header `Authorization: Bearer <khóa_user>` gửi kèm mỗi request      |
 | `Proxy to LiteLLM`  | Middleware chuyển tiếp request đến LiteLLM sau khi xác thực & kiểm tra quota               |
 
-#### 🧱 5 Docker Containers (Dịch vụ chính)
+#### 🧱 6 Docker Containers (Dịch vụ chính)
 
 | Container          | Port   | Giải thích chi tiết                                                                            |
 | ------------------ | ------ | ---------------------------------------------------------------------------------------------- |
-| **Open WebUI**     | `3000` | Giao diện web cho end-user — chat AI, quản lý hồ sơ, lịch sử hội thoại, RAG (	ìm tài liệu)     |
+| **Open WebUI**     | `3000` | Giao diện web cho end-user — chat AI, quản lý hồ sơ, lịch sử hội thoại, RAG (tìm tài liệu)     |
 | **LLM Middleware** | `5000` | Tầng trung gian do team phát triển (FastAPI/Python) — xác thực, quota, proxy, audit, dashboard |
 | **PostgreSQL**     | `5432` | CSDL quan hệ — 2 database: `openwebui` (chat + PGVector) và `middleware` (6 bảng `mw_*`)       |
 | **LiteLLM Proxy**  | `4000` | Proxy mã nguồn mở — aliasing tên model + route request đến đúng provider (OpenAI/Gemini/...)   |
 | **SearXNG**        | `8080` | Web search engine tự host (internal only) — tổng hợp kết quả từ Google, Brave, DuckDuckGo   |
+| **Apache Tika**    | `9998` | OCR/text extraction server — xử lý PDF scan, hình ảnh, và các file phức tạp                   |
 
 #### 📦 Cấu trúc bên trong LLM Middleware
 
@@ -271,7 +272,7 @@ The Oppen Web UI system consists of **8 Docker containers** on the same network,
 | Hybrid Search            | BM25 (keyword) + Vector (semantic) kết hợp cho kết quả chính xác hơn      |
 | HNSW Vector Index        | Approximate nearest neighbor — m=16, ef_construction=64                   |
 | Citation (trích dẫn)     | AI trích dẫn tên file + số trang nguồn trong câu trả lời                  |
-| Embedding local          | `paraphrase-multilingual-MiniLM-L12-v2` — 50+ ngôn ngữ, không gửi data ra |
+| Embedding qua middleware | `gemini-embedding-001` (1536-dim, giảm từ 3072 native) qua Middleware → LiteLLM → Gemini API |
 | PGVector                 | Vector storage trong PostgreSQL — dữ liệu không rời hệ thống              |
 
 ### 7. Kiểm soát Chi phí & Quota (Middleware)
@@ -567,6 +568,7 @@ Các file JSON/log được giữ lại làm backup:
 | `audio.py`           | `/v1/audio/transcriptions`                         | Proxy phiên dịch audio (Whisper)       |
 | `media.py`           | `/v1/_mw/media/*`                                  | Phục vụ file media tĩnh                |
 | `quota_status.py`    | `/v1/_mw/quota-status`, `/admin/alerts/*`          | Trạng thái quota & cấu hình alert      |
+| `embeddings.py`      | `/v1/embeddings`                                   | Proxy embedding (Gemini), inject dims  |
 
 ### Logic Nghiệp vụ (`core/`)
 
@@ -635,6 +637,7 @@ Các file JSON/log được giữ lại làm backup:
 | Method | Endpoint                   | Xác thực          | Mô tả                                                                          |
 | ------ | -------------------------- | ----------------- | ------------------------------------------------------------------------------ |
 | `POST` | `/v1/chat/completions`     | `Bearer <subkey>` | Chat completion — stream/non-stream. Quota check → proxy LiteLLM → audit log   |
+| `POST` | `/v1/embeddings`           | `Bearer <subkey>` | Embedding proxy — inject dimensions=1536, cost tracking, audit. Gemini via LiteLLM |
 | `POST` | `/v1/images/generations`   | `Bearer <subkey>` | Image generation (DALL-E, etc.). Hỗ trợ `gpt-image-1` với B64 → URL conversion |
 | `POST` | `/v1/audio/transcriptions` | `Bearer <subkey>` | Audio transcription (Whisper). Multipart form upload                           |
 | `GET`  | `/v1/models`               | `Bearer <subkey>` | Danh sách models từ LiteLLM, lọc theo `allowed_models` của user                |

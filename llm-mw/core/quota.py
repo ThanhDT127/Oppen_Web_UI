@@ -94,9 +94,18 @@ def enforce_and_bump_quota(
                     return
                 used_val = float(quota.get(used_key, 0) or 0)
                 if used_val + add_value > limit_val + 1e-9:
+                    percent = round((used_val + add_value) / limit_val * 100, 1)
+                    if "cost" in limit_key.lower():
+                        detail_msg = f"⚠️ Bạn đã hết quota tháng này (đã dùng ${used_val + add_value:.2f}/${limit_val:.2f}). Vui lòng liên hệ admin để được nâng hạn mức."
+                    else:
+                        detail_msg = f"⚠️ Bạn đã hết quota {label} tháng này ({used_val + add_value:.0f}/{limit_val:.0f}). Vui lòng liên hệ admin để được nâng hạn mức."
                     raise HTTPException(
                         403,
-                        f"{label} quota exceeded for {stored_user['user_id']} ({used_val + add_value}/{limit_val})",
+                        detail={
+                            "detail": detail_msg,
+                            "error_code": "QUOTA_EXCEEDED",
+                            "quota_info": {"type": label.lower(), "used": round(used_val + add_value, 4), "limit": round(limit_val, 2), "percent": percent}
+                        },
                     )
 
             # Enforce task-specific quotas (best-effort; costs may be unknown until after provider call).

@@ -487,6 +487,7 @@ Chỉ đếm entries trong `audit.jsonl` có `ts >= cutoff`.
 
 **Endpoints được đếm:**
 - `/v1/chat/completions` → "chat"
+- `/v1/embeddings` → "embedding"
 - `/v1/images/generations` → "image"
 - `/v1/audio/transcriptions` → "audio"
 - `/v1/audio/speech` → "audio"

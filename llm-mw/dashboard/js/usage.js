@@ -77,6 +77,8 @@ export async function refreshTables() {
 function _renderMetrics(t) {
     document.getElementById('metricLLMCalls').textContent = (t.requests_total || 0).toLocaleString();
     document.getElementById('metricChat').textContent = t.chat_calls || 0;
+    const embedEl = document.getElementById('metricEmbedding');
+    if (embedEl) embedEl.textContent = t.embedding_calls || 0;
     document.getElementById('metricImage').textContent = t.image_calls || 0;
     document.getElementById('metricAudio').textContent = t.audio_calls || 0;
 
