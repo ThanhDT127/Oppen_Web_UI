@@ -200,11 +200,19 @@ Tất cả user gửi request
 {
     "openai": {
         "budget_usd": 100.00,
-        "model_prefixes": ["chat-gpt", "img-gpt", "tts-gpt", "stt-gpt"]
+        "model_prefixes": ["chat-gpt", "img-gpt"]
     },
     "gemini": {
         "budget_usd": 50.00,
         "model_prefixes": ["chat-gemini", "img-gemini"]
+    },
+    "xai": {
+        "budget_usd": 80.00,
+        "model_prefixes": ["chat-grok", "img-grok"]
+    },
+    "anthropic": {
+        "budget_usd": 100.00,
+        "model_prefixes": ["chat-claude"]
     }
 }
 ```
@@ -575,6 +583,10 @@ SELECT
             THEN 'openai'
         WHEN model LIKE 'chat-gemini%' OR model LIKE 'img-gemini%'
             THEN 'gemini'
+        WHEN model LIKE 'chat-grok%' OR model LIKE 'img-grok%'
+            THEN 'xai'
+        WHEN model LIKE 'chat-claude%'
+            THEN 'anthropic'
         ELSE 'other'
     END AS provider,
     COUNT(*) AS requests,

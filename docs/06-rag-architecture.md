@@ -29,14 +29,14 @@ RAG (Retrieval-Augmented Generation) là kỹ thuật cho phép LLM trả lời 
 
 ### 1.2. Các thành phần chính
 
-| Thành phần      | Technology                                | Vai trò                                            |
-| --------------- | ----------------------------------------- | -------------------------------------------------- |
-| Vector DB       | PostgreSQL + PGVector 0.8.0               | Lưu trữ và tìm kiếm vector embeddings              |
-| Embedding Model | `gemini-embedding-001` (qua Middleware)   | Chuyển text thành vector 1536 chiều (giảm từ 3072) |
-| Text Splitter   | Character-based splitter                  | Chia document thành chunks                         |
-| OCR Engine      | Apache Tika (Docker container)            | Extract text từ PDF scan, hình ảnh                 |
-| Search          | Hybrid (BM25 + Vector)                    | Kết hợp keyword search + semantic search           |
-| Index           | HNSW (Hierarchical Navigable Small World) | Tìm kiếm approximate nearest neighbors             |
+| Thành phần      | Technology                                                       | Vai trò                                                         |
+| --------------- | ---------------------------------------------------------------- | --------------------------------------------------------------- |
+| Vector DB       | PostgreSQL + PGVector 0.8.0                                      | Lưu trữ và tìm kiếm vector embeddings                           |
+| Embedding Model | `gemini-embedding-001` (qua Middleware)                          | Chuyển text thành vector 1536 chiều (giảm từ 3072)              |
+| Text Splitter   | Character-based splitter                                         | Chia document thành chunks                                      |
+| OCR Engine      | Docling (`quay.io/docling-project/docling-serve-cpu`, port 5001) | Extract text từ PDF scan, Word, hình ảnh                        |
+| Search          | Hybrid (BM25 + Vector)                                           | Kết hợp keyword search + semantic search                        |
+| Index           | HNSW (Hierarchical Navigable Small World)                        | Tìm kiếm approximate nearest neighbors                          |
 
 ---
 
@@ -47,12 +47,13 @@ RAG (Retrieval-Augmented Generation) là kỹ thuật cho phép LLM trả lời 
 ```yaml
 # RAG Configuration
 ENABLE_RAG: true
-CHUNK_SIZE: 1000                    # Mỗi chunk tối đa 1000 ký tự
-CHUNK_OVERLAP: 200                  # Overlap 200 ký tự giữa các chunks
+CHUNK_SIZE: 1500                    # Mỗi chunk tối đa 1500 ký tự
+CHUNK_OVERLAP: 100                  # Overlap 100 ký tự giữa các chunks
 RAG_TEXT_SPLITTER: character        # Chia theo ký tự (không theo token)
 ENABLE_RAG_HYBRID_SEARCH: true      # BM25 + Vector search
-RAG_FILE_MAX_SIZE: 10               # Tối đa 10 MB / file
-RAG_FILE_MAX_COUNT: 10              # Tối đa 10 files / lần upload
+RAG_FILE_MAX_SIZE: 2048             # Tối đa 2048 MB / file
+RAG_FILE_MAX_COUNT: 20              # Tối đa 20 files / lần upload
+RAG_EMBEDDING_BATCH_SIZE: 50        # Batch 50 chunks mỗi lần gọi API
 
 # Embedding (qua Middleware → LiteLLM → Gemini API)
 RAG_EMBEDDING_ENGINE: openai
@@ -71,7 +72,7 @@ PGVECTOR_INDEX_METHOD: hnsw
 
 #### Bước 1: Extract Text
 Open WebUI hỗ trợ nhiều format:
-- **PDF**: PyPDF2 / Apache Tika / Docling / Mistral OCR
+- **PDF**: PyPDF2 / Docling (hiện tại) / Mistral OCR
 - **Word** (.docx): python-docx
 - **Excel** (.xlsx): openpyxl
 - **Text** (.txt, .csv, .md): đọc trực tiếp
@@ -243,14 +244,14 @@ LLM: Theo tài liệu nội bộ (nguồn: HR_Policy.pdf, trang 15),
 
 ### 4.1. Giới hạn cấu hình hiện tại
 
-| Thông số                     | Giá trị                 | Ghi chú                                |
-| ---------------------------- | ----------------------- | -------------------------------------- |
-| File size tối đa             | **10 MB**               | `RAG_FILE_MAX_SIZE=10`                 |
-| Số files / lần upload        | **10 files**            | `RAG_FILE_MAX_COUNT=10`                |
-| Chunk size                   | 1000 ký tự              | ~150-200 từ tiếng Việt                 |
-| Chunk overlap                | 200 ký tự               | ~30-40 từ overlap                      |
-| Embedding dimension          | 384 (model) / 1536 (DB) | Model output 384, DB cấp phát 1536     |
-| Max input tokens (embedding) | 256 tokens              | Chunk dài hơn sẽ bị truncate khi embed |
+| Thông số                     | Giá trị                              | Ghi chú                                  |
+| ---------------------------- | ------------------------------------ | ---------------------------------------- |
+| File size tối đa             | **2048 MB**                          | `RAG_FILE_MAX_SIZE=2048`                 |
+| Số files / lần upload        | **20 files**                         | `RAG_FILE_MAX_COUNT=20`                  |
+| Chunk size                   | 1500 ký tự                           | ~225-300 từ tiếng Việt                   |
+| Chunk overlap                | 100 ký tự                            | ~15-20 từ overlap                        |
+| Embedding dimension          | 1536 (Gemini, giảm từ native 3072)   | `dimensions: 1536` inject bởi middleware |
+| Max input tokens (embedding) | 2048 tokens                          | Gemini embedding-001 hỗ trợ 2048 tokens  |
 
 ### 4.2. Ví dụ: Upload văn bản 100 trang
 
@@ -262,12 +263,12 @@ Bước 1. Extract text:
    - Thời gian: 5-30 giây (tùy PDF format, có hình/bảng không)
 
 Bước 2. Chunking:
-   - chunk_size = 1000, overlap = 200
-   - Số chunks ≈ 250,000 / (1000 - 200) = ~313 chunks
+   - chunk_size = 1500, overlap = 100
+   - Số chunks ≈ 250,000 / (1500 - 100) = ~179 chunks
 
 Bước 3. Embedding:
-   - 313 chunks × 384 dimensions × 4 bytes = ~480 KB vectors
-   - Thời gian: 1-3 giây (CPU local)
+   - 179 chunks × 1536 dimensions × 4 bytes = ~1.1 MB vectors
+   - Thời gian: 5-15 giây (Gemini API, batch_size=50)
 
 Bước 4. Lưu DB:
    - 313 rows trong document_chunk
@@ -282,13 +283,13 @@ Thời gian xử lý: ~30-60 giây tổng cộng
 ```
 Tình huống: File PDF 100 MB
 
-❌ KHÔNG LOAD ĐƯỢC với cấu hình hiện tại
-   - RAG_FILE_MAX_SIZE = 10 MB → bị chặn ngay
+✅ CÓ THỂ LOAD với cấu hình hiện tại
+   - RAG_FILE_MAX_SIZE = 2048 MB → đủ
 
-Giải pháp nếu muốn xử lý:
-1. Tăng RAG_FILE_MAX_SIZE=100 (hoặc lớn hơn)
-2. Tăng timeout cho nginx/proxy nếu có
-3. Tăng RAM container (embedding chạy local cần RAM)
+Lưu ý khi xử lý file lớn:
+1. Docling có thể mất 2-5 phút extract text
+2. Embedding qua Gemini API batch_size=50, có thể mất 1-2 phút
+3. Nginx proxy_read_timeout cần đủ lớn (đã cấu hình 300s)
 
 Ước tính nếu được phép upload:
    - File PDF 100 MB có thể chứa ~500,000-2,000,000 ký tự
@@ -306,24 +307,25 @@ Giải pháp nếu muốn xử lý:
 | PDF 100 trang   | ✅ Tốt         | Xử lý < 1 phút                           |
 | PDF 500 trang   | ✅ Khả thi     | Xử lý 2-5 phút                           |
 | PDF 1000+ trang | ⚠️ Cần monitor | Có thể timeout, cần tăng config          |
-| File > 10 MB    | ❌ Bị chặn     | Cần tăng `RAG_FILE_MAX_SIZE`             |
-| File > 100 MB   | ⚠️ Cần tuning  | Tăng RAM, timeout, chunk processing      |
-| 100 files nhỏ   | ✅ Khả thi     | Upload theo batch 10 files               |
-| Tiếng Việt      | ⚠️ Hạn chế     | Model `all-MiniLM-L6-v2` optimize cho EN |
+| File > 100 MB   | ✅ Khả thi     | RAG_FILE_MAX_SIZE=2048, Docling xử lý OK |
+| File > 1 GB     | ⚠️ Cần tuning  | Tăng timeout, monitor Docling RAM        |
+| 100 files nhỏ   | ✅ Khả thi     | Upload theo batch 20 files               |
+| Tiếng Việt      | ✅ Tốt         | `gemini-embedding-001` hỗ trợ đa ngôn ngữ |
 
-### 4.5. Nâng cấp khuyến nghị cho tiếng Việt
+### 4.5. Cấu hình embedding hiện tại (đã tối ưu cho tiếng Việt)
 
 ```yaml
-# Đổi sang multilingual embedding model
-RAG_EMBEDDING_ENGINE: ""
-RAG_EMBEDDING_MODEL: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
-# → 384 dimensions, hỗ trợ 50+ ngôn ngữ bao gồm tiếng Việt
-
-# Hoặc dùng OpenAI embedding (chính xác hơn nhưng tốn phí)
+# Đang sử dụng Gemini Embedding qua Middleware → LiteLLM → Google API
 RAG_EMBEDDING_ENGINE: openai
-RAG_EMBEDDING_MODEL: text-embedding-3-small
-# → 1536 dimensions, hỗ trợ tiếng Việt tốt
+RAG_EMBEDDING_MODEL: gemini-embedding-001
+RAG_EMBEDDING_OPENAI_API_BASE_URL: http://middleware:5000/v1
+# → Native 3072 dimensions, giảm xuống 1536 qua middleware inject `dimensions: 1536`
+# → Hỗ trợ đa ngôn ngữ tốt (bao gồm tiếng Việt)
+# → Chi phí: $0.15 / 1M input tokens
 ```
+
+> ⚠️ **Lưu ý bảo mật**: Text chunks được gửi tới Google Gemini API để chuyển thành vectors.
+> Vectors được lưu on-premise trong PGVector. Nội dung text gốc KHÔNG lưu trên Google.
 
 ---
 
@@ -331,29 +333,29 @@ RAG_EMBEDDING_MODEL: text-embedding-3-small
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    USER UPLOADS FILE                          │
+│                    USER UPLOADS FILE                         │
 └──────────┬───────────────────────────────────────────────────┘
            │
            ▼
 ┌──────────────────────┐     ┌──────────────────────┐
-│   file table         │     │   document table      │
-│   (metadata, path)   │────▶│   (collection_name,   │
-│   id, filename,      │     │    title, content)     │
+│   file table         │     │   document table     │
+│   (metadata, path)   │────▶│   (collection_name,  │
+│   id, filename,      │     │    title, content)   │
 │   meta (JSON)        │     └──────────────────────┘
 └──────────┬───────────┘
            │
            ▼
 ┌──────────────────────┐     ┌──────────────────────────────┐
-│  knowledge_file      │     │   document_chunk              │
+│  knowledge_file      │     │   document_chunk             │
 │  (links file to      │     │   id, vector(1536),          │
 │   knowledge)         │     │   collection_name,           │
-│  knowledge_id,       │     │   text, vmetadata (JSONB)   │
+│  knowledge_id,       │     │   text, vmetadata (JSONB)    │
 │  file_id             │     │                              │
 └──────────────────────┘     │   HNSW Index on vector       │
                              └──────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────┐
-│                    USER ASKS QUESTION                         │
+│                    USER ASKS QUESTION                        │
 └──────────┬───────────────────────────────────────────────────┘
            │
            ▼
@@ -363,10 +365,10 @@ RAG_EMBEDDING_MODEL: text-embedding-3-small
 │     WHERE collection_name = ?                                │
 │     ORDER BY vector <=> query_vector                         │
 │     LIMIT 4;                                                 │
-│  3. BM25 search trên text column (nếu hybrid search ON)     │
+│  3. BM25 search trên text column (nếu hybrid search ON)      │
 │  4. Merge results (RRF)                                      │
 │  5. Inject top-K chunks vào prompt                           │
-│  6. LLM generates answer                                    │
+│  6. LLM generates answer                                     │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -403,18 +405,18 @@ RAG_EMBEDDING_MODEL: text-embedding-3-small
              Browser (localhost:3000)
                  │
                  ▼
-          ┌─────────────┐
+          ┌──────────────┐
           │  Open WebUI  │────── openwebui_data volume
           │  (port 8080) │       (files, uploads)
-          └──────┬──────┘
+          └──────┬───────┘
                  │
         ┌────────┼────────┬─────────┐
         │        │        │         │
         ▼        ▼        ▼         ▼
   ┌──────────┐ ┌────────┐ ┌────────┐ ┌───────────┐
-  │PostgreSQL│ │ Tika   │ │ Embed  │ │Middleware │
+  │PostgreSQL│ │Docling │ │ Embed  │ │Middleware │
   │+ PGVector│ │ (OCR)  │ │Request │ │(port 5000)│
-  │(port 5432│ │(p.9998)│ │  ──────┼─┤inject dims│
+  │(port 5432│ │(p.5001)│ │  ──────┼─┤inject dims│
   └──────────┘ └────────┘ └────────┘ └─────┬─────┘
                                            │
                                      ┌──────────┐

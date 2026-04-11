@@ -32,28 +32,29 @@
 
 ### 0.1. Tổng quan hệ thống (System Overview)
 
-Hệ thống AI nội bộ gồm **8 services** chạy trên Docker, quản lý bởi Nginx reverse proxy:
+Hệ thống AI nội bộ gồm **9 services** chạy trên Docker, quản lý bởi Nginx reverse proxy:
 
-| Service    | Container            | Port (nội bộ) | Vai trò                                 |
-| ---------- | -------------------- | :-----------: | -------------------------------------- |
+| Service    | Container            | Port (nội bộ) | Vai trò                                              |
+| ---------- | -------------------- | :-----------: | ---------------------------------------------------- |
 | **Nginx**  | openwebui-nginx      | **3000 HTTPS**| Reverse proxy, SSL, rate limiting (ĐẦU VÀO DUY NHẤT) |
-| Open WebUI | openwebui-app        | 8080          | Giao diện chat, RAG, knowledge         |
-| Middleware | openwebui-middleware | 5000          | Auth, quota, cost, dashboard           |
-| LiteLLM    | openwebui-litellm    | 4000          | LLM proxy (OpenAI + Gemini)            |
-| PostgreSQL | openwebui-postgres   | 5432          | Database + PGVector                    |
-| SearXNG    | openwebui-searxng    | 8080          | Web search (internal only)             |
-| Redis      | openwebui-redis      | 6379          | Cache search + rate limiter            |
+| Open WebUI | openwebui-app        | 8080          | Giao diện chat, RAG, knowledge                       |
+| Middleware | openwebui-middleware | 5000          | Auth, quota, cost, dashboard                         |
+| LiteLLM    | openwebui-litellm    | 4000          | LLM proxy (OpenAI + Gemini + xAI + Anthropic)        |
+| PostgreSQL | openwebui-postgres   | 5432          | Database + PGVector                                  |
+| Docling    | openwebui-docling    | 5001          | OCR / Document extraction                            |
+| SearXNG    | openwebui-searxng    | 8080          | Web search (internal only)                           |
+| Redis      | openwebui-redis      | 6379          | Cache search + rate limiter                          |
 
 ### 0.2. Phạm vi và Deliverables
 
-| Phạm vi               | Chi tiết                                       |
-| --------------------- | ---------------------------------------------- |
-| Hệ điều hành server   | Windows Server 2019+ / Ubuntu 20.04+           |
-| Docker                | Docker Engine 24.0+, Compose v2.20+            |
-| Databases             | PostgreSQL 16 + PGVector 0.8.0 (2 databases)   |
-| API Providers         | OpenAI API, Google Gemini API                  |
-| Models                | 20 models (14 chat + 3 image + 1 TTS + 2 STT)  |
-| Users                 | 200+ concurrent                                |
+| Phạm vi               | Chi tiết                                          |
+| --------------------- | ------------------------------------------------- |
+| Hệ điều hành server   | Windows Server 2019+ / Ubuntu 20.04+              |
+| Docker                | Docker Engine 24.0+, Compose v2.20+               |
+| Databases             | PostgreSQL 16 + PGVector 0.8.0 (2 databases)      |
+| API Providers         | OpenAI, Google Gemini, xAI Grok, Anthropic Claude |
+| Models                | 19 models (12 chat + 6 image + 1 embedding)       |
+| Users                 | 200+ concurrent                                   |
 
 ### 0.3. Danh mục tài sản (Asset List)
 
@@ -87,7 +88,7 @@ Hệ thống AI nội bộ gồm **8 services** chạy trên Docker, quản lý 
                                 │
     ╔═══════════════════════════╪════════════════════════════════════╗
     ║  Windows Server (20 CPU / 32GB RAM)                            ║
-    ║  Docker Compose · 8 containers · openwebui-network             ║
+    ║  Docker Compose · 9 containers · openwebui-network             ║
     ║                               │                                ║
     ║  ┌────────────────────────────▼────────────────────────────┐   ║
     ║  │          NGINX (openwebui-nginx) :3000 HTTPS            │   ║
@@ -130,7 +131,7 @@ Hệ thống AI nội bộ gồm **8 services** chạy trên Docker, quản lý 
     ║     │  │  DuckDuckGo  │          │  Model routing      │       ║
     ║     │  │  Brave       │          │  Retry  Fallback    │       ║
     ║     │  │  Bing        │          │  SSE streaming      │       ║
-    ║     │  │  Google      │          │  20 models config   │       ║
+    ║     │  │  Google      │          │  19 models config   │       ║
     ║     │  └───────┬──────┘          └──────────┬──────────┘       ║
     ║     │          │ cache                      │                  ║
     ║     │          ▼                            │                  ║
@@ -155,8 +156,10 @@ Hệ thống AI nội bộ gồm **8 services** chạy trên Docker, quản lý 
     ║  │  max_conn=300        │                                      ║
     ║  └──────────────────────┘                                      ║
     ║                                                                ║
+    ║  DOCLING (:5001) — OCR/Document extraction (PDF, DOCX, scan)   ║
+    ║                                                                ║
     ║  Port mở: CHỈ Nginx :3000/tcp                                  ║
-    ║  Port ĐÓNG: 8080, 5000, 4000, 5432, 6379                       ║
+    ║  Port ĐÓNG: 8080, 5000, 5001, 4000, 5432, 6379                 ║
     ╚══════════════════════════════════════════════╪═════════════════╝
                                                    │
                                     LiteLLM gọi API ra ngoài
@@ -197,15 +200,16 @@ Hệ thống AI nội bộ gồm **8 services** chạy trên Docker, quản lý 
 
 ### 1.2. Các thành phần chính
 
-| #   | Thành phần  | Công nghệ           | Workers | CPU  | RAM    | Image                               |
-| --- | ----------- | ------------------- | :-----: | :--: | :----: | ----------------------------------- |
-| 0   | **Nginx**   | Nginx alpine        | auto    | 1    | 512MB  | nginx:alpine                        |
-| 1   | Open WebUI  | Python + SvelteKit  | 6       | 6    | 10GB   | Custom (Dockerfile.openwebui)       |
-| 2   | Middleware  | Python + FastAPI    | 4       | 4    | 2GB    | Custom (./llm-mw/Dockerfile)        |
-| 3   | LiteLLM     | Python              | 4       | 4    | 4GB    | ghcr.io/berriai/litellm:main-latest |
-| 4   | PostgreSQL  | C                   | —       | 2    | 8GB    | pgvector/pgvector:0.8.0-pg16        |
-| 5   | SearXNG     | Python              | —       | 1    | 1GB    | searxng/searxng:latest              |
-| 6   | Redis       | C                   | —       | 0.5  | 256MB  | redis:7-alpine                      |
+| #   | Thành phần  | Công nghệ           | Workers | CPU  | RAM    | Image                                       |
+| --- | ----------- | ------------------- | :-----: | :--: | :----: | ------------------------------------------- |
+| 0   | **Nginx**   | Nginx alpine        | auto    | 1    | 512MB  | nginx:alpine                                |
+| 1   | Open WebUI  | Python + SvelteKit  | 6       | 6    | 10GB   | Custom (Dockerfile.openwebui)               |
+| 2   | Middleware  | Python + FastAPI    | 4       | 4    | 2GB    | Custom (./llm-mw/Dockerfile)                |
+| 3   | LiteLLM     | Python              | 4       | 4    | 4GB    | ghcr.io/berriai/litellm:main-latest         |
+| 4   | PostgreSQL  | C                   | —       | 2    | 8GB    | pgvector/pgvector:0.8.0-pg16                |
+| 5   | Docling     | Python              | 1       | 2    | 2GB    | quay.io/docling-project/docling-serve-cpu   |
+| 6   | SearXNG     | Python              | —       | 1    | 1GB    | searxng/searxng:latest                      |
+| 7   | Redis       | C                   | —       | 0.5  | 256MB  | redis:7-alpine                              |
 
 ### 1.3. Phân chia modules trong Middleware
 
@@ -249,14 +253,14 @@ llm-mw/
 
 ### 2.1. Yêu cầu hệ thống
 
-| Tài nguyên | Tối thiểu    | Hiện tại (Production)   |
-| ---------- | ------------ | ---------------------- |
-| RAM        | 16 GB        | **32 GB** (25.8GB allocated) |
-| CPU        | 8 cores      | **20 cores** (18.5 allocated) |
-| Storage    | 50 GB free   | 100 GB+ (DB + uploads) |
-| Docker     | Engine 24.0+ | Latest                 |
-| Compose    | v2.20+       | Latest                 |
-| Network    | LAN access   | **Firewall + NAT + HTTPS** |
+| Tài nguyên | Tối thiểu    | Hiện tại (Production)               |
+| ---------- | ------------ | ----------------------------------- |
+| RAM        | 16 GB        | **32 GB** (25.8GB allocated)        |
+| CPU        | 8 cores      | **20 cores** (18.5 allocated)       |
+| Storage    | 50 GB free   | 100 GB+ (DB + uploads)              |
+| Docker     | Engine 24.0+ | Latest                              |
+| Compose    | v2.20+       | Latest                              |
+| Network    | LAN access   | **Firewall + NAT + HTTPS**          |
 | SSL        | —            | **Wildcard cert *.rangdong.com.vn** |
 
 ### 2.2. Cài đặt dependencies
@@ -687,9 +691,9 @@ Events: audit (mỗi request mới). Auto-reconnect: 5 giây.
 Docker Compose sử dụng bridge network nội bộ. Các services gọi nhau bằng container name.
 LiteLLM (4000) và PostgreSQL (5432) KHÔNG bắt buộc expose ra ngoài.
 
-Firewall rules cần thiết: Chỉ mở 2 ports ra ngoài:
-- Port 3000: Open WebUI (giao diện người dùng)
-- Port 5000: Middleware (API + Dashboard admin)
+Firewall rules cần thiết: Chỉ mở 1 port ra ngoài:
+- Port 3000: Nginx HTTPS (reverse proxy đến Open WebUI + Middleware)
+- Port 5000: **ĐÓNG** — truy cập qua Nginx tại /v1/_mw/ và /dashboard
 
 ### 8.3. Bảo mật Dữ liệu
 
@@ -699,8 +703,8 @@ Firewall rules cần thiết: Chỉ mở 2 ports ra ngoài:
 | JWT token         | HMAC-SHA256 signature        | 4h expiry, HttpOnly cookie      |
 | Password (WebUI)  | Bcrypt hash                  | Salt + rounds                   |
 | Database          | Docker volume                | Không cloud, on-premise         |
-| RAG embedding     | Xử lý local                  | Tài liệu KHÔNG gửi ra ngoài     |
-| Nội dung chat     | Gửi qua API                  | Gửi tới OpenAI/Google để xử lý  |
+| RAG embedding     | Gemini API (qua Middleware)  | Text chunks gửi tới Google Gemini API để embedding. Vectors lưu on-premise |
+| Nội dung chat     | Gửi qua API                  | Gửi tới OpenAI/Google/xAI/Anthropic để xử lý  |
 
 ### 8.4. Thực hành Bảo mật Tốt nhất
 

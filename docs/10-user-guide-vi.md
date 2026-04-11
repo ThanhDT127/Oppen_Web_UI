@@ -25,37 +25,46 @@ Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware,
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         NGƯỜI DÙNG                               │
+│                         NGƯỜI DÙNG                              │
 └─────────────────────────┬───────────────────────────────────────┘
                           ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  TIER 1: Open WebUI (Port 3000)                                  │
+│  TIER 0: Nginx (:3000 HTTPS) — Entry point duy nhất             │
+│  TLS 1.2/1.3 | Rate limit | Gzip                                │
+└─────────────────────────┬───────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  TIER 1: Open WebUI (:8080, qua Nginx)                          │
 │  - Giao diện chat đa phương thức                                │
-│  - Quản lý Knowledge Base & RAG                                  │
+│  - Quản lý Knowledge Base & RAG                                 │
 └─────────────────────────┬───────────────────────────────────────┘
                           ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  TIER 2: Middleware (Port 5000)                                  │
-│  - Xác thực subkey                                               │
-│  - Quản lý quota & cost                                          │
-│  - Audit logging                                                 │
+│  TIER 2: Middleware (Port 5000)                                 │
+│  - Xác thực subkey                                              │
+│  - Quản lý quota & cost                                         │
+│  - Audit logging                                                │
 └─────────────────────────┬───────────────────────────────────────┘
                           ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  TIER 3: LiteLLM (Port 4000) + PostgreSQL (Port 5432)           │
-│  - Model routing (OpenAI, Gemini)                                │
-│  - Vector embeddings (PGVector)                                  │
+│  - Model routing (OpenAI, Gemini, xAI, Anthropic)               │
+│  - Vector embeddings (PGVector)                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 1.2 Docker Services
 
-| Service        | Port | Chức Năng            |
-| -------------- | ---- | -------------------- |
-| **Open WebUI** | 3000 | Giao diện người dùng |
-| **Middleware** | 5000 | Xác thực + Quota     |
-| **LiteLLM**    | 4000 | LLM Proxy            |
-| **PostgreSQL** | 5432 | Database + Vector DB |
+| Service        | Port | Chức Năng                          |
+| -------------- | ---- | -----------------------------------|
+| **Nginx**      | 3000 | Reverse proxy, HTTPS, load balance |
+| **Open WebUI** | 8080 | Giao diện người dùng (internal)    |
+| **Middleware** | 5000 | Xác thực + Quota (internal)        |
+| **LiteLLM**    | 4000 | LLM Proxy (internal)               |
+| **PostgreSQL** | 5432 | Database + Vector DB (internal)    |
+| **Docling**    | 5001 | OCR / Document extraction          |
+| **SearXNG**    | 8080 | Web search engine (internal)       |
+| **Redis**      | 6379 | Cache + SearXNG limiter            |
 
 ---
 
@@ -63,39 +72,38 @@ Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware,
 
 ### Quy Ước Đặt Tên
 
-| Prefix | Chức Năng                                    |
-| ------ | -------------------------------------------- |
-| `mm-`  | **Multimodal** - Chat text + hiểu ảnh        |
-| `img-` | **Image Generation** - Tạo ảnh từ text       |
-| `tts-` | **Text-to-Speech** - Chuyển text thành audio |
-| `stt-` | **Speech-to-Text** - Chuyển audio thành text |
+| Prefix  | Chức Năng                                    |
+| ------- | -------------------------------------------- |
+| `chat-` | **Chat AI** - Hỏi đáp text + vision          |
+| `img-`  | **Image Generation** - Tạo ảnh từ text       |
 
 ### Danh Sách Model
 
-#### Multimodal (Text + Vision)
-| Model                 | Provider | Ghi Chú                       |
-| --------------------- | -------- | ----------------------------- |
-| `mm-gpt-5`            | OpenAI   | Flagship, reasoning mạnh nhất |
-| `mm-gpt-5-mini`       | OpenAI   | Cân bằng                      |
-| `mm-gpt-5-nano`       | OpenAI   | Nhanh, tiết kiệm              |
-| `mm-gpt-4.1`          | OpenAI   | 1M context window             |
-| `mm-gpt-4o`           | OpenAI   | Multimodal + audio            |
-| `mm-gemini-2.5-pro`   | Google   | 1M context, reasoning         |
-| `mm-gemini-2.5-flash` | Google   | Nhanh, khuyến nghị            |
-| `mm-gemini-3-pro`     | Google   | Latest flagship               |
+#### Chat AI (12 models – 4 providers)
+| Model                               | Provider   | Ghi Chú                       |
+| ----------------------------------- | ---------- | ----------------------------- |
+| `chat-gpt-5.4`                      | OpenAI     | Flagship, reasoning mạnh nhất |
+| `chat-gpt-5.2`                      | OpenAI     | Cân bằng                      |
+| `chat-gpt-5`                        | OpenAI     | Tiêu chuẩn                    |
+| `chat-gemini-3.1-pro-preview`       | Google     | Flagship Google, reasoning    |
+| `chat-gemini-3.1-flash-lite-preview`| Google     | Nhanh, chi phí thấp           |
+| `chat-gemini-2.5-flash`             | Google     | Cân bằng, tiếng Việt tốt      |
+| `chat-grok-4.20-reasoning`          | xAI        | Reasoning mạnh                |
+| `chat-grok-4-1-fast-reasoning`      | xAI        | Nhanh, reasoning              |
+| `chat-grok-4-1-fast-non-reasoning`  | xAI        | Nhanh nhất, rẻ                |
+| `chat-claude-opus-4.6`              | Anthropic  | Flagship, phân tích sâu       |
+| `chat-claude-sonnet-4.6`            | Anthropic  | Cân bằng                      |
+| `chat-claude-haiku-4.5`             | Anthropic  | Nhanh, tiết kiệm              |
 
-#### Image Generation
-| Model              | Provider | Ghi Chú                                |
-| ------------------ | -------- | -------------------------------------- |
-| `img-dalle-3`      | OpenAI   | Chất lượng cao, cần org verification   |
-| `img-gemini-flash` | Google   | ✅ Khuyến nghị, không cần verification |
-
-#### Audio
-| Model             | Provider | Chức Năng                 |
-| ----------------- | -------- | ------------------------- |
-| `tts-gpt-4o-mini` | OpenAI   | Text → Audio              |
-| `stt-gpt-4o`      | OpenAI   | Audio → Text (transcribe) |
-| `stt-gpt-4o-mini` | OpenAI   | Transcribe nhanh          |
+#### Image Generation (6 models)
+| Model                    | Provider | Ghi Chú                        |
+| ------------------------ | -------- | ------------------------------ |
+| `img-gpt-image-1.5`      | OpenAI   | Mới nhất, 4x nhanh hơn         |
+| `img-gpt-image-1`        | OpenAI   | Chất lượng cao                 |
+| `img-gemini-3.1-flash`   | Google   | Nhanh, chi phí thấp            |
+| `img-gemini-3-pro`       | Google   | Chất lượng cao                 |
+| `img-grok-imagine`       | xAI      | Tiêu chuẩn                     |
+| `img-grok-imagine-pro`   | xAI      | ✅ Khuyến nghị, chất lượng cao |
 
 ---
 
@@ -143,8 +151,8 @@ Câu hỏi → Tìm chunks liên quan → Ghép vào context → LLM trả lời
 | Tham Số       | Mặc Định | Mô Tả                   |
 | ------------- | -------- | ----------------------- |
 | Top K         | 5        | Số chunks retrieve      |
-| Chunk Size    | 1000     | Kích thước mỗi chunk    |
-| Chunk Overlap | 200      | Độ chồng lấp            |
+| Chunk Size    | 1500     | Kích thước mỗi chunk    |
+| Chunk Overlap | 100      | Độ chồng lấp            |
 | Hybrid Search | On       | Vector + Keyword search |
 
 ---
@@ -157,7 +165,7 @@ Câu hỏi → Tìm chunks liên quan → Ghép vào context → LLM trả lời
 - **Engine**: OpenAI
 - **API Base URL**: `http://middleware:5000/v1`
 - **API Key**: Subkey của bạn
-- **Model**: `img-gemini-flash` (khuyến nghị)
+- **Model**: `img-grok-imagine-pro` (khuyến nghị)
 
 ### 4.2 Test Tạo Ảnh
 
@@ -341,12 +349,12 @@ curl http://localhost:5000/v1/models \
 
 ### URLs
 
-| Service        | URL                             |
-| -------------- | ------------------------------- |
-| Open WebUI     | http://localhost:3000           |
-| Middleware API | http://localhost:5000           |
-| LiteLLM        | http://localhost:4000           |
-| Dashboard      | http://localhost:5000/dashboard |
+| Service        | URL                                                |
+| -------------- | -------------------------------------------------- |
+| Open WebUI     | https://openwebui.rangdong.com.vn:51122             |
+| Dashboard      | https://openwebui.rangdong.com.vn:51122/dashboard   |
+| Middleware API | https://openwebui.rangdong.com.vn:51122/v1/_mw/     |
+| LLM API        | https://openwebui.rangdong.com.vn:51122/v1/          |
 
 ### Commands
 

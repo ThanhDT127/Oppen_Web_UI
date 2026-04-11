@@ -2,74 +2,89 @@
 
 ## 📐 System Overview
 
-The Oppen Web UI system consists of **8 Docker containers** on the same network, providing AI chat with auth, quota, cost tracking, and web search.
+The Oppen Web UI system consists of **9 Docker containers** on the same network, providing AI chat with auth, quota, cost tracking, and web search.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         USER BROWSER                            │
 │   https://openwebui.rangdong.com.vn:51122/ (HTTPS qua Nginx)    │
 └────────────────────────────────┬────────────────────────────────┘
-                                 ▲
                                  │
-                                 ▼
-┌══ SERVER ══════════════════════════════════════════════════════════════════════════┐
-│                                                                                    │
-│  ┌── Docker Network: openwebui-network ─────────────────────────────────────────┐  │
-│  │                                                                              │  │
-│  │  ┌───────────────────────────────────────────────────────────────────────┐   │  │
-│  │  │                     OPEN WEBUI (Port 8080, 6 workers)                 │   │  │
-│  │  │  - Chat AI đa mô hình (text, image, audio)                            │   │  │
-│  │  │  - Quản lý hồ sơ & xác thực người dùng                                │   │  │
-│  │  │  - Lịch sử hội thoại & tìm kiếm RAG                                   │   │  │
-│  │  │  - Web Search (gọi SearXNG khi LLM dùng Native Function Calling)      │   │  │
-│  │  └──────────┬───────────────────────────────────────┬────────────────────┘   │  │
-│  │             │ OpenAI API Format                     │ Web Search API         │  │
-│  │             ▲                                       ▼                        │  │
-│  │             │                          ┌────────────────────────┐            │  │
-│  │             │                          │  SEARXNG (Port 8080)   │            │  │
-│  │             │                          │  - Metasearch engine   │            │  │
-│  │             │                          │  - Brave, DDG, Bing    │            │  │
-│  │             │                          │  - JSON API (internal) │            │  │
-│  │             │                          └────────────────────────┘            │  │
-│  │             ▼                                                                │  │
-│  │  ┌──────────────────────────────────────────────┐   ┌─────────────────────┐  │  │
-│  │  │        LLM MIDDLEWARE (Port 5000, 4 workers) │   │ POSTGRESQL (5432)   │  │  │
-│  │  │                                              │   │                     │  │  │
-│  │  │  - Proxy AI: Chat, Image, Audio              │   │ Dữ liệu người dùng  │  │  │
-│  │  │    (stream & non-stream)                     │   │  - Tài khoản/Subkey │  │  │
-│  │  │                                              │   │  - Hạn mức (Quota)  │  │  │
-│  │  │  - Admin Dashboard (qua Nginx /dashboard)    │   │                     │  │  │
-│  │  │    Biểu đồ, thống kê, top users/models       │   │ Bảng giá model      │  │  │
-│  │  │                                              │   │  - Cost/token input │  │  │
-│  │  │  - Quản lý User & Quota                      │◄-►│  - Cost/token output│  │  │
-│  │  │    Tạo/sửa/xóa user, cấp phát hạn mức        │   │                     │  │  │
-│  │  │                                              │   │ Audit & Log         │  │  │
-│  │  │  - Kiểm toán (Audit)                         │   │  - Lịch sử request  │  │  │
-│  │  │    Ghi log kép (DB + file), realtime SSE     │   │  - Chi phí & tokens │  │  │
-│  │  │                                              │   │  - Lỗi & latency    │  │  │
-│  │  │  - Tính chi phí (Cost Tracking)              │   │                     │  │  │
-│  │  │    Tự động tính $/token theo bảng giá        │   │ Cấu hình hệ thống   │  │  │
-│  │  │                                              │   │  - Ngưỡng cảnh báo  │  │  │
-│  │  │  - Xác thực & Bảo mật                        │   │  - Request đang chờ │  │  │
-│  │  │    Subkey hashing, JWT dashboard, auth guard │   │                     │  │  │
-│  │  └──────────────────────┬───────────────────────┘   └─────────────────────┘  │  │
-│  │                          Forward to LiteLLM                                  │  │
-│  │                         ▲                                                    │  │
-│  │                         │                                                    │  │
-│  │                         ▼                                                    │  │
-│  │  ┌───────────────────────────────────────────────────────────────────────┐   │  │
-│  │  │                   LITELLM PROXY (Port 4000, 4 workers)                │   │  │
-│  │  │  - Đổi tên model: chat-gpt-5 -> openai/gpt-5 (16 models)              │   │  │
-│  │  │  - Định tuyến đa nhà cung cấp (OpenAI, Gemini, Anthropic, XAI)        │   │  │
-│  │  └──────────────────────┬────────────────────────────────────────────────┘   │  │
-│  │                         │                                                    │  │
-│  └─────────────────────────┼────────────────────────────────────────────────────┘  │
-│                            │                                                       │
-╚════════════════════════════╪═══════════════════════════════════════════════════════╝
-                             │
-              ┌──────────────┼────────────────────────────┐
-              ▼              ▼              ▼              ▼    
-         [OpenAI API]   [Gemini API]  [XAI API]  [Anthropic API]
+                     Firewall NAT: 51122 → 3000
+                                 │
+┌══ SERVER (20 CPU / 32GB RAM) ═════════════════════════════════════════════════════┐
+│                                                                                   │
+│  ┌── Docker Network: openwebui-network (9 containers) ─────────────────────────┐  │
+│  │                                                                             │  │
+│  │  ┌───────────────────────────────────────────────────────────────────────┐  │  │
+│  │  │           NGINX (openwebui-nginx) — Port 3000 HTTPS                   │  │  │
+│  │  │  ← DUY NHẤT PORT MỞ RA NGOÀI →                                        │  │  │
+│  │  │  SSL: wildcard *.rangdong.com.vn | Rate limit | Gzip | Upload 200MB   │  │  │
+│  │  │                                                                       │  │  │
+│  │  │  Routing:                                                             │  │  │
+│  │  │  /                 → Open WebUI :8080 (chat UI, static, WebSocket)    │  │  │
+│  │  │  /v1/              → Middleware :5000 (LLM API proxy)                 │  │  │
+│  │  │  /v1/_mw/          → Middleware :5000 (admin API + SSE)               │  │  │
+│  │  │  /dashboard        → Middleware :5000 (admin SPA)                     │  │  │
+│  │  │  /api/v1/auths/    → Open WebUI :8080 (login, 5req/m)                 │  │  │
+│  │  └──────┬──────────────────────────────────────────┬─────────────────────┘  │  │
+│  │         │                                          │                        │  │
+│  │         ▼                                          ▼                        │  │
+│  │  ┌──────────────────┐                 ┌───────────────────────┐             │  │
+│  │  │  OPEN WEBUI      │                 │  LLM MIDDLEWARE       │             │  │
+│  │  │  :8080 (6 wrk)   │                 │  :5000 (4 workers)    │             │  │
+│  │  │                  │─────────────────│                       │             │  │
+│  │  │  Chat, RAG, KBs  │ LLM requests    │  Auth (subkey HMAC)   │             │  │
+│  │  │  File upload     │ qua MW proxy    │  Quota enforcement    │             │  │
+│  │  │  Admin Panel     │                 │  Cost tracking        │             │  │
+│  │  │  User Auth (JWT) │                 │  Dashboard SPA        │             │  │
+│  │  │                  │                 │  Audit trail (SSE)    │             │  │
+│  │  └──┬────────┬──┬───┘                 └───────┬───────────────┘             │  │
+│  │     │        │  │                             │                             │  │
+│  │     │ DB     │  │ Web Search      Forward LLM │                             │  │
+│  │     │        │  │                             │                             │  │
+│  │     │        │  ▼                             ▼                             │  │
+│  │     │  ┌──────────────┐          ┌─────────────────────────────────┐        │  │
+│  │     │  │  SEARXNG     │          │  LITELLM PROXY (:4000, 4 wrk)   │        │  │
+│  │     │  │  :8080       │          │                                 │        │  │
+│  │     │  │  DDG, Brave, │          │  Model: chat-gpt-5.4            │        │  │
+│  │     │  │  Bing, Wiki  │          │      → openai/gpt-5.4           │        │  │
+│  │     │  └──────┬───────┘          │  19 models, 4 providers         │        │  │
+│  │     │         │ cache            │  (OpenAI, Gemini, xAI, Anthro)  │        │  │
+│  │     │         ▼                  └───────────┬─────────────────────┘        │  │
+│  │     │  ┌──────────────┐                      │                              │  │
+│  │     │  │  REDIS :6379 │                      │                              │  │
+│  │     │  │  Search cache│                      │                              │  │
+│  │     │  └──────────────┘                      │                              │  │
+│  │     │                                        │                              │  │
+│  │     │  ┌──────────────┐                      │                              │  │
+│  │     │  │ DOCLING :5001│                      │                              │  │
+│  │     │  │ OCR/Extract  │ ◄── Open WebUI       │                              │  │
+│  │     │  │ PDF,DOCX,scan│     upload file      │                              │  │
+│  │     │  └──────────────┘                      │                              │  │
+│  │     │                                        │                              │  │
+│  │     ▼                                        │                              │  │
+│  │  ┌──────────────────────┐                    │                              │  │
+│  │  │  POSTGRESQL :5432    │                    │                              │  │
+│  │  │  + PGVector 0.8.0    │                    │                              │  │
+│  │  │  DB: openwebui (26T) │                    │                              │  │
+│  │  │  DB: middleware (6T) │◄── MW ghi audit────┘                              │  │
+│  │  └──────────────────────┘                                                   │  │
+│  │                                                                             │  │
+│  └─────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                   │
+│  Port mở: CHỈ Nginx :3000/tcp                                                     │
+│  Port ĐÓNG: 8080, 5000, 5001, 4000, 5432, 6379                                    │
+╚══════════════════════════════════╪════════════════════════════════════════════════╝
+                                   │
+                    LiteLLM gọi API ra ngoài
+                                   │
+              ┌────────────────────┼────────────────────┐────────────────┐
+              ▼                    ▼                    ▼                ▼    
+         [OpenAI API]        [Gemini API]         [XAI API]      [Anthropic API]
+         GPT-5.4, 5.2, 5     Gemini 3.1/2.5       Grok 4.20      Claude 4.6
+         GPT-Image 1/1.5     Gemini Image          Grok Imagine   Haiku/Sonnet/Opus
+                              Embedding-001
 ```
 
 ### Biểu đồ luồng Web Search (Native Function Calling)
@@ -79,15 +94,15 @@ The Oppen Web UI system consists of **8 Docker containers** on the same network,
          │
          ▼
   ┌─── OPEN WEBUI ───────────────────────────────────────────────┐
-  │  1. Gửi prompt + tool_definition(web_search) tới LLM        │
+  │  1. Gửi prompt + tool_definition(web_search) tới LLM         │
   │     POST /v1/chat/completions ──► Middleware ──► LiteLLM     │
   └──────────────────────────────────────────────────────────────┘
          │
          ▼
   ┌─── LLM (GPT-5 / Gemini) ────────────────────────────────────┐
-  │  2. LLM phân tích: cần thông tin realtime                    │
+  │  2. LLM phân tích: cần thông tin realtime                   │
   │     → Trả về tool_call: web_search(query="giá vàng hôm nay")│
-  └──────────────────────────────────────────────────────────────┘
+  └─────────────────────────────────────────────────────────────┘
          │
          ▼
   ┌─── OPEN WEBUI ───────────────────────────────────────────────┐
@@ -97,7 +112,7 @@ The Oppen Web UI system consists of **8 Docker containers** on the same network,
          │
          ▼
   ┌─── SEARXNG (Port 8080) ──────────────────────────────────────┐
-  │  4. Tìm kiếm song song:                                     │
+  │  4. Tìm kiếm song song:                                      │
   │     Google ──► kết quả                                       │
   │     Brave  ──► kết quả    ──► Tổng hợp JSON (5 results)      │
   │     DDG    ──► kết quả                                       │
@@ -106,23 +121,23 @@ The Oppen Web UI system consists of **8 Docker containers** on the same network,
          ▼
   ┌─── OPEN WEBUI ───────────────────────────────────────────────┐
   │  5. Inject kết quả search vào context                        │
-  │     → Gọi LLM lần 2 với search results                      │
+  │     → Gọi LLM lần 2 với search results                       │
   └──────────────────────────────────────────────────────────────┘
          │
          ▼
   ┌─── LLM (Lần 2) ─────────────────────────────────────────────┐
   │  6. Sinh câu trả lời dựa trên dữ liệu search                │
   │     → Kèm citations (nguồn: giavang.org, baomoi.com)        │
-  └──────────────────────────────────────────────────────────────┘
+  └─────────────────────────────────────────────────────────────┘
          │
          ▼
   ┌─── RESPONSE ─────────────────────────────────────────────────┐
   │  "Giá vàng hôm nay (11/03/2026):                             │
-  │   - XAU: 5,217.46 USD/Ounce  [giavang.org]                  │
-  │   - SJC: 184.2 - 187.2 triệu VNĐ/lượng  [baomoi.com]"      │
+  │   - XAU: 5,217.46 USD/Ounce  [giavang.org]                   │
+  │   - SJC: 184.2 - 187.2 triệu VNĐ/lượng  [baomoi.com]"        │
   │                                                              │
   │  Chi phí: $0 (search) + LLM tokens only (qua Middleware)     │
-  │  📎 Retrieved 2 sources                                      │
+  │  📎 Retrieved 2 sources                                       │
   └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -147,16 +162,19 @@ The Oppen Web UI system consists of **8 Docker containers** on the same network,
 | `Bearer subkey`     | Phương thức xác thực — header `Authorization: Bearer <khóa_user>` gửi kèm mỗi request      |
 | `Proxy to LiteLLM`  | Middleware chuyển tiếp request đến LiteLLM sau khi xác thực & kiểm tra quota               |
 
-#### 🧱 6 Docker Containers (Dịch vụ chính)
+#### 🧱 9 Docker Containers (Dịch vụ chính)
 
 | Container          | Port   | Giải thích chi tiết                                                                            |
 | ------------------ | ------ | ---------------------------------------------------------------------------------------------- |
-| **Open WebUI**     | `3000` | Giao diện web cho end-user — chat AI, quản lý hồ sơ, lịch sử hội thoại, RAG (tìm tài liệu)     |
+| **Nginx**          | `3000` | Reverse proxy + HTTPS + SSL termination — điểm truy cập duy nhất từ bên ngoài                  |
+| **Open WebUI**     | `8080` | Giao diện web cho end-user — chat AI, quản lý hồ sơ, lịch sử hội thoại, RAG (internal only)    |
 | **LLM Middleware** | `5000` | Tầng trung gian do team phát triển (FastAPI/Python) — xác thực, quota, proxy, audit, dashboard |
 | **PostgreSQL**     | `5432` | CSDL quan hệ — 2 database: `openwebui` (chat + PGVector) và `middleware` (6 bảng `mw_*`)       |
-| **LiteLLM Proxy**  | `4000` | Proxy mã nguồn mở — aliasing tên model + route request đến đúng provider (OpenAI/Gemini/...)   |
-| **SearXNG**        | `8080` | Web search engine tự host (internal only) — tổng hợp kết quả từ Google, Brave, DuckDuckGo   |
-| **Apache Tika**    | `9998` | OCR/text extraction server — xử lý PDF scan, hình ảnh, và các file phức tạp                   |
+| **LiteLLM Proxy**  | `4000` | Proxy mã nguồn mở — aliasing tên model + route request đến đúng provider (4 providers)         |
+| **SearXNG**        | `8080` | Web search engine tự host (internal only) — tổng hợp kết quả từ Brave, DuckDuckGo, Bing        |
+| **Docling**        | `5001` | OCR/Document extraction — xử lý PDF, DOCX, scan images (thay thế Apache Tika)                  |
+| **Redis**          | `6379` | Cache + SearXNG rate limiter                                                                   |
+| **Watchtower**     | —      | Auto-update containers khi có image mới                                                        |
 
 #### 📦 Cấu trúc bên trong LLM Middleware
 
@@ -212,22 +230,21 @@ The Oppen Web UI system consists of **8 Docker containers** on the same network,
 | Access Control              | Giới hạn quyền truy cập theo user/group trên Knowledge và Model           |
 | Audit log hoạt động         | Ghi lại mọi thao tác admin (tạo user, đổi quota, rotate key) vào DB       |
 
-### 2. Chat AI đa mô hình (15 models)
+### 2. Chat AI đa mô hình (12 models — 4 providers)
 
-| Nhà cung cấp       | Models                                                                              |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| **OpenAI GPT-5**   | `chat-gpt-5` (flagship), `chat-gpt-5-mini`, `chat-gpt-5-nano`                       |
-| **OpenAI GPT-4.1** | `chat-gpt-4.1` (1M context), `chat-gpt-4.1-mini`, `chat-gpt-4.1-nano`               |
-| **OpenAI GPT-4o**  | `chat-gpt-4o` (multimodal), `chat-gpt-4o-mini`                                      |
-| **Google Gemini**  | `chat-gemini-3-pro`, `chat-gemini-2.5-pro`, `chat-gemini-2.5-flash`,                |
-|                    | `chat-gemini-2.5-flash-lite`, `chat-gemini-2.0-flash`, `chat-gemini-2.0-flash-lite` |
+| Nhà cung cấp          | Models                                                                                         |
+| --------------------- | ---------------------------------------------------------------------------------------------- |
+| **OpenAI** (3)        | `chat-gpt-5.4` (flagship), `chat-gpt-5.2`, `chat-gpt-5`                                        |
+| **Google Gemini** (3) | `chat-gemini-3.1-pro-preview`, `chat-gemini-3.1-flash-lite-preview`, `chat-gemini-2.5-flash`   |
+| **xAI Grok** (3)      | `chat-grok-4.20-reasoning`, `chat-grok-4-1-fast-reasoning`, `chat-grok-4-1-fast-non-reasoning` |
+| **Anthropic** (3)     | `chat-claude-opus-4.6`, `chat-claude-sonnet-4.6`, `chat-claude-haiku-4.5`                      |
 
 **Tính năng chat nổi bật:**
 
 | Tính năng               | Mô tả                                                               |
 | ----------------------- | ------------------------------------------------------------------- |
 | Streaming response      | Hiển thị từng token realtime qua SSE                                |
-| Multimodal input        | Gửi hình ảnh + text (GPT-4o, Gemini)                                |
+| Multimodal input        | Gửi hình ảnh + text (GPT-5, Gemini, Claude)                         |
 | Lịch sử hội thoại       | Lưu toàn bộ trong PostgreSQL, tìm kiếm theo keyword                 |
 | Pin / Archive / Share   | Ghim, lưu trữ, chia sẻ hội thoại qua link công khai                 |
 | Folder + Tags           | Tổ chức hội thoại vào folder, gắn tag phân loại                     |
@@ -236,21 +253,24 @@ The Oppen Web UI system consists of **8 Docker containers** on the same network,
 
 ### 3. Web Search (SearXNG + Native Function Calling)
 
-| Tính năng                  | Mô tả                                                                   |
-| -------------------------- | ----------------------------------------------------------------------- |
-| SearXNG self-hosted        | Web search engine nội bộ, $0 chi phí, tổng hợp Google + Brave + DDG     |
+| Tính năng                  | Mô tả                                                                      |
+| -------------------------- | -------------------------------------------------------------------------- |
+| SearXNG self-hosted        | Web search engine nội bộ, $0 chi phí, tổng hợp Google + Brave + DDG        |
 | Native Function Calling    | Model tự quyết định khi nào cần tìm kiếm web (không cần user bật thủ công) |
-| Source Citations           | Response kèm trích dẫn nguồn (tên website + URL) dạng chip/tag          |
-| Multi-engine aggregation   | SearXNG gọi nhiều search engine song song, tổng hợp kết quả chất lượng   |
-| Cấu hình per-model         | Mỗi model bật/tắt web search riêng biệt (Capabilities + Default Features) |
+| Source Citations           | Response kèm trích dẫn nguồn (tên website + URL) dạng chip/tag             |
+| Multi-engine aggregation   | SearXNG gọi nhiều search engine song song, tổng hợp kết quả chất lượng     |
+| Cấu hình per-model         | Mỗi model bật/tắt web search riêng biệt (Capabilities + Default Features)  |
 
 ### 4. Tạo ảnh AI (Image Generation)
 
-| Model              | Engine   | Mô tả                                                      |
-| ------------------ | -------- | ---------------------------------------------------------- |
-| `img-gpt-dalle-3`  | DALL-E 3 | Tạo ảnh từ text — 1024x1024 — chuyển đổi B64 → URL tự động |
-| `img-gemini-flash` | Gemini   | Tạo ảnh nhanh — phù hợp prototype, logo                    |
-| `img-gemini-pro`   | Gemini   | Tạo ảnh chất lượng cao — lên đến 4K                        |
+| Model                  | Provider | Mô tả                                                      |
+| ---------------------- | -------- | ---------------------------------------------------------- |
+| `img-gpt-image-1.5`    | OpenAI   | Mới nhất, 4x nhanh hơn — 3 cấp chất lượng                  |
+| `img-gpt-image-1`      | OpenAI   | Chất lượng cao — 3 cấp độ                                  |
+| `img-gemini-3.1-flash` | Google   | Tạo ảnh nhanh — chi phí thấp                               |
+| `img-gemini-3-pro`     | Google   | Tạo ảnh chất lượng cao                                     |
+| `img-grok-imagine`     | xAI      | Tiêu chuẩn — $0.05/ảnh                                     |
+| `img-grok-imagine-pro` | xAI      | Chất lượng cao — $0.10/ảnh                                 |
 
 ### 5. Giọng nói (Voice I/O)
 
@@ -265,14 +285,14 @@ The Oppen Web UI system consists of **8 Docker containers** on the same network,
 | Tính năng                | Mô tả                                                                     |
 | ------------------------ | ------------------------------------------------------------------------- |
 | Tạo Knowledge Collection | Workspace → Knowledge → Create. Đặt tên, mô tả, phân quyền                |
-| Upload đa định dạng      | PDF, DOCX, XLSX, TXT, CSV, MD, HTML — tối đa 50MB/file                    |
+| Upload đa định dạng      | PDF, DOCX, XLSX, TXT, CSV, MD, HTML — tối đa 2048MB/file (qua Docling)    |
 | Gọi trong chat bằng `#`  | Gõ `#ten-knowledge` trong chat để AI tham khảo tài liệu                   |
 | Attach file trực tiếp    | Kéo thả file vào chat → AI đọc và trả lời ngay (xử lý tạm)                |
 | Gán Knowledge vào Model  | Admin gán Knowledge mặc định cho model cụ thể                             |
 | Hybrid Search            | BM25 (keyword) + Vector (semantic) kết hợp cho kết quả chính xác hơn      |
 | HNSW Vector Index        | Approximate nearest neighbor — m=16, ef_construction=64                   |
 | Citation (trích dẫn)     | AI trích dẫn tên file + số trang nguồn trong câu trả lời                  |
-| Embedding qua middleware | `gemini-embedding-001` (1536-dim, giảm từ 3072 native) qua Middleware → LiteLLM → Gemini API |
+| Embedding qua middleware | `gemini-embedding-001` (1536-dim, giảm từ 3072 native)                    |
 | PGVector                 | Vector storage trong PostgreSQL — dữ liệu không rời hệ thống              |
 
 ### 7. Kiểm soát Chi phí & Quota (Middleware)
@@ -338,17 +358,17 @@ The Oppen Web UI system consists of **8 Docker containers** on the same network,
 
 ### 12. Hạ tầng & Vận hành
 
-| Tính năng                | Mô tả                                                                    |
-| ------------------------ | ------------------------------------------------------------------------ |
-| 4 Docker containers      | PostgreSQL + LiteLLM + Middleware + Open WebUI — 1 lệnh `docker compose` |
-| Auto-restart             | Container tự restart khi lỗi hoặc server reboot                          |
-| Health checks            | Docker kiểm tra sức khỏe: `pg_isready` (5s), `GET /health` (30s)         |
-| Persistent volumes       | `postgres_data` giữ dữ liệu khi container restart/rebuild                |
-| Bind mounts              | Source code live-sync: `./llm-mw:/app` — thay đổi code phản ánh ngay     |
-| DB-first + File fallback | Đọc từ PostgreSQL trước, nếu lỗi → tự động fallback đọc từ JSON/log      |
-| Dual-write logging       | Ghi log vào DB (primary) + file (backup) đồng thời                       |
-| 3 kênh log               | System log, detail log (JSON), audit log (JSONL) — rotation tự động      |
-| Backup thủ công          | `pg_dump` toàn bộ database qua `docker exec`                             |
+| Tính năng                | Mô tả                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| 9 Docker containers      | PostgreSQL + LiteLLM + MW + WebUI + SearXNG + Redis + Nginx + Docling + Watchtower |
+| Auto-restart             | Container tự restart khi lỗi hoặc server reboot                                    |
+| Health checks            | Docker kiểm tra sức khỏe: `pg_isready` (5s), `GET /health` (30s)                   |
+| Persistent volumes       | `postgres_data` giữ dữ liệu khi container restart/rebuild                          |
+| Bind mounts              | Source code live-sync: `./llm-mw:/app` — thay đổi code phản ánh ngay               |
+| DB-first + File fallback | Đọc từ PostgreSQL trước, nếu lỗi → tự động fallback đọc từ JSON/log                |
+| Dual-write logging       | Ghi log vào DB (primary) + file (backup) đồng thời                                 |
+| 3 kênh log               | System log, detail log (JSON), audit log (JSONL) — rotation tự động                |
+| Backup thủ công          | `pg_dump` toàn bộ database qua `docker exec`                                       |
 
 ### Kế hoạch Phát triển (Roadmap)
 
@@ -603,20 +623,28 @@ Các file JSON/log được giữ lại làm backup:
 
 ### Kiến trúc Container
 
-| Container              | Image                     | Ports  | Volumes                                | Restart  |
-| ---------------------- | ------------------------- | ------ | -------------------------------------- | -------- |
-| `openwebui-postgres`   | `pgvector/pgvector:pg16`  | `5432` | `pgdata:/var/lib/postgresql/data`      | `always` |
-| `openwebui-litellm`    | `ghcr.io/berriai/litellm` | `4000` | `./litellm/litellm_config.yaml`        | `always` |
-| `openwebui-middleware` | custom build (Python)     | `5000` | `./llm-mw:/app`, `./logs:/app/../logs` | `always` |
-| `open-webui`           | `ghcr.io/open-webui`      | `3000` | `open-webui:/app/backend/data`         | `always` |
+| Container              | Image                                              | Ports  | Volumes                                | Restart  |
+| ---------------------- | -------------------------------------------------- | ------ | -------------------------------------- | -------- |
+| `openwebui-postgres`   | `pgvector/pgvector:0.8.0-pg16`                     | `5432` | `pgdata:/var/lib/postgresql/data`      | `always` |
+| `openwebui-litellm`    | `ghcr.io/berriai/litellm`                          | `4000` | `./litellm/litellm_config.yaml`        | `always` |
+| `openwebui-middleware` | custom build (Python)                              | `5000` | `./llm-mw:/app`, `./logs:/app/../logs` | `always` |
+| `open-webui`           | `ghcr.io/open-webui`                               | `8080` | `open-webui:/app/backend/data`         | `always` |
+| `openwebui-nginx`      | `nginx:alpine`                                     | `3000` | `./nginx/nginx.conf`                   | `always` |
+| `openwebui-docling`    | `quay.io/docling-project/docling-serve-cpu:latest`  | `5001` | —                                      | `always` |
+| `openwebui-searxng`    | `searxng/searxng:latest`                           | `8080` | `./searxng:/etc/searxng`               | `always` |
+| `openwebui-redis`      | `redis:7-alpine`                                   | `6379` | —                                      | `always` |
 
 ### Thứ tự Khởi động & Phụ thuộc
 
 ```
 1. PostgreSQL (port 5432)  — base, healthcheck: pg_isready
-2. LiteLLM (port 4000)     — depends_on: postgres[healthy]
-3. Middleware (port 5000)  — depends_on: postgres[healthy], litellm[started]
-4. OpenWebUI (port 3000)   — depends_on: middleware[started]
+2. Redis (port 6379)       — standalone, no deps
+3. LiteLLM (port 4000)     — depends_on: postgres[healthy]
+4. Middleware (port 5000)  — depends_on: postgres[healthy], litellm[started]
+5. Docling (port 5001)     — standalone, no deps
+6. SearXNG (port 8080)     — depends_on: redis
+7. OpenWebUI (port 8080)   — depends_on: middleware[started]
+8. Nginx (port 3000)       — depends_on: open-webui, middleware
 ```
 
 ### Kiểm tra Sức khỏe (Health Checks)
@@ -634,13 +662,13 @@ Các file JSON/log được giữ lại làm backup:
 
 ### Endpoints AI Proxy (Dành cho End-user)
 
-| Method | Endpoint                   | Xác thực          | Mô tả                                                                          |
-| ------ | -------------------------- | ----------------- | ------------------------------------------------------------------------------ |
-| `POST` | `/v1/chat/completions`     | `Bearer <subkey>` | Chat completion — stream/non-stream. Quota check → proxy LiteLLM → audit log   |
+| Method | Endpoint                   | Xác thực          | Mô tả                                                                              |
+| ------ | -------------------------- | ----------------- | ---------------------------------------------------------------------------------  |
+| `POST` | `/v1/chat/completions`     | `Bearer <subkey>` | Chat completion — stream/non-stream. Quota check → proxy LiteLLM → audit log       |
 | `POST` | `/v1/embeddings`           | `Bearer <subkey>` | Embedding proxy — inject dimensions=1536, cost tracking, audit. Gemini via LiteLLM |
-| `POST` | `/v1/images/generations`   | `Bearer <subkey>` | Image generation (DALL-E, etc.). Hỗ trợ `gpt-image-1` với B64 → URL conversion |
-| `POST` | `/v1/audio/transcriptions` | `Bearer <subkey>` | Audio transcription (Whisper). Multipart form upload                           |
-| `GET`  | `/v1/models`               | `Bearer <subkey>` | Danh sách models từ LiteLLM, lọc theo `allowed_models` của user                |
+| `POST` | `/v1/images/generations`   | `Bearer <subkey>` | Image generation (DALL-E, etc.). Hỗ trợ `gpt-image-1` với B64 → URL conversion     |
+| `POST` | `/v1/audio/transcriptions` | `Bearer <subkey>` | Audio transcription (Whisper). Multipart form upload                               |
+| `GET`  | `/v1/models`               | `Bearer <subkey>` | Danh sách models từ LiteLLM, lọc theo `allowed_models` của user                    |
 
 ### Dashboard Auth
 

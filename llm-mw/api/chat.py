@@ -124,6 +124,11 @@ def _normalize_provider_params(model: str, body: dict) -> None:
         stream_opts["include_usage"] = True
         body["stream_options"] = stream_opts
 
+    # Provider-native web search: DISABLED
+    # Using SearXNG (Open WebUI built-in) for web search instead.
+    # To re-enable provider-native search in the future, inject web_search_options
+    # selectively per provider (Gemini only, and only when no custom tools present).
+
 
 # --- Task prompt detection (Fix #3) ---
 _TASK_PATTERNS = [
