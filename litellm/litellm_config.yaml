@@ -32,7 +32,7 @@ model_list:
       api_key: os.environ/GEMINI_API_KEY
 
   # Gemini 3.1 Flash-Lite (Budget — Mar 2026, 1M context)
-  - model_name: chat-gemini-3.1-flash
+  - model_name: chat-gemini-3.1-flash-lite
     litellm_params:
       model: gemini/gemini-3.1-flash-lite-preview
       api_key: os.environ/GEMINI_API_KEY

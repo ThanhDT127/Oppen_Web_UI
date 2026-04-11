@@ -48,9 +48,9 @@ Thứ tự đọc khuyến nghị: DOC-01 > DOC-11 > DOC-10 > DOC-02 > DOC-08 > 
 Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tập trung cho toàn tổ chức. Hệ thống hoạt động như một "ChatGPT nội bộ" nhưng bổ sung các khả năng:
 
 - Kiểm soát chi phí chủ động (quota / user / tháng)
-- Bảo mật dữ liệu (embedding chạy local, tài liệu không rời server)
+- Bảo mật dữ liệu (vectors lưu on-premise, embedding qua Gemini API)
 - Quản trị tập trung (dashboard real-time, audit trail)
-- Đa nhà cung cấp (OpenAI + Google Gemini qua 1 gateway duy nhất)
+- Đa nhà cung cấp (OpenAI + Gemini + xAI + Anthropic qua 1 gateway duy nhất)
 
 ### 2.2. Phạm vi
 
@@ -62,7 +62,7 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
 | Ngôn ngữ            | Hỗ trợ 50+ ngôn ngữ (tối ưu tiếng Việt và tiếng Anh)                  |
 | Nền tảng            | Web-based - truy cập qua trình duyệt (Chrome, Firefox, Edge, Safari ) |
 | Hạ tầng             | On-premise (Docker trên Windows Server, 20 CPU / 32GB RAM)            |
-| Mô hình triển khai  | Docker Compose 8 services + Nginx HTTPS reverse proxy                 |
+| Mô hình triển khai  | Docker Compose 9 services + Nginx HTTPS reverse proxy                 |
 
 ### 2.3. Mục đích
 
@@ -86,7 +86,7 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
 #### C. Tối ưu chi phí sử dụng AI
 
 - Multi-provider routing: Tự động chọn provider rẻ nhất cho cùng chất lượng
-- Bảng giá model: Cập nhật giá input/output token cho 20 models trong DB
+- Bảng giá model: Cập nhật giá input/output token cho 19 models trong DB
 - Quota enforcement: Vượt quota - tự động từ chối, không phát sinh chi phí ngoài kế hoạch
 - Cost dashboard: Real-time tracking chi phí theo user, model, thời gian
 - Ước tính: 10 users x 20 requests/ngày ~ $50-150/tháng (so với $300/tháng cho ChatGPT Enterprise)
@@ -131,7 +131,7 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
 | BR-10 | Tìm kiếm ngữ nghĩa    | Hybrid search (BM25 + vector cosine similarity)   | Cao     |
 | BR-11 | Trích dẫn nguồn       | AI trả lời kèm citation (tên file, trang, đoạn)   | Cao     |
 | BR-12 | Phân quyền Knowledge  | Chỉ user/nhóm được grant mới truy cập Knowledge   | Cao     |
-| BR-13 | Embedding local       | Dữ liệu nội bộ KHÔNG gửi ra bên ngoài             | Cao     |
+| BR-13 | Embedding qua API     | Text chunks gửi tới Gemini API, vectors lưu on-premise | Cao     |
 
 ### 3.4. Quản lý chi phí và Quota
 
@@ -192,7 +192,7 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
 | Session          | HttpOnly cookie, 4h expiry           | Chống XSS                        |
 | Network          | Docker internal network              | Internal services không expose   |
 | Data at rest     | PostgreSQL trong Docker volume       | Không cloud DB                   |
-| Embedding        | 100% local (sentence-transformers)   | Tài liệu nội bộ KHÔNG ra ngoài   |
+| Embedding        | Gemini API (qua Middleware)           | Text chunks gửi Google, vectors on-premise |
 
 ### 4.4. Khả năng mở rộng (Scalability)
 
@@ -245,7 +245,7 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
                                 │
     ╔═══════════════════════════╪════════════════════════════════════╗
     ║  Windows Server (20 CPU / 32GB RAM)                            ║
-    ║  Docker Compose · 8 containers · openwebui-network             ║
+    ║  Docker Compose · 9 containers · openwebui-network             ║
     ║                               │                                ║
     ║  ┌────────────────────────────▼────────────────────────────┐   ║
     ║  │       NGINX (openwebui-nginx) :3000 HTTPS               │   ║
@@ -288,7 +288,7 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
     ║     │  │  DuckDuckGo  │          │  Model routing      │       ║
     ║     │  │  Brave       │          │  Retry / Fallback   │       ║
     ║     │  │  Bing        │          │  SSE streaming      │       ║
-    ║     │  │  Google (tắt)│          │  20 models config   │       ║
+    ║     │  │  Google (tắt)│          │  19 models config   │       ║
     ║     │  └───────┬──────┘          └──────────┬──────────┘       ║
     ║     │          │ cache                      │                  ║
     ║     │          ▼                            │                  ║
@@ -313,8 +313,10 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
     ║  │  max_conn=300        │                                      ║
     ║  └──────────────────────┘                                      ║
     ║                                                                ║
+    ║  DOCLING (:5001) — OCR/Document extraction (PDF, DOCX, scan)    ║
+    ║                                                                ║
     ║  Port mở: CHỈ Nginx :3000/tcp                                  ║
-    ║  Port ĐÓNG: 8080, 5000, 4000, 5432, 6379                       ║
+    ║  Port ĐÓNG: 8080, 5000, 5001, 4000, 5432, 6379                  ║
     ╚══════════════════════════════════════════════╪═════════════════╝
                                                    │
                                     LiteLLM gọi API ra ngoài
@@ -414,10 +416,10 @@ Container: openwebui-litellm
 | Chức năng       | Mô tả                                                    |
 | --------------- | ---------------------------------------------------------|
 | Model Routing   | Map chat-gpt-5 > openai/gpt-5, chat-gemini > gemini/...  |
-| Multi-provider  | OpenAI + Google Gemini qua 1 gateway                     |
+| Multi-provider  | OpenAI + Gemini + xAI + Anthropic qua 1 gateway          |
 | Retry/Fallback  | Tự động retry khi lỗi, fallback sang provider khác       |
 | Streaming       | Forward SSE stream từ LLM > middleware > client          |
-| Config          | litellm/litellm_config.yaml - 20 models định nghĩa sẵn   |
+| Config          | litellm/litellm_config.yaml - 19 models định nghĩa sẵn   |
 
 ### 6.5. PostgreSQL + PGVector (Tier 3b)
 
@@ -519,11 +521,10 @@ Lưu ý: Không có Foreign Key giữa 2 databases (by design - cross-database F
 
 ### 7.3. Tích hợp - API Providers
 
-20 models được cấu hình trong litellm/litellm_config.yaml:
-- 14 chat models (8 OpenAI + 6 Google)
-- 3 image models (1 OpenAI + 2 Google)
-- 1 TTS model (OpenAI)
-- 2 STT models (OpenAI)
+19 models được cấu hình trong litellm/litellm_config.yaml:
+- 12 chat models (3 OpenAI + 3 Google + 3 xAI + 3 Anthropic)
+- 6 image models (2 OpenAI + 2 Google + 2 xAI)
+- 1 embedding model (Google Gemini)
 
 ### 7.4. Luồng xử lý chính
 
@@ -553,13 +554,13 @@ Lưu ý: Không có Foreign Key giữa 2 databases (by design - cross-database F
 INDEXING:
 1. User upload file > Open WebUI
 2. Extract text (PyPDF2, python-docx, openpyxl)
-3. Split > chunks (1000 chars, 200 overlap)
-4. Embedding (sentence-transformers/all-MiniLM-L6-v2) > vector(384)
+3. Split > chunks (1500 chars, 100 overlap)
+4. Embedding (gemini-embedding-001 qua Middleware→LiteLLM→Google API) > vector(1536)
 5. Store > PostgreSQL document_chunk table (HNSW indexed)
 
 RETRIEVAL:
 1. User hỏi #KB "Chính sách nghỉ phép?"
-2. Embed query > vector(384)
+2. Embed query > vector(1536)
 3. Hybrid search: BM25 (keyword) + cosine similarity (vector)
 4. Top-K=4 chunks > inject vào system prompt
 5. LLM trả lời kèm citations
@@ -623,7 +624,7 @@ RETRIEVAL:
 | Knowledge access control (per collection)                        |
 +------------------------------------------------------------------+
 | LAYER 4: DATA SECURITY                                           |
-| Embedding chạy 100% local - tài liệu KHÔNG gửi ra ngoài         |
+| Text chunks gửi tới Gemini API để embedding - vectors lưu on-premise  |
 | Database trong Docker volume - không cloud DB                    |
 | Subkey hashing: HMAC-SHA256 (one-way, không decrypt được)        |
 | Audit trail: mọi request đều được ghi log                        |
@@ -664,7 +665,7 @@ Khi authenticate:
 | XSS                  | HttpOnly cookie, CSP headers                        |
 | CSRF                 | SameSite=Lax cookie, secure=True                    |
 | Man-in-the-middle    | HTTPS TLS 1.2/1.3 + Docker internal network         |
-| Rò rỉ dữ liệu RAG    | Embedding chạy local, vector lưu on-premise         |
+| Rò rỉ dữ liệu RAG    | Text chunks gửi Gemini API, vectors lưu on-premise      |
 | Brute-force login    | Nginx rate limit 5 req/phút cho /api/v1/auths/      |
 | Brute-force subkey   | HMAC-SHA256 + constant-time comparison              |
 | DDoS / Spam          | Nginx rate limit 10 req/s + burst=50 per IP         |
@@ -672,9 +673,9 @@ Khi authenticate:
 
 ### 8.5. Lưu ý quan trọng
 
-- Nội dung chat ĐƯỢC GỬI tới OpenAI/Google qua API - đây là bản chất của dịch vụ LLM cloud.
-- Tài liệu Knowledge (RAG) KHÔNG GỬI - embedding chạy 100% local trên server.
-- Database lưu trên server riêng - không sử dụng cloud database.
+- Nội dung chat ĐƯỢC GỬI tới OpenAI/Google/xAI/Anthropic qua API - đây là bản chất của dịch vụ LLM cloud.
+- Text chunks từ tài liệu Knowledge (RAG) ĐƯỢC GỬI tới Google Gemini API để tạo embedding vectors.
+- Vectors embedding và tài liệu gốc lưu on-premise trong PGVector - không cloud DB.
 
 ---
 
@@ -684,7 +685,7 @@ Khi authenticate:
 
 | Thao tác            | Lệnh                                          | Ghi chú                 |
 | ------------------- | ---------------------------------------------- | ------------------------|
-| Start all           | `docker compose up -d`                         | Khởi động 8 services    |
+| Start all           | `docker compose up -d`                         | Khởi động 9 services    |
 | Stop all            | `docker compose down`                          | Dừng, giữ data          |
 | Restart             | `docker compose restart`                       | Restart tất cả          |
 | Restart 1 service   | `docker compose restart middleware`            | Chỉ restart middleware  |
@@ -754,12 +755,12 @@ Tabs: Overview / Logs / Access / Users
 
 | File                        | Mục đích                    | Khi nào sửa               |
 | --------------------------- | --------------------------- | --------------------------|
-| docker-compose.yml          | Cấu hình 8 services         | Đổi port, tăng resource   |
+| docker-compose.yml          | Cấu hình 9 services         | Đổi port, tăng resource   |
 | .env                        | API keys, mật khẩu          | Đổi API key, mật khẩu DB  |
 | nginx/nginx.conf            | Reverse proxy + SSL config  | Thêm route, đổi rate limit|
 | nginx/ssl/fullchain.pem     | SSL certificate             | Gia hạn cert hàng năm     |
 | nginx/ssl/privkey.pem       | SSL private key             | Gia hạn cert hàng năm     |
-| litellm/litellm_config.yaml | Danh sách 20 models         | Thêm/bớt model AI         |
+| litellm/litellm_config.yaml | Danh sách 19 models         | Thêm/bớt model AI         |
 | searxng/settings.yml        | Cấu hình SearXNG search     | Thêm/bớt search engine    |
 | llm-mw/data/users.json      | User backup (source: DB)    | Không sửa trực tiếp       |
 | llm-mw/data/prices.json     | Price backup (source: DB)   | Không sửa trực tiếp       |

@@ -77,8 +77,15 @@ COLS3 = [
 
 # ── Test Data ──
 # Format: (phan_he, nhom, tinh_nang, thao_tac, ky_vong)
+# Models sourced from prices.json (2026-03-26):
+#   OpenAI:    gpt-5.4, gpt-5.2, gpt-5, gpt-image-1.5, gpt-image-1
+#   Gemini:    gemini-3.1-pro-preview, gemini-3.1-flash-lite-preview, gemini-2.5-flash
+#              gemini-3.1-flash-image-preview, gemini-3-pro-image-preview
+#   xAI/Grok:  grok-4.20-reasoning, grok-4-1-fast-reasoning, grok-4-1-fast-non-reasoning
+#              grok-imagine-image, grok-imagine-image-pro
+#   Anthropic: claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5
 TEST_CASES = [
-    # A1. Hỏi đáp - Chất lượng
+    # ──────────────── A1. Hỏi đáp - Chất lượng ────────────────
     ('USER', 'Hỏi đáp (Chat AI)', 'Trả lời tiếng Việt', 'Hỏi: "Giải thích nguyên lý hoạt động của pin mặt trời"', 'Trả lời mượt mà tiếng Việt, chính xác, không lỗi ngữ pháp'),
     ('USER', 'Hỏi đáp (Chat AI)', 'Trả lời tiếng Anh', 'Hỏi: "Explain how LED lighting works"', 'Trả lời tiếng Anh chính xác, ngữ pháp tốt'),
     ('USER', 'Hỏi đáp (Chat AI)', 'Trả lời chuyên ngành', 'Hỏi về so sánh đèn LED vs đèn huỳnh quang', 'Thông tin chuyên ngành chính xác, so sánh rõ ràng'),
@@ -87,7 +94,7 @@ TEST_CASES = [
     ('USER', 'Hỏi đáp (Chat AI)', 'Trả lời dạng code', 'Hỏi: "Viết code Python đọc Excel vẽ biểu đồ"', 'Code chạy được, syntax highlighting'),
     ('USER', 'Hỏi đáp (Chat AI)', 'Hội thoại nhiều lượt', 'Hỏi 3-4 câu liên tiếp cùng chủ đề', 'AI nhớ context, trả lời mạch lạc'),
     ('USER', 'Hỏi đáp (Chat AI)', 'Streaming response', 'Quan sát khi AI trả lời', 'Text hiển thị từng token, không giật lag'),
-    # A1. Hỏi đáp - Chức năng
+    # ──────────────── A1. Hỏi đáp - Chức năng ────────────────
     ('USER', 'Hỏi đáp (Chat AI)', 'Tạo hội thoại mới', 'Nhấn "New Chat"', 'Mở chat mới, không context cũ'),
     ('USER', 'Hỏi đáp (Chat AI)', 'Xóa hội thoại', 'Xóa 1 hội thoại từ sidebar', 'Hội thoại bị xóa khỏi danh sách'),
     ('USER', 'Hỏi đáp (Chat AI)', 'Xóa nhiều hội thoại', 'Xóa 3 hội thoại cùng lúc', 'Tất cả bị xóa thành công'),
@@ -101,14 +108,17 @@ TEST_CASES = [
     ('USER', 'Hỏi đáp (Chat AI)', 'Xuất file PDF', 'Action → "Xuất PDF"', 'File .pdf tải về, nội dung đúng'),
     ('USER', 'Hỏi đáp (Chat AI)', 'Xuất file DOCX', 'Action → "Xuất DOCX"', 'File .docx tải về, nội dung đúng'),
     ('USER', 'Hỏi đáp (Chat AI)', 'Tags', 'Gắn tag cho hội thoại', 'Tag lưu, lọc theo tag hoạt động'),
-    # A2. Tạo ảnh
-    ('USER', 'Tạo ảnh AI', 'Tạo ảnh DALL-E 3', 'Chọn img-gpt-dalle-3, gõ mô tả', 'Ảnh tạo đúng mô tả'),
-    ('USER', 'Tạo ảnh AI', 'Tạo ảnh Gemini Flash', 'Chọn img-gemini-flash, gõ mô tả', 'Ảnh tạo nhanh, chất lượng OK'),
-    ('USER', 'Tạo ảnh AI', 'Tạo ảnh Gemini Pro', 'Chọn img-gemini-pro, gõ mô tả', 'Ảnh chất lượng cao, chi tiết tốt'),
+    # ──────────────── A2. Tạo ảnh AI ────────────────
+    ('USER', 'Tạo ảnh AI', 'GPT Image 1.5 (OpenAI)', 'Chọn model gpt-image-1.5, gõ: "Vẽ con mèo trên bàn làm việc"', 'Ảnh tạo đúng mô tả, chất lượng cao'),
+    ('USER', 'Tạo ảnh AI', 'GPT Image 1 (OpenAI)', 'Chọn model gpt-image-1, gõ mô tả ảnh', 'Ảnh tạo đúng mô tả'),
+    ('USER', 'Tạo ảnh AI', 'Gemini 3.1 Flash Image', 'Chọn model gemini-3.1-flash-image-preview, gõ mô tả', 'Ảnh tạo nhanh, chất lượng OK'),
+    ('USER', 'Tạo ảnh AI', 'Gemini 3 Pro Image', 'Chọn model gemini-3-pro-image-preview, gõ mô tả', 'Ảnh chất lượng cao, chi tiết tốt'),
+    ('USER', 'Tạo ảnh AI', 'Grok Imagine', 'Chọn model grok-imagine-image, gõ mô tả', 'Ảnh tạo đúng mô tả (xAI)'),
+    ('USER', 'Tạo ảnh AI', 'Grok Imagine Pro', 'Chọn model grok-imagine-image-pro, gõ mô tả', 'Ảnh chất lượng cao hơn, nhanh hơn'),
     ('USER', 'Tạo ảnh AI', 'Sửa ảnh nhiều lượt', 'L1: Vẽ → L2: Thêm chi tiết → L3: Đổi style', 'Mỗi lượt chỉnh dựa trên ảnh trước'),
-    ('USER', 'Tạo ảnh AI', 'Tạo ảnh phức tạp', 'Gõ mô tả dài, nhiều chi tiết', 'Ảnh phản ánh đầy đủ mô tả'),
+    ('USER', 'Tạo ảnh AI', 'Tạo ảnh phức tạp', 'Gõ mô tả dài, nhiều chi tiết cụ thể', 'Ảnh phản ánh đầy đủ mô tả'),
     ('USER', 'Tạo ảnh AI', 'Prompt tiếng Việt', 'Gõ prompt bằng tiếng Việt', 'Hiểu và tạo ảnh đúng'),
-    # A3. Gửi file
+    # ──────────────── A3. Gửi file ────────────────
     ('USER', 'Gửi file & truy xuất', 'Upload PDF', 'Gửi file PDF ~5 trang + hỏi nội dung', 'AI đọc và trả lời chính xác'),
     ('USER', 'Gửi file & truy xuất', 'Upload Word', 'Gửi file .docx + hỏi tóm tắt', 'Tóm tắt đúng, đầy đủ ý chính'),
     ('USER', 'Gửi file & truy xuất', 'Upload Excel', 'Gửi file Excel số liệu + hỏi tổng', 'Đọc số liệu, trả lời đúng'),
@@ -119,18 +129,27 @@ TEST_CASES = [
     ('USER', 'Gửi file & truy xuất', 'Hỏi đáp sâu file', 'Upload → hỏi 3-4 câu liên tiếp', 'AI nhớ file, trả lời chính xác'),
     ('USER', 'Gửi file & truy xuất', 'Upload HTML', 'Gửi file .html + hỏi', 'Đọc được nội dung text'),
     ('USER', 'Gửi file & truy xuất', 'Trích dẫn nguồn', 'Hỏi từ file đã upload', 'Trích dẫn tên file, trang nguồn'),
-    # A4. Model
-    ('USER', 'Chọn Model', 'Danh sách model', 'Mở dropdown chọn model', 'Hiển thị đầy đủ tất cả model'),
-    ('USER', 'Chọn Model', 'GPT-5', 'Chọn GPT-5 → hỏi 1 câu', 'Trả lời thành công, chất lượng cao'),
-    ('USER', 'Chọn Model', 'GPT-5 Mini', 'Chọn GPT-5 Mini → hỏi 1 câu', 'Trả lời nhanh, chất lượng tốt'),
-    ('USER', 'Chọn Model', 'GPT-4o', 'Chọn GPT-4o → hỏi 1 câu', 'Trả lời thành công'),
-    ('USER', 'Chọn Model', 'GPT-4.1', 'Chọn GPT-4.1 → hỏi 1 câu', 'Trả lời thành công'),
-    ('USER', 'Chọn Model', 'Gemini 2.5 Pro', 'Chọn Gemini 2.5 Pro → hỏi 1 câu', 'Trả lời thành công, TV tốt'),
-    ('USER', 'Chọn Model', 'Gemini 2.5 Flash', 'Chọn Gemini 2.5 Flash → hỏi 1 câu', 'Trả lời nhanh, chất lượng ổn'),
-    ('USER', 'Chọn Model', 'Gemini 3 Pro', 'Chọn Gemini 3 Pro → hỏi 1 câu', 'Flagship mới nhất, trả lời tốt'),
-    ('USER', 'Chọn Model', 'Chuyển model giữa chừng', 'Chat GPT-5 → đổi Gemini → hỏi tiếp', 'Hội thoại tiếp tục đúng'),
+    # ──────────────── A4. Chọn Model (4 nhà cung cấp) ────────────────
+    ('USER', 'Chọn Model', 'Danh sách model', 'Mở dropdown chọn model', 'Hiển thị đầy đủ tất cả model (4 providers)'),
+    # OpenAI
+    ('USER', 'Chọn Model', 'GPT-5.4 (OpenAI Flagship)', 'Chọn gpt-5.4 → hỏi 1 câu', 'Trả lời thành công, chất lượng cao nhất'),
+    ('USER', 'Chọn Model', 'GPT-5.2 (OpenAI)', 'Chọn gpt-5.2 → hỏi 1 câu', 'Trả lời nhanh, chất lượng tốt'),
+    ('USER', 'Chọn Model', 'GPT-5 (OpenAI)', 'Chọn gpt-5 → hỏi 1 câu', 'Trả lời thành công, cân bằng giá/chất lượng'),
+    # Google Gemini
+    ('USER', 'Chọn Model', 'Gemini 3.1 Pro (Google)', 'Chọn gemini-3.1-pro-preview → hỏi 1 câu', 'Flagship Google, reasoning mạnh, TV tốt'),
+    ('USER', 'Chọn Model', 'Gemini 3.1 Flash Lite (Google)', 'Chọn gemini-3.1-flash-lite-preview → hỏi 1 câu', 'Trả lời nhanh, chi phí thấp'),
+    ('USER', 'Chọn Model', 'Gemini 2.5 Flash (Google)', 'Chọn gemini-2.5-flash → hỏi 1 câu', 'Trả lời nhanh, chất lượng ổn'),
+    # xAI Grok
+    ('USER', 'Chọn Model', 'Grok 4.20 Reasoning (xAI)', 'Chọn grok-4.20-reasoning → hỏi 1 câu', 'Reasoning mạnh, trả lời chi tiết'),
+    ('USER', 'Chọn Model', 'Grok 4-1 Fast (xAI)', 'Chọn grok-4-1-fast-reasoning → hỏi 1 câu', 'Trả lời nhanh, chi phí thấp'),
+    # Anthropic Claude
+    ('USER', 'Chọn Model', 'Claude Opus 4.6 (Anthropic)', 'Chọn claude-opus-4-6 → hỏi 1 câu', 'Flagship Anthropic, chất lượng cao'),
+    ('USER', 'Chọn Model', 'Claude Sonnet 4.6 (Anthropic)', 'Chọn claude-sonnet-4-6 → hỏi 1 câu', 'Cân bằng giá/chất lượng'),
+    ('USER', 'Chọn Model', 'Claude Haiku 4.5 (Anthropic)', 'Chọn claude-haiku-4-5 → hỏi 1 câu', 'Trả lời nhanh, chi phí thấp'),
+    # Chức năng model
+    ('USER', 'Chọn Model', 'Chuyển model giữa chừng', 'Chat gpt-5.4 → đổi claude-opus-4-6 → hỏi tiếp', 'Hội thoại tiếp tục đúng'),
     ('USER', 'Chọn Model', 'Model mặc định', 'Settings → chọn model mặc định', 'Chat mới dùng model đã chọn'),
-    # A5. Knowledge
+    # ──────────────── A5. Knowledge ────────────────
     ('USER', 'Kho kiến thức', 'Tạo Knowledge', 'Workspace → Knowledge → Create', 'Collection tạo thành công'),
     ('USER', 'Kho kiến thức', 'Upload PDF', 'Upload file PDF ~5MB vào Knowledge', 'Upload thành công, được index'),
     ('USER', 'Kho kiến thức', 'Upload Word', 'Upload file .docx vào Knowledge', 'Upload thành công'),
@@ -142,61 +161,61 @@ TEST_CASES = [
     ('USER', 'Kho kiến thức', 'Hỏi đáp từ Knowledge', 'Gọi # rồi hỏi nội dung', 'Trả lời dựa trên Knowledge, trích dẫn'),
     ('USER', 'Kho kiến thức', 'Xóa file', 'Xóa 1 file trong Knowledge', 'File + embedding bị xóa'),
     ('USER', 'Kho kiến thức', 'Xóa Knowledge', 'Xóa cả collection', 'Collection + tất cả bị xóa'),
-    # A6. Workspace
+    # ──────────────── A6. Workspace ────────────────
     ('USER', 'Không gian làm việc', 'Tạo Workspace', 'Tạo Workspace mới', 'Workspace tạo thành công'),
     ('USER', 'Không gian làm việc', 'Chọn Workspace', 'Chuyển đổi giữa các Workspace', 'Chuyển mượt, dữ liệu riêng'),
     ('USER', 'Không gian làm việc', 'Chia sẻ Knowledge', 'Chia sẻ Knowledge cho user khác', 'User khác truy cập được'),
     ('USER', 'Không gian làm việc', 'Access control', 'Giới hạn quyền truy cập', 'Chỉ user được phép mới truy cập'),
-    # A7. Voice
+    # ──────────────── A7. Voice ────────────────
     ('USER', 'Giọng nói', 'Text-to-Speech', 'Nhấn icon 🔊 trên response', 'AI đọc bằng giọng nói tự nhiên'),
     ('USER', 'Giọng nói', 'Speech-to-Text', 'Nhấn icon 🎤 → nói câu hỏi', 'Giọng nói → text chính xác'),
     ('USER', 'Giọng nói', 'STT tiếng Việt', 'Nói bằng tiếng Việt', 'Nhận dạng TV chính xác'),
-    # A8. Web Search
+    # ──────────────── A8. Web Search ────────────────
     ('USER', 'Tìm kiếm Web', 'Web search cơ bản', 'Hỏi: "Tin tức mới nhất về AI"', 'Search web, trả lời có nguồn trích dẫn'),
     ('USER', 'Tìm kiếm Web', 'Trích dẫn nguồn web', 'Kiểm tra response có tag nguồn', 'Chip/tag website + URL'),
     ('USER', 'Tìm kiếm Web', 'Search tiếng Việt', 'Hỏi: "Thời tiết Hà Nội hôm nay"', 'Tìm, trả lời TV, có nguồn'),
-    # A9. UI
+    # ──────────────── A9. UI ────────────────
     ('USER', 'Giao diện & Cá nhân hóa', 'Dark/Light mode', 'Settings → Theme → chuyển đổi', 'Giao diện chuyển đổi mượt'),
     ('USER', 'Giao diện & Cá nhân hóa', 'Ngôn ngữ', 'Settings → Language → Tiếng Việt', 'UI chuyển tiếng Việt'),
     ('USER', 'Giao diện & Cá nhân hóa', 'System prompt', 'Settings → đặt system prompt', 'AI tuân theo khi chat'),
     ('USER', 'Giao diện & Cá nhân hóa', 'Responsive mobile', 'Mở trên điện thoại', 'Hiển thị tốt, không vỡ layout'),
-    # B1. Quản lý user
+    # ──────────────── B1. Quản lý user ────────────────
     ('ADMIN', 'Quản lý người dùng', 'Xem danh sách user', 'Admin Panel → Users', 'Hiển thị đầy đủ, role, trạng thái'),
     ('ADMIN', 'Quản lý người dùng', 'Tạo user mới', 'Tạo account / đăng ký', 'Account tạo, trạng thái Pending'),
     ('ADMIN', 'Quản lý người dùng', 'Duyệt user', 'Approve user pending', 'User Active, login được'),
     ('ADMIN', 'Quản lý người dùng', 'Đổi role', 'User → Admin hoặc ngược lại', 'Role + quyền thay đổi'),
     ('ADMIN', 'Quản lý người dùng', 'Xóa user', 'Xóa 1 user account', 'User bị xóa, không login'),
     ('ADMIN', 'Quản lý người dùng', 'Reset password', 'Reset password cho user', 'Password mới hoạt động'),
-    # B2. Quản lý model
+    # ──────────────── B2. Quản lý model ────────────────
     ('ADMIN', 'Quản lý Model', 'Bật/tắt model', 'Admin → Models → Disable', 'User không thấy model disabled'),
     ('ADMIN', 'Quản lý Model', 'Cấu hình params', 'Set temperature, max_tokens', 'Params áp dụng khi chat'),
     ('ADMIN', 'Quản lý Model', 'Gán Knowledge', 'Gán Knowledge mặc định cho model', 'Model tự động dùng Knowledge'),
     ('ADMIN', 'Quản lý Model', 'Access control', 'Giới hạn model cho user cụ thể', 'Chỉ user được phép mới thấy'),
-    # B3. Dashboard
+    # ──────────────── B3. Dashboard ────────────────
     ('ADMIN', 'Dashboard & Giám sát', 'Dashboard tổng quan', 'Truy cập Dashboard middleware', 'Hiển thị tổng chi phí, request, top users'),
     ('ADMIN', 'Dashboard & Giám sát', 'Log requests', 'Xem log chi tiết API request', 'User, model, tokens, cost, timestamp'),
     ('ADMIN', 'Dashboard & Giám sát', 'Báo cáo theo user', 'Lọc chi phí theo user', 'Dữ liệu chính xác'),
     ('ADMIN', 'Dashboard & Giám sát', 'Báo cáo theo model', 'Lọc chi phí theo model', 'Dữ liệu chính xác'),
     ('ADMIN', 'Dashboard & Giám sát', 'Báo cáo theo thời gian', 'Lọc theo khoảng thời gian', 'Dữ liệu đúng khoảng chọn'),
-    # B4. Quota
+    # ──────────────── B4. Quota ────────────────
     ('ADMIN', 'Quota & Chi phí', 'Set quota user', 'Dashboard → set limit_cost_usd', 'Quota lưu thành công'),
     ('ADMIN', 'Quota & Chi phí', 'Cảnh báo quota', 'User chat gần hết quota', 'Hiển thị cảnh báo'),
     ('ADMIN', 'Quota & Chi phí', 'Chặn khi hết', 'User vượt quota → chat tiếp', 'Từ chối, báo HTTP 429'),
     ('ADMIN', 'Quota & Chi phí', 'Sub-key API', 'Kiểm tra user có sub-key riêng', 'Mỗi user có key riêng'),
-    # B5. Cấu hình
+    # ──────────────── B5. Cấu hình ────────────────
     ('ADMIN', 'Cấu hình hệ thống', 'WebUI settings', 'Admin → Settings → General', 'Cấu hình lưu và áp dụng'),
-    ('ADMIN', 'Cấu hình hệ thống', 'Connections', 'Admin → Settings → Connections', 'Kết nối providers, status OK'),
+    ('ADMIN', 'Cấu hình hệ thống', 'Connections', 'Admin → Settings → Connections', 'Kết nối 4 providers (OpenAI, Gemini, xAI, Anthropic), status OK'),
     ('ADMIN', 'Cấu hình hệ thống', 'RAG config', 'Điều chỉnh chunk size, file limit', 'Thay đổi được áp dụng'),
     ('ADMIN', 'Cấu hình hệ thống', 'Signup control', 'Bật/tắt đăng ký mới', 'Đúng trạng thái bật/tắt'),
 ]
 
-# Examples for Sheet 3
+# Examples for Sheet 3 (updated model names)
 BIZ_EXAMPLES = [
-    ('Nguyễn Văn A', 'Kế toán', 'Phân tích báo cáo tài chính', 'GPT-5', 'Upload file báo cáo Q1.xlsx, hỏi "Tóm tắt doanh thu và chi phí theo tháng"', 'bao_cao_Q1.xlsx', 'AI tổng hợp đúng số liệu, phân tích theo tháng', '', '', 'PASS', '', '', ''),
-    ('Trần Thị B', 'Marketing', 'Viết nội dung quảng cáo', 'Gemini 2.5 Pro', '"Viết 3 mẫu quảng cáo Facebook cho đèn LED thông minh, tone chuyên nghiệp"', '', 'Nội dung sáng tạo, đúng tone, có CTA', '', '', '', '', '', ''),
-    ('Lê Văn C', 'R&D', 'Tra cứu tài liệu kỹ thuật', 'GPT-4.1', 'Upload datasheet LED → hỏi thông số kỹ thuật', 'LED_Datasheet.pdf', 'Trích xuất đúng thông số từ datasheet', '', '', '', '', '', ''),
-    ('Phạm Thị D', 'Nhân sự', 'Soạn thảo văn bản', 'GPT-5 Mini', '"Soạn email thông báo chính sách nghỉ phép mới cho toàn công ty"', '', 'Email chuyên nghiệp, đúng format, đầy đủ nội dung', '', '', '', '', '', ''),
-    ('Hoàng Văn E', 'IT', 'Debug code', 'GPT-5', 'Gửi đoạn code lỗi Python và hỏi cách sửa', 'error_code.py', 'Phát hiện lỗi, đề xuất fix đúng', '', '', '', '', '', ''),
+    ('Nguyễn Văn A', 'Kế toán', 'Phân tích báo cáo tài chính', 'gpt-5.4', 'Upload file báo cáo Q1.xlsx, hỏi "Tóm tắt doanh thu và chi phí theo tháng"', 'bao_cao_Q1.xlsx', 'AI tổng hợp đúng số liệu, phân tích theo tháng', '', '', 'PASS', '', '', ''),
+    ('Trần Thị B', 'Marketing', 'Viết nội dung quảng cáo', 'gemini-3.1-pro-preview', '"Viết 3 mẫu quảng cáo Facebook cho đèn LED thông minh"', '', 'Nội dung sáng tạo, đúng tone, có CTA', '', '', '', '', '', ''),
+    ('Lê Văn C', 'R&D', 'Tra cứu tài liệu kỹ thuật', 'claude-opus-4-6', 'Upload datasheet LED → hỏi thông số kỹ thuật', 'LED_Datasheet.pdf', 'Trích xuất đúng thông số từ datasheet', '', '', '', '', '', ''),
+    ('Phạm Thị D', 'Nhân sự', 'Soạn thảo văn bản', 'gpt-5', '"Soạn email thông báo chính sách nghỉ phép mới cho toàn công ty"', '', 'Email chuyên nghiệp, đúng format, đầy đủ nội dung', '', '', '', '', '', ''),
+    ('Hoàng Văn E', 'IT', 'Debug code', 'grok-4.20-reasoning', 'Gửi đoạn code lỗi Python và hỏi cách sửa', 'error_code.py', 'Phát hiện lỗi, đề xuất fix đúng', '', '', '', '', '', ''),
 ]
 
 
@@ -359,7 +378,7 @@ def build_test_form(ws):
     # Info row
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=ncols)
     ws.cell(row=row, column=1,
-            value='Phiên bản: v2.0  |  Ngày: 01/04/2026  |  URL: https://openwebui.example.com  |  Tổng: 95 test cases')
+            value=f'Phiên bản: v2.1  |  Ngày: 06/04/2026  |  URL: https://openwebui.example.com  |  Tổng: {len(TEST_CASES)} test cases  |  4 providers: OpenAI, Google, xAI, Anthropic')
     s(ws.cell(row=row, column=1), Font(name='Arial', size=9, italic=True, color='666666'), alignment=CENTER)
     row += 1
 

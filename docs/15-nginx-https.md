@@ -55,18 +55,18 @@ Firewall công ty (do IT quản lý)
 │  ┌── Nginx (:3000 HTTPS) ──────────────────────────┐   │
 │  │  SSL cert: *.example.com                    │   │
 │  │  Gzip compression                               │   │
-│  │  Rate limiting                                   │   │
-│  │                                                  │   │
-│  │  URL routing:                                    │   │
-│  │  ├── /              → Open WebUI (:8080)         │   │
-│  │  ├── /dashboard     → Middleware (:5000)          │   │
-│  │  ├── /v1/_mw/*      → Middleware (:5000)          │   │
-│  │  ├── /v1/*          → Middleware (:5000)          │   │
-│  │  ├── /_app/*        → WebUI static files          │   │
-│  │  └── /ws/*          → WebUI WebSocket             │   │
-│  └──────────────────────────────────────────────────┘   │
+│  │  Rate limiting                                  │   │
+│  │                                                 │   │
+│  │  URL routing:                                   │   │
+│  │  ├── /              → Open WebUI (:8080)        │   │
+│  │  ├── /dashboard     → Middleware (:5000)        │   │
+│  │  ├── /v1/_mw/*      → Middleware (:5000)        │   │
+│  │  ├── /v1/*          → Middleware (:5000)        │   │
+│  │  ├── /_app/*        → WebUI static files        │   │
+│  │  └── /ws/*          → WebUI WebSocket           │   │
+│  └─────────────────────────────────────────────────┘   │
 │                                                        │
-│  Ports ĐÓNG: 5000, 4000, 5432, 6379, 8080              │
+│  Ports ĐÓNG: 5000, 5001, 4000, 5432, 6379, 8080        │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -78,19 +78,19 @@ Firewall công ty (do IT quản lý)
 
 ### 3.1 Cấu hình chung
 
-| Tham số | Giá trị | Ý nghĩa |
-|---------|---------|---------|
-| `worker_processes` | auto | Số tiến trình = số CPU |
-| `worker_connections` | 2048 | Mỗi worker xử lý tối đa 2048 kết nối |
-| `gzip on` | — | Nén response (JS, CSS, JSON) →  nhanh hơn 60% |
-| `client_max_body_size` | 100M | Upload file tối đa 100MB |
+| Tham số                                       | Giá trị |             Ý nghĩa                           |
+|-----------------------------------------------|---------|-----------------------------------------------|
+| `worker_processes`                            | auto    | Số tiến trình = số CPU                        |
+| `worker_connections`                          | 2048    | Mỗi worker xử lý tối đa 2048 kết nối          |
+| `gzip on`                                     | —       | Nén response (JS, CSS, JSON) →  nhanh hơn 60% |
+| `client_max_body_size`                        | 100M    | Upload file tối đa 100MB                      |
 
 ### 3.2 Rate Limiting
 
-| Zone | Rate | Burst | Áp dụng | Mục đích |
-|------|:----:|:-----:|---------|---------|
-| `chat` | 10 req/s | 50 | Trang chính `/` | Chống spam chat |
-| `login` | 5 req/phút | 3 | `/api/v1/auths/` | Chống brute force |
+| Zone          | Rate      | Burst | Áp dụng         | Mục đích            |
+|----------|:--------  |:-----:|-----------------|---------------------|
+| `chat`        | 10 req/s  | 50    | Trang chính `/` | Chống spam chat     |
+| `login`       | 5 req/phút| 3     | `/api/v1/auths/`| Chống brute force   |
 
 ### 3.3 Timeout
 

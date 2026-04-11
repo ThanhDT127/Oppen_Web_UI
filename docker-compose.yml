@@ -13,15 +13,7 @@ services:
       TZ: Asia/Ho_Chi_Minh
     # Step 2: PostgreSQL performance tuning for 32GB RAM
     command: >
-      postgres
-      -c max_connections=300
-      -c shared_buffers=4GB
-      -c work_mem=16MB
-      -c effective_cache_size=8GB
-      -c maintenance_work_mem=256MB
-      -c wal_buffers=64MB
-      -c random_page_cost=1.1
-      -c checkpoint_completion_target=0.9
+      postgres -c max_connections=300 -c shared_buffers=4GB -c work_mem=16MB -c effective_cache_size=8GB -c maintenance_work_mem=256MB -c wal_buffers=64MB -c random_page_cost=1.1 -c checkpoint_completion_target=0.9
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init_pgvector.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -151,19 +143,38 @@ services:
     networks:
       - openwebui-network
 
-  # Apache Tika - Document Extraction + OCR (Tesseract)
-  tika:
-    image: apache/tika:latest-full
-    container_name: openwebui-tika
+  # Apache Tika - Document Extraction + OCR (Tesseract) — DISABLED, replaced by Docling
+  # tika:
+  #   image: apache/tika:latest-full
+  #   container_name: openwebui-tika
+  #   healthcheck:
+  #     test: [ "CMD", "wget", "--spider", "-q", "http://localhost:9998/tika" ]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits: { memory: 2G, cpus: '1' }
+  #   networks:
+  #     - openwebui-network
+
+  # Docling - Document Extraction (layout-aware, structured Markdown output)
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu:latest
+    container_name: openwebui-docling
+    environment:
+      - UVICORN_WORKERS=1
     healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:9998/tika" ]
+      test: [ "CMD-SHELL", "curl --fail http://localhost:5001/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
     restart: unless-stopped
     deploy:
       resources:
-        limits: { memory: 2G, cpus: '1' }
+        limits: { memory: 2G, cpus: '2' }
     networks:
       - openwebui-network
 
@@ -213,6 +224,10 @@ services:
       - RAG_WEB_SEARCH_RESULT_COUNT=5
       - RAG_WEB_SEARCH_CONCURRENT_REQUESTS=1
 
+      # Document Extraction Engine — Docling (replaces Tika)
+      - CONTENT_EXTRACTION_ENGINE=docling
+      - DOCLING_API_BASE_URL=http://docling:5001
+
       # Timezone
       - TZ=Asia/Ho_Chi_Minh
 
@@ -243,7 +258,7 @@ services:
         condition: service_started
       searxng:
         condition: service_healthy
-      tika:
+      docling:
         condition: service_healthy
     restart: unless-stopped
     # Step 3: Resource limits
@@ -259,7 +274,7 @@ services:
     image: nginx:alpine
     container_name: openwebui-nginx
     ports:
-      - "3000:3000"     # NAT: 51122 (public) → 3000 (server) → Nginx HTTPS
+      - "3000:3000" # NAT: 51122 (public) → 3000 (server) → Nginx HTTPS
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro

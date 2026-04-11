@@ -14,10 +14,14 @@
 **Giải thích:**
 | Thành phần     | Port | Vai trò                                             |
 | -------------- | ---- | --------------------------------------------------- |
-| Open WebUI     | 3000 | Giao diện chat cho end user                         |
+| Nginx          | 3000 | Reverse proxy HTTPS — cửa duy nhất ra ngoài         |
+| Open WebUI     | 8080 | Giao diện chat cho end user (qua Nginx)              |
 | LLM Middleware | 5000 | Trung tâm: Auth → Quota → Proxy → Audit → Dashboard |
+| LiteLLM Proxy  | 4000 | Router multi-provider (OpenAI, Gemini, xAI, Anthropic) |
 | PostgreSQL     | 5432 | Lưu trữ dữ liệu (2 DB: `openwebui` + `middleware`)  |
-| LiteLLM Proxy  | 4000 | Router multi-provider (OpenAI, Gemini, Anthropic)   |
+| Docling        | 5001 | OCR/Document extraction (PDF, DOCX, scan)            |
+| SearXNG        | 8080 | Metasearch engine (DDG, Brave, Bing)                 |
+| Redis          | 6379 | Search result cache cho SearXNG                      |
 
 ---
 
@@ -129,12 +133,16 @@ User → Open WebUI → Middleware:  POST /v1/chat/completions
 ![Deployment Diagram](diagrams/deployment_diagram_1772533601032.png)
 
 **Containers & Ports:**
-| Container              | Port | Exposed     | Image                                |
-| ---------------------- | ---- | ----------- | ------------------------------------ |
-| `openwebui-postgres`   | 5432 | ❌ Internal | `postgres:17`                        |
-| `openwebui-litellm`    | 4000 | ❌ Internal | Custom build                         |
-| `openwebui-middleware` | 5000 | ✅ External | Custom build (Python 3.11 + FastAPI) |
-| `open-webui`           | 3000 | ✅ External | `ghcr.io/open-webui`                 |
+| Container              | Port | Exposed     | Image                                            |
+| ---------------------- | ---- | ----------- | ------------------------------------------------ |
+| `openwebui-nginx`      | 3000 | ✅ External | `nginx:alpine`                                   |
+| `openwebui-postgres`   | 5432 | ❌ Internal | `pgvector/pgvector:0.8.0-pg16`                   |
+| `openwebui-litellm`    | 4000 | ❌ Internal | Custom build                                     |
+| `openwebui-middleware` | 5000 | ❌ Internal | Custom build (Python 3.11 + FastAPI)             |
+| `open-webui`           | 8080 | ❌ Internal | `ghcr.io/open-webui`                             |
+| `openwebui-docling`    | 5001 | ❌ Internal | `quay.io/docling-project/docling-serve-cpu`      |
+| `openwebui-searxng`    | 8080 | ❌ Internal | `searxng/searxng:latest`                         |
+| `openwebui-redis`      | 6379 | ❌ Internal | `redis:7-alpine`                                 |
 
 **Volumes:**
 | Volume       | Type       | Container  | Size ước tính     |
@@ -144,8 +152,8 @@ User → Open WebUI → Middleware:  POST /v1/chat/completions
 | `./logs`     | Bind mount | Middleware | ~100MB (rotation) |
 | `./llm-mw`   | Bind mount | Middleware | ~5MB (source)     |
 
-**Startup order:** PostgreSQL → LiteLLM → Middleware → Open WebUI
+**Startup order:** PostgreSQL → Redis → LiteLLM → Middleware → Docling → SearXNG → OpenWebUI → Nginx
 
 ---
 
-**Last Updated:** March 3, 2026 | **Version:** 3.0 (Image-based diagrams)
+**Last Updated:** April 9, 2026 | **Version:** 4.0 (9 containers, Docling migration)

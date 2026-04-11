@@ -18,7 +18,7 @@ Hệ thống sử dụng PostgreSQL 16 làm database chính, tích hợp PGVecto
 
 ```
 Connection String: postgresql://openwebui_user:<password>@postgres:5432/openwebui
-Port exposed:     5432 (localhost)
+Port:             5432 (internal only, không expose ra ngoài)
 Docker container: openwebui-postgres
 Volume:           postgres_data (persistent)
 ```
@@ -703,7 +703,7 @@ User Browser (localhost:3000)
 │          Open WebUI (port 8080)              │
 │                                              │
 │  ┌────────────┐  ┌──────────────────────┐    │
-│  │ RAG Engine │  │ Chat Engine           │    │
+│  │ RAG Engine │  │ Chat Engine          │    │
 │  │            │  │                      │    │
 │  │ - Extract  │  │ - Messages → JSON    │    │
 │  │ - Chunk    │  │ - History in `chat`  │    │
@@ -721,17 +721,17 @@ User Browser (localhost:3000)
 │  │  auth, model, config, memory        │     │
 │  └─────────────────────────────────────┘     │
 │                                              │
-│        ▼ (LLM calls)                        │
-│  ┌──────────────────────┐                    │
-│  │ Middleware (port 5000)│                   │
-│  │ - Auth & Quota        │                   │
-│  │ - Cost tracking       │                   │
-│  └──────────┬───────────┘                    │
+│        ▼ (LLM calls)                         │
+│  ┌────────────────────────┐                  │
+│  │ Middleware (port 5000) │                  │
+│  │ - Auth & Quota         │                  │
+│  │ - Cost tracking        │                  │
+│  └──────────┬─────────────┘                  │
 │             ▼                                │
 │  ┌──────────────────────┐                    │
-│  │ LiteLLM (port 4000)  │                   │
-│  │ - Model routing       │                   │
-│  │ - API key management  │                   │
+│  │ LiteLLM (port 4000)  │                    │
+│  │ - Model routing      │                    │
+│  │ - API key management │                    │
 │  └──────────────────────┘                    │
 └──────────────────────────────────────────────┘
 ```

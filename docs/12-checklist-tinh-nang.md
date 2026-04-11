@@ -39,40 +39,41 @@
 
 ## II. CHAT AI ĐA MÔ HÌNH
 
-| STT | Model / Tính năng          | Mô tả                                    | Kết quả | Ghi chú                      |
-| --- | -------------------------- | ---------------------------------------- | ------- | ---------------------------- |
-| 1   | Chat GPT-5 (Flagship)      | Model mạnh nhất, đa phương thức          | OK      | `chat-gpt-5`                 |
-| 2   | Chat GPT-5 Mini            | Nhanh hơn, phù hợp tác vụ thông thường   | OK      | `chat-gpt-5-mini`            |
-| 3   | Chat GPT-5 Nano            | Nhẹ nhất, chi phí thấp                   | OK      | `chat-gpt-5-nano`            |
-| 4   | Chat GPT-4o                | Multimodal nhanh, hỗ trợ hình ảnh        | OK      | `chat-gpt-4o`                |
-| 5   | Chat GPT-4o Mini           | Nhanh, rẻ, đủ tốt cho hầu hết tác vụ     | OK      | `chat-gpt-4o-mini`           |
-| 6   | Chat GPT-4.1               | 1M context, xử lý tài liệu dài           | OK      | `chat-gpt-4.1`               |
-| 7   | Chat GPT-4.1 Mini          | 1M context, chi phí thấp hơn             | OK      | `chat-gpt-4.1-mini`          |
-| 8   | Chat GPT-4.1 Nano          | 1M context, chi phí thấp nhất            | OK      | `chat-gpt-4.1-nano`          |
-| 9   | Chat Gemini 2.5 Pro        | Reasoning mạnh, tiếng Việt tốt           | OK      | `chat-gemini-2.5-pro`        |
-| 10  | Chat Gemini 2.5 Flash      | Cân bằng tốc độ và chất lượng            | OK      | `chat-gemini-2.5-flash`      |
-| 11  | Chat Gemini 2.5 Flash Lite | Nhẹ nhất Gemini, rẻ                      | OK      | `chat-gemini-2.5-flash-lite` |
-| 12  | Chat Gemini 2.0 Flash      | Thế hệ trước, vẫn ổn định                | OK      | `chat-gemini-2.0-flash`      |
-| 13  | Chat Gemini 2.0 Flash Lite | Nhẹ, nhanh                               | OK      | `chat-gemini-2.0-flash-lite` |
-| 14  | Chat Gemini 3 Pro          | Flagship mới nhất của Google             | OK      | `chat-gemini-3-pro`          |
-| 15  | Streaming response         | Response hiển thị từng token realtime    | OK      |                              |
-| 16  | Chat history               | Lưu toàn bộ lịch sử hội thoại            | OK      | Lưu trong PostgreSQL         |
-| 17  | Pin / Archive chat         | Ghim hoặc lưu trữ hội thoại              | OK      |                              |
-| 18  | Share chat                 | Chia sẻ hội thoại qua link công khai     | OK      |                              |
-| 19  | Folder tổ chức chat        | Sắp xếp hội thoại vào folder             | OK      |                              |
-| 20  | Tags                       | Gắn tag cho hội thoại để phân loại       | OK      |                              |
-| 21  | Chuyển model giữa chừng    | Đổi model trong cùng 1 hội thoại         | OK      |                              |
-| 22  | Multimodal input           | Gửi hình ảnh kèm text trong chat         | OK      | Với GPT-4o, Gemini           |
+| STT | Model / Tính năng          | Mô tả                                    | Kết quả | Ghi chú                                |
+| --- | -------------------------- | ---------------------------------------- | ------- | ------------------------------------- |
+| 1   | Chat GPT-5.4 (Flagship)   | Model mạnh nhất OpenAI, reasoning         | OK      | `chat-gpt-5.4`                        |
+| 2   | Chat GPT-5.2              | Cân bằng chất lượng và tốc độ             | OK      | `chat-gpt-5.2`                        |
+| 3   | Chat GPT-5                | Tiêu chuẩn, chi phí hợp lý                | OK      | `chat-gpt-5`                          |
+| 4   | Chat Gemini 3.1 Pro       | Flagship Google, reasoning mạnh           | OK      | `chat-gemini-3.1-pro-preview`         |
+| 5   | Chat Gemini 3.1 Flash-Lite| Nhanh, chi phí thấp                       | OK      | `chat-gemini-3.1-flash-lite-preview`  |
+| 6   | Chat Gemini 2.5 Flash     | Cân bằng, tiếng Việt tốt                  | OK      | `chat-gemini-2.5-flash`               |
+| 7   | Chat Grok 4.20 Reasoning  | Reasoning mạnh, real-time data            | OK      | `chat-grok-4.20-reasoning`            |
+| 8   | Chat Grok 4.1 Fast        | Nhanh, reasoning                          | OK      | `chat-grok-4-1-fast-reasoning`        |
+| 9   | Chat Grok 4.1 Fast Lite   | Nhanh nhất xAI, chi phí thấp              | OK      | `chat-grok-4-1-fast-non-reasoning`    |
+| 10  | Chat Claude Opus 4.6      | Flagship Anthropic, phân tích phức tạp    | OK      | `chat-claude-opus-4.6`                |
+| 11  | Chat Claude Sonnet 4.6    | Cân bằng chất lượng và tốc độ             | OK      | `chat-claude-sonnet-4.6`              |
+| 12  | Chat Claude Haiku 4.5     | Nhanh, chi phí thấp                       | OK      | `chat-claude-haiku-4.5`               |
+| 13  | Streaming response        | Response hiển thị từng token realtime     | OK      |                                       |
+| 14  | Chat history              | Lưu toàn bộ lịch sử hội thoại             | OK      | Lưu trong PostgreSQL                  |
+| 15  | Pin / Archive chat        | Ghim hoặc lưu trữ hội thoại               | OK      |                                       |
+| 16  | Share chat                | Chia sẻ hội thoại qua link công khai      | OK      |                                       |
+| 17  | Folder tổ chức chat       | Sắp xếp hội thoại vào folder              | OK      |                                       |
+| 18  | Tags                      | Gắn tag cho hội thoại để phân loại        | OK      |                                       |
+| 19  | Chuyển model giữa chừng   | Đổi model trong cùng 1 hội thoại          | OK      |                                       |
+| 20  | Multimodal input          | Gửi hình ảnh kèm text trong chat          | OK      | Với GPT-5, Gemini, Claude             |
 
 ---
 
 ## III. TẠO ẢNH AI (IMAGE GENERATION)
 
-| STT | Nhóm         | Tính năng                     | Mô tả                                        | Kết quả | Ghi chú    |
-| --- | ------------ | ----------------------------- | -------------------------------------------- | ------- | ---------- |
-| 1   | DALL-E 3     | Tạo ảnh từ text (OpenAI)      | Model `img-gpt-dalle-3`, nhập mô tả → ảnh    | OK      | 1024x1024  |
-| 2   | Gemini Image | Tạo ảnh nhanh (Flash)         | Model `img-gemini-flash`, nhập mô tả → ảnh   | OK      | 1024px     |
-| 3   |              | Tạo ảnh chất lượng cao (Pro)  | Model `img-gemini-pro`, nhập mô tả → ảnh     | OK      | Lên đến 4K |
+| STT | Nhóm             | Tính năng                     | Mô tả                                        | Kết quả | Ghi chú                |
+| --- | ---------------- | ----------------------------- | -------------------------------------------- | ------- | -----------------------|
+| 1   | OpenAI           | GPT-Image-1.5                 | Mới nhất, 4x nhanh hơn, 3 cấp chất lượng     | OK      | `img-gpt-image-1.5`    |
+| 2   |                  | GPT-Image-1                   | Chất lượng cao, 3 cấp độ                     | OK      | `img-gpt-image-1`      |
+| 3   | Google           | Gemini 3.1 Flash Image        | Tạo ảnh nhanh, chi phí thấp                  | OK      | `img-gemini-3.1-flash` |
+| 4   |                  | Gemini 3 Pro Image            | Chất lượng cao                               | OK      | `img-gemini-3-pro`     |
+| 5   | xAI              | Grok Imagine                  | Tiêu chuẩn, $0.05/ảnh                        | OK      | `img-grok-imagine`     |
+| 6   |                  | Grok Imagine Pro              | Chất lượng cao, $0.10/ảnh                    | OK      | `img-grok-imagine-pro` |
 
 ---
 
@@ -91,7 +92,7 @@
 | STT | Nhóm               | Tính năng                      | Mô tả                                               | Kết quả | Ghi chú                                 |
 | --- | ------------------ | ------------------------------ | --------------------------------------------------- | ------- | --------------------------------------- |
 | 1   | Quản lý Knowledge  | Tạo Knowledge Collection       | Workspace → Knowledge → Create                      | OK      |                                         |
-| 2   |                    | Upload file vào Knowledge      | PDF, DOCX, TXT, CSV, MD, HTML, Excel (max 50MB)     | OK      |                                         |
+| 2   |                    | Upload file vào Knowledge      | PDF, DOCX, TXT, CSV, MD, HTML, Excel (max 2048MB)   | OK      |                                         |
 | 3   |                    | Xoá file khỏi Knowledge        | Xoá file → xoá luôn vector embeddings               | OK      | CASCADE delete                          |
 | 4   |                    | Access control Knowledge       | Giới hạn quyền truy cập theo user/group             | OK      |                                         |
 | 5   | Sử dụng trong chat | Gọi Knowledge bằng `#`         | Gõ `#tên-knowledge` trong chat để chọn              | OK      |                                         |
@@ -100,10 +101,10 @@
 | 8   | Tìm kiếm           | Hybrid Search (BM25 + Vector)  | Kết hợp keyword + semantic search                   | OK      | `ENABLE_RAG_HYBRID_SEARCH=true`         |
 | 9   |                    | HNSW Vector Index              | Approximate nearest neighbor nhanh                  | OK      | m=16, ef_construction=64                |
 | 10  |                    | Citation (trích dẫn nguồn)     | AI trích dẫn tên file và trang nguồn                | OK      |                                         |
-| 11  | Embedding          | Multilingual embedding (local) | Model local, hỗ trợ 50+ ngôn ngữ                    | OK      | `paraphrase-multilingual-MiniLM-L12-v2` |
-| 12  |                    | Không gửi dữ liệu ra ngoài     | Embedding chạy trên server, dữ liệu nội bộ          | OK      | Bảo mật dữ liệu nội bộ                  |
-| 13  | Cấu hình           | Chunk size                     | 1000 ký tự / chunk                                  | OK      | Có thể điều chỉnh                       |
-| 14  |                    | Chunk overlap                  | 200 ký tự overlap giữa các chunks                   | OK      | Giữ context liên tục                    |
+| 11  | Embedding          | Gemini Embedding (API)         | `gemini-embedding-001`, 1536-dim qua Middleware     | OK      | Chi phí: $0.15/1M tokens                |
+| 12  |                    | Text chunks gửi qua Gemini API | Chunks gửi tới Google để embedding,lưu on-premise   | OK      | Cần lưu ý khi truyền dữ liệu nhạy cảm   |
+| 13  | Cấu hình           | Chunk size                     | 1500 ký tự / chunk                                  | OK      | Có thể điều chỉnh                       |
+| 14  |                    | Chunk overlap                  | 100 ký tự overlap giữa các chunks                   | OK      | Giữ context liên tục                    |
 | 15  | Định dạng file     | PDF                            | Extract text từ PDF (có hỗ trợ OCR)                 | OK      |                                         |
 | 16  |                    | Word (.docx)                   | Extract text từ file Word                           | OK      |                                         |
 | 17  |                    | Excel (.xlsx)                  | Extract text từ file Excel                          | OK      |                                         |
@@ -163,13 +164,13 @@
 | 1   | PostgreSQL     | Database chính             | PostgreSQL 16, lưu toàn bộ data hệ thống         | OK        | 32 tables (OW) + 6 (MW)         |
 | 2   |                | PGVector extension         | Vector similarity search cho RAG, HNSW index     | OK        | v0.8.0                          |
 | 3   |                | Persistent storage         | Docker volume `postgres_data` giữ data           | OK        |                                 |
-| 4   | Docker         | 5 containers orchestra     | PostgreSQL + LiteLLM + MW + WebUI + SearXNG      | OK        | `docker compose up -d`          |
+| 4   | Docker         | 9 containers orchestra     | PostgreSQL + LiteLLM + MW + WebUI + SearXNG + Redis + Nginx + Docling | OK | `docker compose up -d` |
 | 5   |                | Health checks              | Tự kiểm tra sức khoẻ, restart nếu lỗi            | OK        | `restart: unless-stopped`       |
 | 6   |                | Auto-restart               | Container tự restart khi server reboot           | OK        |                                 |
 | 7   | Backup         | Manual backup              | `pg_dump` full database                          | Chưa test | Cần chạy thủ công               |
 | 8   | Network        | Internal Docker network    | Giao tiếp qua mạng Docker riêng, nội bộ          | OK        | `openwebui-network`             |
-| 9   | Firewall       | Port 3000 (WebUI)          | Đã mở firewall cho truy cập bên ngoài            | OK        |                                 |
-| 10  |                | Port 5000 (API/Middleware) | Đã mở firewall cho truy cập API                  | OK        |                                 |
+| 9   | Firewall       | Port 3000 (Nginx HTTPS)    | Đã mở firewall, truy cập qua Nginx               | OK        |                                 |
+| 10  |                | Port 5000 (ĐÓNG)           | Không expose ra ngoài, chỉ truy cập nội bộ       | OK        | Truy cập qua Nginx :3000        |
 
 ---
 
