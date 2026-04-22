@@ -237,7 +237,7 @@ Authorization: Bearer admin_master_key_456
 ### Đăng nhập Dashboard
 
 ```http
-POST /dashboard/login
+POST /v1/_mw/dashboard/login
 Content-Type: application/json
 ```
 
@@ -271,7 +271,7 @@ mw_dashboard_token=<jwt_token>; Path=/; HttpOnly; Max-Age=14400
 ### Đăng xuất Dashboard
 
 ```http
-POST /dashboard/logout
+POST /v1/_mw/dashboard/logout
 ```
 
 **Phản hồi:**
@@ -615,7 +615,7 @@ curl -X POST http://localhost:5000/v1/_mw/subkey \
 
 **Đăng nhập Dashboard:**
 ```bash
-curl -X POST http://localhost:5000/dashboard/login \
+curl -X POST http://localhost:5000/v1/_mw/dashboard/login \
   -H "Content-Type: application/json" \
   -c cookies.txt \
   -d '{"username": "admin", "password": "admin_master_key_456"}'

@@ -7,7 +7,7 @@ from typing import Dict, Any
 from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 
-from core.auth import load_users, save_users, get_lock
+from core.auth import load_users, save_users, get_lock, get_user_by_id, update_user_quota
 
 
 def period_anchor_ms(period: str, tz: str) -> int:
@@ -66,6 +66,9 @@ def enforce_and_bump_quota(
     """
     Enforce quota limits and update usage counters.
     
+    Uses O(1) get_user_by_id() instead of loading all users.
+    Uses atomic update_user_quota() instead of save_users() for all.
+    
     Args:
         user_id: User identifier
         apply: Whether to actually increment counters
@@ -77,66 +80,73 @@ def enforce_and_bump_quota(
     Raises:
         HTTPException: 403 if quota exceeded, 404 if user not found
     """
-    lock = get_lock()
-    with lock:
-        users = load_users()
-        for stored_user in users:
-            if stored_user.get("user_id") != user_id:
-                continue
-
-            maybe_reset_quota(stored_user)
-            quota = stored_user.setdefault("quota", {})
-
-            def _enforce_limit(limit_key: str, used_key: str, add_value: float, label: str):
-                """Check if adding value would exceed limit"""
-                limit_val = float(quota.get(limit_key, 0) or 0)
-                if limit_val <= 0:
-                    return
-                used_val = float(quota.get(used_key, 0) or 0)
-                if used_val + add_value > limit_val + 1e-9:
-                    percent = round((used_val + add_value) / limit_val * 100, 1)
-                    if "cost" in limit_key.lower():
-                        detail_msg = f"⚠️ Bạn đã hết quota tháng này (đã dùng ${used_val + add_value:.2f}/${limit_val:.2f}). Vui lòng liên hệ admin để được nâng hạn mức."
-                    else:
-                        detail_msg = f"⚠️ Bạn đã hết quota {label} tháng này ({used_val + add_value:.0f}/{limit_val:.0f}). Vui lòng liên hệ admin để được nâng hạn mức."
-                    raise HTTPException(
-                        403,
-                        detail={
-                            "detail": detail_msg,
-                            "error_code": "QUOTA_EXCEEDED",
-                            "quota_info": {"type": label.lower(), "used": round(used_val + add_value, 4), "limit": round(limit_val, 2), "percent": percent}
-                        },
-                    )
-
-            # Enforce task-specific quotas (best-effort; costs may be unknown until after provider call).
-            if add_image_requests:
-                _enforce_limit("limit_image_requests", "used_image_requests", float(add_image_requests), "Image requests")
-            if add_stt_requests:
-                _enforce_limit("limit_stt_requests", "used_stt_requests", float(add_stt_requests), "STT requests")
-
-            # Existing token/cost quotas.
-            if add_tokens:
-                _enforce_limit("limit_tokens", "used_tokens", float(add_tokens), "Token")
-            if add_cost_usd:
-                _enforce_limit("limit_cost_usd", "used_cost_usd", float(add_cost_usd), "Cost USD")
-
-            if not apply:
-                return
-
-            # Apply increments.
-            if add_image_requests:
-                quota["used_image_requests"] = int(quota.get("used_image_requests", 0) or 0) + int(add_image_requests)
-            if add_stt_requests:
-                quota["used_stt_requests"] = int(quota.get("used_stt_requests", 0) or 0) + int(add_stt_requests)
-
-            if add_tokens:
-                stored_user["used_tokens"] = int(stored_user.get("used_tokens", 0) or 0) + int(add_tokens)
-                quota["used_tokens"] = int(quota.get("used_tokens", 0) or 0) + int(add_tokens)
-            if add_cost_usd:
-                stored_user["used_cost_usd"] = float(stored_user.get("used_cost_usd", 0.0) or 0.0) + float(add_cost_usd)
-                quota["used_cost_usd"] = float(quota.get("used_cost_usd", 0.0) or 0.0) + float(add_cost_usd)
-
-            save_users(users)
-            return
-
+    # O(1) lookup instead of load_users() + loop
+    stored_user = get_user_by_id(user_id)
+    if not stored_user:
         raise HTTPException(404, f"user_id={user_id} not found")
+
+    # Check if quota period needs reset
+    maybe_reset_quota(stored_user)
+    quota = stored_user.setdefault("quota", {})
+
+    # If period was reset, persist the reset (alerts_sent cleared, period_start updated)
+    # This needs lock + save for the reset fields (non-atomic multi-field update)
+    if int(quota.get("period_start", 0)) != int(stored_user.get("_prev_period_start", quota.get("period_start", 0))):
+        from core.auth import save_users
+        lock = get_lock()
+        with lock:
+            users = load_users()
+            for u in users:
+                if u.get("user_id") == user_id:
+                    maybe_reset_quota(u)
+                    break
+            save_users(users)
+        # Re-read after reset
+        stored_user = get_user_by_id(user_id)
+        if not stored_user:
+            raise HTTPException(404, f"user_id={user_id} not found")
+        quota = stored_user.setdefault("quota", {})
+
+    def _enforce_limit(limit_key: str, used_key: str, add_value: float, label: str):
+        """Check if adding value would exceed limit"""
+        limit_val = float(quota.get(limit_key, 0) or 0)
+        if limit_val <= 0:
+            return
+        used_val = float(quota.get(used_key, 0) or 0)
+        if used_val + add_value > limit_val + 1e-9:
+            percent = round((used_val + add_value) / limit_val * 100, 1)
+            if "cost" in limit_key.lower():
+                detail_msg = f"⚠️ Bạn đã hết quota tháng này (đã dùng ${used_val + add_value:.2f}/${limit_val:.2f}). Vui lòng liên hệ admin để được nâng hạn mức."
+            else:
+                detail_msg = f"⚠️ Bạn đã hết quota {label} tháng này ({used_val + add_value:.0f}/{limit_val:.0f}). Vui lòng liên hệ admin để được nâng hạn mức."
+            raise HTTPException(
+                403,
+                detail={
+                    "detail": detail_msg,
+                    "error_code": "QUOTA_EXCEEDED",
+                    "quota_info": {"type": label.lower(), "used": round(used_val + add_value, 4), "limit": round(limit_val, 2), "percent": percent}
+                },
+            )
+
+    # Enforce limits (read-only check, no lock needed)
+    if add_image_requests:
+        _enforce_limit("limit_image_requests", "used_image_requests", float(add_image_requests), "Image requests")
+    if add_stt_requests:
+        _enforce_limit("limit_stt_requests", "used_stt_requests", float(add_stt_requests), "STT requests")
+    if add_tokens:
+        _enforce_limit("limit_tokens", "used_tokens", float(add_tokens), "Token")
+    if add_cost_usd:
+        _enforce_limit("limit_cost_usd", "used_cost_usd", float(add_cost_usd), "Cost USD")
+
+    if not apply:
+        return
+
+    # O(1) atomic update instead of save_users() for all
+    update_user_quota(
+        user_id,
+        add_tokens=add_tokens,
+        add_cost_usd=add_cost_usd,
+        add_image_requests=add_image_requests,
+        add_stt_requests=add_stt_requests,
+    )
+

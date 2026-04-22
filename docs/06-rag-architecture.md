@@ -82,14 +82,13 @@ Open WebUI hỗ trợ nhiều format:
 
 ```python
 # Character-based splitting (cấu hình hiện tại)
-chunk_size = 1000       # Mỗi chunk ≤ 1000 ký tự
-chunk_overlap = 200     # Overlap 200 ký tự để giữ context
+chunk_size = 1500       # Mỗi chunk ≤ 1500 ký tự
+chunk_overlap = 100     # Overlap 100 ký tự để giữ context
 
-# Ví dụ: document 3000 ký tự → 4 chunks
-# Chunk 1: char 0-999
-# Chunk 2: char 800-1799   (overlap 200 từ chunk 1)
-# Chunk 3: char 1600-2599  (overlap 200 từ chunk 2)
-# Chunk 4: char 2400-2999  (overlap 200 từ chunk 3)
+# Ví dụ: document 4000 ký tự → 3 chunks
+# Chunk 1: char 0-1499
+# Chunk 2: char 1400-2899   (overlap 100 từ chunk 1)
+# Chunk 3: char 2800-3999   (overlap 100 từ chunk 2)
 ```
 
 **Tại sao overlap?** Để tránh mất context tại ranh giới chunk. Một câu bị cắt giữa chừng sẽ xuất hiện đầy đủ trong chunk kế tiếp.
@@ -360,7 +359,7 @@ RAG_EMBEDDING_OPENAI_API_BASE_URL: http://middleware:5000/v1
            │
            ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  1. Embed query → vector(384)                                │
+│  1. Embed query → vector(1536)                               │
 │  2. SELECT * FROM document_chunk                             │
 │     WHERE collection_name = ?                                │
 │     ORDER BY vector <=> query_vector                         │

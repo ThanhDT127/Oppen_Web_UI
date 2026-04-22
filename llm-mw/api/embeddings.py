@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 import httpx
 
 from config import LITELLM_BASE, LITELLM_KEY, logger
-from core.auth import require_user, load_users, save_users, get_lock
+from core.auth import require_user, update_user_quota
 from core.quota import maybe_reset_quota
 from core.cost import load_prices
 from core.audit_state import init_audit_state, set_usage_state, set_error_state
@@ -124,15 +124,12 @@ async def create_embeddings(request: Request):
         prices = load_prices()
         cost_usd = _calc_embedding_cost(model, total_tokens, prices)
     
-    # ── Update user quota ──
-    with get_lock():
-        users = load_users()
-        for u in users:
-            if u["user_id"] == user_id:
-                u["used_tokens"] = u.get("used_tokens", 0) + total_tokens
-                u["used_cost_usd"] = u.get("used_cost_usd", 0.0) + cost_usd
-                break
-        save_users(users)
+    # ── Update user quota ── O(1) atomic update
+    update_user_quota(
+        user_id,
+        add_tokens=total_tokens,
+        add_cost_usd=cost_usd,
+    )
     
     # ── Audit ──
     set_usage_state(
