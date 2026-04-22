@@ -279,3 +279,117 @@ def assert_model_allowed(user: Dict[str, Any], model: str):
 def get_lock() -> Lock:
     """Get the shared thread lock for user operations."""
     return _lock
+
+
+# ─── Single-user O(1) API ─────────────────────────────────────
+
+def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a single user by user_id. O(1) indexed query.
+    Uses DB if available, falls back to JSON file linear search.
+    """
+    if _db_available():
+        from core.db import get_user_by_id_db
+        return get_user_by_id_db(user_id)
+    # File fallback: linear search (unavoidable without index)
+    for u in _load_users_file():
+        if u.get("user_id") == user_id:
+            return u
+    return None
+
+
+def _update_user_in_file(user_id: str, updates: Dict[str, Any]):
+    """
+    Update a single user entry in the JSON backup file.
+    Reads file → modifies one entry → writes back.
+    For quota increments, use keys prefixed with '_add_' (e.g. _add_used_tokens).
+    """
+    if not os.path.exists(USERS_FILE):
+        return
+    try:
+        with open(USERS_FILE, "r", encoding="utf-8-sig") as f:
+            users = json.load(f)
+
+        for u in users:
+            if u.get("user_id") != user_id:
+                continue
+            for key, value in updates.items():
+                if key.startswith("_add_"):
+                    # Increment mode: _add_used_tokens=500 → used_tokens += 500
+                    real_key = key[5:]  # strip '_add_'
+                    if "." in real_key:
+                        # Nested: _add_quota.used_tokens → quota["used_tokens"] += value
+                        parts = real_key.split(".", 1)
+                        sub = u.setdefault(parts[0], {})
+                        sub[parts[1]] = (sub.get(parts[1]) or 0) + value
+                    else:
+                        u[real_key] = (u.get(real_key) or 0) + value
+                else:
+                    # Replace mode
+                    if "." in key:
+                        parts = key.split(".", 1)
+                        sub = u.setdefault(parts[0], {})
+                        sub[parts[1]] = value
+                    else:
+                        u[key] = value
+            break
+
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(users, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass  # File backup is best-effort
+
+
+def update_user_quota(
+    user_id: str,
+    *,
+    add_tokens: int = 0,
+    add_cost_usd: float = 0.0,
+    add_image_requests: int = 0,
+    add_stt_requests: int = 0,
+) -> bool:
+    """
+    Atomically increment quota counters for a single user. O(1).
+    Updates DB (atomic SQL) + JSON file backup.
+    Returns True if user was found and updated.
+    """
+    updated = False
+    if _db_available():
+        from core.db import update_user_quota_db
+        updated = update_user_quota_db(
+            user_id,
+            add_tokens=add_tokens,
+            add_cost_usd=add_cost_usd,
+            add_image_requests=add_image_requests,
+            add_stt_requests=add_stt_requests,
+        )
+    # Always update JSON file backup
+    file_updates = {}
+    if add_tokens:
+        file_updates["_add_used_tokens"] = add_tokens
+        file_updates["_add_quota.used_tokens"] = add_tokens
+    if add_cost_usd:
+        file_updates["_add_used_cost_usd"] = add_cost_usd
+        file_updates["_add_quota.used_cost_usd"] = add_cost_usd
+    if add_image_requests:
+        file_updates["_add_quota.used_image_requests"] = add_image_requests
+    if add_stt_requests:
+        file_updates["_add_quota.used_stt_requests"] = add_stt_requests
+    if file_updates:
+        _update_user_in_file(user_id, file_updates)
+    return updated
+
+
+def update_user_alerts(user_id: str, alerts_sent: dict) -> bool:
+    """
+    Update alerts_sent field for a single user. O(1).
+    Updates DB + JSON file backup.
+    Returns True if user was found and updated.
+    """
+    updated = False
+    if _db_available():
+        from core.db import update_user_alerts_db
+        updated = update_user_alerts_db(user_id, alerts_sent)
+    # Always update JSON file backup
+    _update_user_in_file(user_id, {"alerts_sent": alerts_sent})
+    return updated

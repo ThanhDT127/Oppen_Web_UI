@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
 
 from config import LITELLM_BASE, LITELLM_KEY, logger
-from core.auth import require_user, assert_model_allowed, load_users, save_users, get_lock
+from core.auth import require_user, assert_model_allowed
 from core.quota import maybe_reset_quota, enforce_and_bump_quota
 from core.cost import calc_cost_usd, append_pending, remove_pending, load_prices, calc_image_cost_from_body
 from core.audit_state import init_audit_state, set_usage_state, set_error_state, set_counters
@@ -650,21 +650,14 @@ async def _finalize_streaming(request: Request, user: dict, model: str, request_
             prices = load_prices()
             cost_usd = calc_cost_usd(model, prompt_tokens, completion_tokens, prices)
         
-        # Bump quota (CRITICAL for billing)
+        # Bump quota (CRITICAL for billing) — O(1) atomic update
         if total_tokens > 0 or cost_usd > 0:
-            lock = get_lock()
-            with lock:
-                users = load_users()
-                for u in users:
-                    if u.get("user_id") == user["user_id"]:
-                        maybe_reset_quota(u)
-                        u["used_tokens"] = u.get("used_tokens", 0) + total_tokens
-                        u["used_cost_usd"] = u.get("used_cost_usd", 0.0) + cost_usd
-                        quota = u.setdefault("quota", {})
-                        quota["used_tokens"] = quota.get("used_tokens", 0) + total_tokens
-                        quota["used_cost_usd"] = quota.get("used_cost_usd", 0.0) + cost_usd
-                        break
-                save_users(users)
+            from core.auth import update_user_quota
+            update_user_quota(
+                user["user_id"],
+                add_tokens=total_tokens,
+                add_cost_usd=cost_usd,
+            )
             
             # Alert check (after quota bump, streaming already sent)
             asyncio.create_task(

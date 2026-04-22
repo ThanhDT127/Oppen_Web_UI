@@ -224,6 +224,8 @@ llm-mw/
     cost.py                # Tra cứu giá, tính chi phí, kiểm tra quota
     db.py                  # PostgreSQL pool, schema, CRUD
     alerting.py            # Cảnh báo quota, thông báo
+    notification.py        # Daily digest scheduler, notification logic
+    audit_state.py         # Per-request audit state tracking
   api/
     user_admin.py          # CRUD user, xoay khóa, xóa
     summary.py             # Tổng hợp metrics (v1)
@@ -232,6 +234,16 @@ llm-mw/
     access_logs.py         # Nhật ký truy cập phân trang
     audit_query.py         # Truy vấn audit trail admin
     models.py              # Danh sách models
+    quota_status.py        # Trạng thái quota user real-time
+    notifications.py       # Hệ thống thông báo nội bộ
+    auth_check.py          # Kiểm tra xác thực session
+    auth_test.py           # Endpoint test auth (diagnostic)
+    dashboard_login.py     # Đăng nhập/đăng xuất dashboard
+    images.py              # Sinh ảnh (image generation)
+    embeddings.py          # Tạo vector embeddings
+    audio.py               # Chuyển đổi giọng nói → văn bản (STT)
+    media.py               # Phục vụ file media
+  services/                # Background services & schedulers
   dashboard/
     index.html             # Điểm vào SPA
     css/dashboard.css      # Giao diện
@@ -245,6 +257,8 @@ llm-mw/
   data/
     users.json             # Bản sao lưu user (nguồn: DB)
     prices.json            # Bản sao lưu giá (nguồn: DB)
+    alert_config.json      # Cấu hình cảnh báo quota
+    system_alerts.json     # Trạng thái cảnh báo hệ thống
 ```
 
 ---
@@ -375,7 +389,7 @@ curl -k https://localhost:3000/
 Mục đích: Đồng bộ pending requests với LiteLLM logs (tính cost chính xác cho streaming).
 
 - Tần suất: Tự động, triggered sau mỗi streaming response
-- Endpoint: POST /v1/_mw/admin/reconcile
+- Endpoint: POST /admin/reconcile
 - Phương thức: Đọc LiteLLM logs > match rid > cập nhật tokens/cost
 
 ### 3.2. Quota Reset
@@ -401,7 +415,7 @@ Mục đích: Gửi cảnh báo khi user gần hết quota.
 docker compose logs middleware | findstr "scheduler"
 
 # Reconcile thủ công
-curl -X POST http://localhost:5000/v1/_mw/admin/reconcile -H "X-Admin-Key: YOUR_ADMIN_KEY"
+curl -X POST http://localhost:5000/admin/reconcile -H "X-Admin-Key: YOUR_ADMIN_KEY"
 
 # Reset quota thủ công cho 1 user
 curl -X POST http://localhost:5000/admin/reset -H "X-Admin-Key: YOUR_ADMIN_KEY" -H "Content-Type: application/json" -d "{\"user_id\": \"user1\"}"
@@ -606,6 +620,16 @@ curl -X POST http://localhost:5000/v1/_mw/admin/users/alice/enable \
 # Danh sách tất cả users
 curl http://localhost:5000/v1/_mw/admin/users \
   -H "X-Admin-Key: YOUR_ADMIN_KEY"
+
+# Đăng nhập Dashboard (lấy JWT cookie)
+curl -X POST http://localhost:5000/v1/_mw/dashboard/login \
+  -H "Content-Type: application/json" \
+  -c cookies.txt \
+  -d "{\"username\":\"admin\",\"password\":\"YOUR_ADMIN_KEY\"}"
+
+# Đăng xuất Dashboard
+curl -X POST http://localhost:5000/v1/_mw/dashboard/logout \
+  -b cookies.txt
 ```
 
 ### 6.4. Phân quyền (RBAC)

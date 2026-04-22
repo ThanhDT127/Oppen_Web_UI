@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
 from config import DATA_DIR, BACKUP_DATA_DIR, logger
-from core.auth import load_users, save_users, get_lock
+from core.auth import load_users, save_users, get_lock, get_user_by_id, update_user_alerts
 
 
 # ─── File paths ───────────────────────────────────────────────
@@ -155,106 +155,108 @@ async def check_and_send_alerts(user_id: str, add_cost_usd: float = 0.0):
         pending_emails = []
         pending_notifications = []
 
-        lock = get_lock()
-        with lock:
-            users = load_users()
+        # O(1) lookup instead of load_users() + loop
+        user = get_user_by_id(user_id)
 
-            # ═══════════════════════════════════════════
-            # CHECK 1: Per-user quota → dashboard + user email
-            # ═══════════════════════════════════════════
-            user = next((u for u in users if u.get("user_id") == user_id), None)
-            if user:
-                quota = user.get("quota", {})
-                limit_cost = float(quota.get("limit_cost_usd", 0) or 0)
-                used_cost = float(quota.get("used_cost_usd", 0) or 0)
+        # ═══════════════════════════════════════════
+        # CHECK 1: Per-user quota → dashboard + user email
+        # ═══════════════════════════════════════════
+        if user:
+            quota = user.get("quota", {})
+            limit_cost = float(quota.get("limit_cost_usd", 0) or 0)
+            used_cost = float(quota.get("used_cost_usd", 0) or 0)
 
-                if limit_cost > 0:
-                    percent = (used_cost / limit_cost) * 100
-                    alerts_sent = user.setdefault("alerts_sent", {})
+            if limit_cost > 0:
+                percent = (used_cost / limit_cost) * 100
+                alerts_sent = user.setdefault("alerts_sent", {})
 
-                    # Admin dashboard thresholds
-                    admin_thresholds = admin_alerts_cfg.get("per_user_quota", {}).get("thresholds", [80, 95, 100])
-                    # User email thresholds
-                    user_cfg = config.get("user_alerts", {})
-                    user_thresholds = user_cfg.get("thresholds", [80, 95, 100])
-                    user_email_enabled = user_cfg.get("enabled") and user_cfg.get("send_email") and smtp_enabled
+                # Admin dashboard thresholds
+                admin_thresholds = admin_alerts_cfg.get("per_user_quota", {}).get("thresholds", [80, 95, 100])
+                # User email thresholds
+                user_cfg = config.get("user_alerts", {})
+                user_thresholds = user_cfg.get("thresholds", [80, 95, 100])
+                user_email_enabled = user_cfg.get("enabled") and user_cfg.get("send_email") and smtp_enabled
 
-                    # Merge all thresholds, use unified key
-                    all_thresholds = sorted(set(admin_thresholds + user_thresholds))
+                # Merge all thresholds, use unified key
+                all_thresholds = sorted(set(admin_thresholds + user_thresholds))
+                alerts_changed = False
 
-                    for threshold in all_thresholds:
-                        key = f"alert_{threshold}"  # Unified key — prevents duplicates
-                        if percent >= threshold and key not in alerts_sent:
-                            # Determine level
-                            if threshold >= 100:
-                                level = "critical"
-                                notif_type = "quota_blocked"
-                                send_admin_email = True
-                            elif threshold >= 95:
-                                level = "warning"
-                                notif_type = "quota_critical"
-                                send_admin_email = False
-                            else:
-                                level = "info"
-                                notif_type = "quota_warning"
-                                send_admin_email = False
+                for threshold in all_thresholds:
+                    key = f"alert_{threshold}"  # Unified key — prevents duplicates
+                    if percent >= threshold and key not in alerts_sent:
+                        # Determine level
+                        if threshold >= 100:
+                            level = "critical"
+                            notif_type = "quota_blocked"
+                            send_admin_email = True
+                        elif threshold >= 95:
+                            level = "warning"
+                            notif_type = "quota_critical"
+                            send_admin_email = False
+                        else:
+                            level = "info"
+                            notif_type = "quota_warning"
+                            send_admin_email = False
 
-                            title = f"User {user_id} đạt {threshold}% quota"
-                            message = (
-                                f"User {user_id} đã sử dụng ${used_cost:.2f}/${limit_cost:.2f} ({percent:.0f}%). "
-                                f"Còn lại: ${limit_cost - used_cost:.2f}"
-                            )
-                            metadata = {
-                                "user_id": user_id,
-                                "percent": round(percent, 1),
-                                "used_usd": round(used_cost, 4),
-                                "limit_usd": round(limit_cost, 2),
-                                "threshold": threshold,
-                            }
+                        title = f"User {user_id} đạt {threshold}% quota"
+                        message = (
+                            f"User {user_id} đã sử dụng ${used_cost:.2f}/${limit_cost:.2f} ({percent:.0f}%). "
+                            f"Còn lại: ${limit_cost - used_cost:.2f}"
+                        )
+                        metadata = {
+                            "user_id": user_id,
+                            "percent": round(percent, 1),
+                            "used_usd": round(used_cost, 4),
+                            "limit_usd": round(limit_cost, 2),
+                            "threshold": threshold,
+                        }
 
-                            # Queue dashboard notification
-                            pending_notifications.append({
-                                "user_id": user_id,
-                                "type": notif_type,
-                                "level": level,
-                                "title": title,
-                                "message": message,
-                                "metadata": metadata,
-                                "send_email_realtime": send_admin_email,
-                            })
+                        # Queue dashboard notification
+                        pending_notifications.append({
+                            "user_id": user_id,
+                            "type": notif_type,
+                            "level": level,
+                            "title": title,
+                            "message": message,
+                            "metadata": metadata,
+                            "send_email_realtime": send_admin_email,
+                        })
 
-                            # Queue user email (if enabled)
-                            if user_email_enabled and threshold in user_thresholds:
-                                user_email = _get_user_email(user_id)
-                                if user_email:
-                                    pending_emails.append({
-                                        "type": "user_quota",
-                                        "to": user_email,
-                                        "user_id": user_id,
-                                        "threshold": threshold,
-                                        "used": used_cost,
-                                        "limit": limit_cost,
-                                        "percent": percent,
-                                    })
+                        # Queue user email (if enabled)
+                        if user_email_enabled and threshold in user_thresholds:
+                            user_email = _get_user_email(user_id)
+                            if user_email:
+                                pending_emails.append({
+                                    "type": "user_quota",
+                                    "to": user_email,
+                                    "user_id": user_id,
+                                    "threshold": threshold,
+                                    "used": used_cost,
+                                    "limit": limit_cost,
+                                    "percent": percent,
+                                })
 
-                            # Mark as sent (unified key)
-                            alerts_sent[key] = datetime.now(timezone.utc).isoformat()
-                            logger.info(
-                                "alert_threshold user=%s threshold=%d%% level=%s",
-                                user_id, threshold, level
-                            )
+                        # Mark as sent (unified key)
+                        alerts_sent[key] = datetime.now(timezone.utc).isoformat()
+                        alerts_changed = True
+                        logger.info(
+                            "alert_threshold user=%s threshold=%d%% level=%s",
+                            user_id, threshold, level
+                        )
 
-            # ═══════════════════════════════════════════
-            # CHECK 2: Per-provider API budget → notify ADMIN
-            # ═══════════════════════════════════════════
-            api_budgets = admin_alerts_cfg.get("api_budgets", {})
-            if api_budgets and admin_emails:
-                _check_provider_budget_alerts(
-                    config, api_budgets, admin_emails,
-                    pending_notifications, pending_emails
-                )
+            # Persist alerts_sent if changed — O(1) update
+            if alerts_changed:
+                update_user_alerts(user_id, alerts_sent)
 
-            save_users(users)
+        # ═══════════════════════════════════════════
+        # CHECK 2: Per-provider API budget → notify ADMIN
+        # ═══════════════════════════════════════════
+        api_budgets = admin_alerts_cfg.get("api_budgets", {})
+        if api_budgets and admin_emails:
+            _check_provider_budget_alerts(
+                config, api_budgets, admin_emails,
+                pending_notifications, pending_emails
+            )
 
         # ═══════════════════════════════════════════
         # OUTSIDE LOCK: send notifications + emails (non-blocking)
@@ -523,8 +525,7 @@ def get_user_quota_status(user_id: str) -> dict:
     """
     from core.quota import maybe_reset_quota
 
-    users = load_users()
-    user = next((u for u in users if u.get("user_id") == user_id), None)
+    user = get_user_by_id(user_id)
 
     if not user:
         return {"found": False}

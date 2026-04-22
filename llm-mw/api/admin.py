@@ -6,7 +6,7 @@ import json
 from fastapi import Request, HTTPException
 
 from config import ADMIN_KEY
-from core.auth import load_users, save_users, get_lock
+from core.auth import load_users, save_users, get_lock, get_user_by_id, update_user_quota
 from core.quota import maybe_reset_quota
 from core.cost import load_prices, calc_cost_usd
 from services.litellm import find_usage_in_log
@@ -99,21 +99,16 @@ async def reconcile_usage(request: Request):
     prices = load_prices()
     cost_usd = logged_cost_f if logged_cost_f > 0 else calc_cost_usd(model, prompt_tokens, completion_tokens, prices)
 
-    lock = get_lock()
-    with lock:
-        users = load_users()
-        for stored_user in users:
-            if stored_user.get("user_id") == user_id:
-                maybe_reset_quota(stored_user)
-                quota_info = stored_user.setdefault("quota", {})
-                stored_user["used_tokens"] = int(stored_user.get("used_tokens", 0)) + total_tokens
-                stored_user["used_cost_usd"] = float(stored_user.get("used_cost_usd", 0.0)) + cost_usd
-                quota_info["used_tokens"] = int(quota_info.get("used_tokens", 0)) + total_tokens
-                quota_info["used_cost_usd"] = float(quota_info.get("used_cost_usd", 0.0)) + cost_usd
-                break
-        else:
-            raise HTTPException(404, f"user_id={user_id} not found")
-        save_users(users)
+    # O(1) lookup + atomic update instead of load-all → modify → save-all
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, f"user_id={user_id} not found")
+
+    update_user_quota(
+        user_id,
+        add_tokens=total_tokens,
+        add_cost_usd=cost_usd,
+    )
 
     from core.cost import remove_pending
     from utils.logging import write_audit_line

@@ -13,7 +13,7 @@ from fastapi import Request, HTTPException
 from pydantic import BaseModel
 
 from config import USERS_FILE, MW_SECRET, LOG_DIR, BACKUP_LOG_DIR, logger
-from core.auth import load_users, save_users, hash_subkey, find_user, delete_user as auth_delete_user
+from core.auth import load_users, save_users, hash_subkey, find_user, delete_user as auth_delete_user, get_user_by_id
 from threading import Lock
 import os
 from logging.handlers import RotatingFileHandler
