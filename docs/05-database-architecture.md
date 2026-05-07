@@ -25,10 +25,10 @@ Volume:           postgres_data (persistent)
 
 ### 1.2. Extensions
 
-| Extension           | Version | Mục đích                         |
-| ------------------- | ------- | -------------------------------- |
-| `vector` (PGVector) | 0.8.0   | Vector similarity search cho RAG |
-| `plpgsql`           | 1.0     | Procedural language (built-in)   |
+| STT | Extension           | Version | Mục đích                         |
+| --- | ------------------- | ------- | -------------------------------- |
+| 01  | `vector` (PGVector) | 0.8.0   | Vector similarity search cho RAG |
+| 02  | `plpgsql`           | 1.0     | Procedural language (built-in)   |
 
 ---
 
@@ -361,23 +361,23 @@ Referenced by: channel_file
 
 ### 3.13. Các table phụ trợ
 
-| Table                                                             | Mục đích                      |
-| ----------------------------------------------------------------- | ----------------------------- |
-| `api_key`                                                         | API keys cho external access  |
-| `config`                                                          | System configuration (JSON)   |
-| `feedback`                                                        | User feedback trên responses  |
-| `folder`                                                          | Chat folder organization      |
-| `function`                                                        | Custom Python functions       |
-| `group` + `group_member`                                          | User groups                   |
-| `channel` + `channel_member` + `channel_webhook` + `channel_file` | Channels (team chat)          |
-| `chatidtag` + `tag`                                               | Chat tagging system           |
-| `message_reaction`                                                | Reactions trên messages       |
-| `note`                                                            | User notes                    |
-| `oauth_session`                                                   | OAuth login sessions          |
-| `prompt`                                                          | Saved prompt templates        |
-| `tool`                                                            | Custom tools                  |
-| `alembic_version`                                                 | DB migration version tracking |
-| `migratehistory`                                                  | Migration history             |
+| STT | Table                                                             | Mục đích                      |
+| --- | ----------------------------------------------------------------- | ----------------------------- |
+| 01  | `api_key`                                                         | API keys cho external access  |
+| 02  | `config`                                                          | System configuration (JSON)   |
+| 03  | `feedback`                                                        | User feedback trên responses  |
+| 04  | `folder`                                                          | Chat folder organization      |
+| 05  | `function`                                                        | Custom Python functions       |
+| 06  | `group` + `group_member`                                          | User groups                   |
+| 07  | `channel` + `channel_member` + `channel_webhook` + `channel_file` | Channels (team chat)          |
+| 08  | `chatidtag` + `tag`                                               | Chat tagging system           |
+| 09  | `message_reaction`                                                | Reactions trên messages       |
+| 10  | `note`                                                            | User notes                    |
+| 11  | `oauth_session`                                                   | OAuth login sessions          |
+| 12  | `prompt`                                                          | Saved prompt templates        |
+| 13  | `tool`                                                            | Custom tools                  |
+| 14  | `alembic_version`                                                 | DB migration version tracking |
+| 15  | `migratehistory`                                                  | Migration history             |
 
 ---
 
@@ -535,15 +535,15 @@ ix_chat_file_chat_id, ix_chat_file_file_id
 
 ## 5. Data Size & Statistics (Hiện tại)
 
-| Metric                      | Giá trị                                 |
-| --------------------------- | --------------------------------------- |
-| Tổng tables (openwebui DB)  | 32                                      |
-| Tổng tables (middleware DB) | 6                                       |
-| Tổng indexes                | 65+                                     |
-| DB Extensions               | vector (pgvector 0.8.0)                 |
-| Document chunks             | 1 chunk (collection: "knowledge-bases") |
-| document_chunk table size   | ~80 KB                                  |
-| Index method                | HNSW (cosine similarity)                |
+| STT | Metric                      | Giá trị                                 |
+| --- | --------------------------- | --------------------------------------- |
+| 01  | Tổng tables (openwebui DB)  | 32                                      |
+| 02  | Tổng tables (middleware DB) | 6                                       |
+| 03  | Tổng indexes                | 65+                                     |
+| 04  | DB Extensions               | vector (pgvector 0.8.0)                 |
+| 05  | Document chunks             | 1 chunk (collection: "knowledge-bases") |
+| 06  | document_chunk table size   | ~80 KB                                  |
+| 07  | Index method                | HNSW (cosine similarity)                |
 
 ---
 
@@ -551,13 +551,13 @@ ix_chat_file_chat_id, ix_chat_file_file_id
 
 ### 6.1. PGVector Performance Benchmarks
 
-| Số vectors | HNSW Index Build | Search Latency | RAM Usage |
-| ---------- | ---------------- | -------------- | --------- |
-| 1,000      | < 1 giây         | < 1ms          | ~6 MB     |
-| 10,000     | ~5 giây          | < 5ms          | ~60 MB    |
-| 100,000    | ~1 phút          | < 10ms         | ~600 MB   |
-| 1,000,000  | ~10 phút         | < 50ms         | ~6 GB     |
-| 10,000,000 | ~2 giờ           | < 100ms        | ~60 GB    |
+| STT | Số vectors | HNSW Index Build | Search Latency | RAM Usage |
+| --- | ---------- | ---------------- | -------------- | --------- |
+| 01  | 1,000      | < 1 giây         | < 1ms          | ~6 MB     |
+| 02  | 10,000     | ~5 giây          | < 5ms          | ~60 MB    |
+| 03  | 100,000    | ~1 phút          | < 10ms         | ~600 MB   |
+| 04  | 1,000,000  | ~10 phút         | < 50ms         | ~6 GB     |
+| 05  | 10,000,000 | ~2 giờ           | < 100ms        | ~60 GB    |
 
 > Với vector(1536) (Gemini embedding-001, giảm từ 3072 native): mỗi vector = 1536 × 4 bytes = 6.14 KB raw data
 
@@ -576,13 +576,13 @@ SET max_parallel_workers_per_gather = 4;
 
 ### 6.3. Giới hạn
 
-| Giới hạn              | Giá trị                     |
-| --------------------- | --------------------------- |
-| Max vector dimensions | 16,000 (PGVector limit)     |
-| Max rows/table        | ~2 tỷ (PostgreSQL limit)    |
-| Max database size     | Unlimited (disk-limited)    |
-| Max connections       | 100 (default, configurable) |
-| Docker volume         | Unlimited (disk-limited)    |
+| STT | Giới hạn              | Giá trị                     |
+| --- | --------------------- | --------------------------- |
+| 01  | Max vector dimensions | 16,000 (PGVector limit)     |
+| 02  | Max rows/table        | ~2 tỷ (PostgreSQL limit)    |
+| 03  | Max database size     | Unlimited (disk-limited)    |
+| 04  | Max connections       | 100 (default, configurable) |
+| 05  | Docker volume         | Unlimited (disk-limited)    |
 
 ---
 
@@ -633,42 +633,42 @@ docker run --rm -v oppen_web_ui_openwebui_data:/data -v $(pwd):/backup \
 
 ### 8.1. Đang có (Hiện tại)
 
-| Feature                        | Status    |
-| ------------------------------ | --------- |
-| PostgreSQL 16 + PGVector 0.8.0 | ✅ Active |
-| HNSW vector index              | ✅ Active |
-| Knowledge Collections          | ✅ Active |
-| File uploads (PDF, DOCX, TXT)  | ✅ Active |
-| Hybrid Search (BM25 + Vector)  | ✅ Active |
-| User authentication            | ✅ Active |
-| Chat history persistence       | ✅ Active |
-| User memory                    | ✅ Active |
-| Channels (team chat)           | ✅ Active |
-| Persistent Docker volumes      | ✅ Active |
+| STT | Feature                        | Status    |
+| --- | ------------------------------ | --------- |
+| 01  | PostgreSQL 16 + PGVector 0.8.0 | ✅ Active |
+| 02  | HNSW vector index              | ✅ Active |
+| 03  | Knowledge Collections          | ✅ Active |
+| 04  | File uploads (PDF, DOCX, TXT)  | ✅ Active |
+| 05  | Hybrid Search (BM25 + Vector)  | ✅ Active |
+| 06  | User authentication            | ✅ Active |
+| 07  | Chat history persistence       | ✅ Active |
+| 08  | User memory                    | ✅ Active |
+| 09  | Channels (team chat)           | ✅ Active |
+| 10  | Persistent Docker volumes      | ✅ Active |
 
 ### 8.2. Đã cấu hình nhưng chưa tận dụng
 
-| Feature                  | Status       | Ghi chú                         |
-| ------------------------ | ------------ | ------------------------------- |
-| Groups & Access Control  | ⚠️ Chưa dùng | Tables có nhưng chưa tạo groups |
-| Custom Functions & Tools | ⚠️ Chưa dùng | Infrastructure sẵn sàng         |
-| Prompt Templates         | ⚠️ Chưa dùng | Table `prompt` trống            |
-| Notes                    | ⚠️ Chưa dùng | Table `note` trống              |
-| Feedback system          | ⚠️ Chưa dùng | Table `feedback` trống          |
+| STT | Feature                  | Status       | Ghi chú                         |
+| --- | ------------------------ | ------------ | ------------------------------- |
+| 01  | Groups & Access Control  | ⚠️ Chưa dùng | Tables có nhưng chưa tạo groups |
+| 02  | Custom Functions & Tools | ⚠️ Chưa dùng | Infrastructure sẵn sàng         |
+| 03  | Prompt Templates         | ⚠️ Chưa dùng | Table `prompt` trống            |
+| 04  | Notes                    | ⚠️ Chưa dùng | Table `note` trống              |
+| 05  | Feedback system          | ⚠️ Chưa dùng | Table `feedback` trống          |
 
 ### 8.3. Có thể nâng cấp (Kế hoạch tương lai)
 
-| Feature                     | Cách làm                                                                    |
-| --------------------------- | --------------------------------------------------------------------------- |
-| Better Vietnamese support   | Đổi embedding model sang multilingual                                       |
-| Larger file uploads         | Tăng `RAG_FILE_MAX_SIZE`                                                    |
-| More users                  | Tạo sub-keys và groups                                                      |
-| External embedding (OpenAI) | Set `RAG_EMBEDDING_ENGINE=openai`                                           |
-| Full-text search (FTS)      | `CREATE INDEX ON document_chunk USING GIN(to_tsvector('vietnamese', text))` |
-| Document version control    | Custom tool hoặc function                                                   |
-| Scheduled backup            | Cron job + pg_dump                                                          |
-| Read replicas               | PostgreSQL streaming replication                                            |
-| Connection pooling          | PgBouncer container                                                         |
+| STT | Feature                     | Cách làm                                                                    |
+| --- | --------------------------- | --------------------------------------------------------------------------- |
+| 01  | Better Vietnamese support   | Đổi embedding model sang multilingual                                       |
+| 02  | Larger file uploads         | Tăng `RAG_FILE_MAX_SIZE`                                                    |
+| 03  | More users                  | Tạo sub-keys và groups                                                      |
+| 04  | External embedding (OpenAI) | Set `RAG_EMBEDDING_ENGINE=openai`                                           |
+| 05  | Full-text search (FTS)      | `CREATE INDEX ON document_chunk USING GIN(to_tsvector('vietnamese', text))` |
+| 06  | Document version control    | Custom tool hoặc function                                                   |
+| 07  | Scheduled backup            | Cron job + pg_dump                                                          |
+| 08  | Read replicas               | PostgreSQL streaming replication                                            |
+| 09  | Connection pooling          | PgBouncer container                                                         |
 
 ---
 

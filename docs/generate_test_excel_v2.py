@@ -142,6 +142,7 @@ TEST_CASES = [
     # xAI Grok
     ('USER', 'Chọn Model', 'Grok 4.20 Reasoning (xAI)', 'Chọn grok-4.20-reasoning → hỏi 1 câu', 'Reasoning mạnh, trả lời chi tiết'),
     ('USER', 'Chọn Model', 'Grok 4-1 Fast (xAI)', 'Chọn grok-4-1-fast-reasoning → hỏi 1 câu', 'Trả lời nhanh, chi phí thấp'),
+    ('USER', 'Chọn Model', 'Grok 4-1 Fast Lite (xAI)', 'Chọn grok-4-1-fast-non-reasoning → hỏi 1 câu', 'Fastest, no reasoning, chi phí thấp nhất'),
     # Anthropic Claude
     ('USER', 'Chọn Model', 'Claude Opus 4.6 (Anthropic)', 'Chọn claude-opus-4-6 → hỏi 1 câu', 'Flagship Anthropic, chất lượng cao'),
     ('USER', 'Chọn Model', 'Claude Sonnet 4.6 (Anthropic)', 'Chọn claude-sonnet-4-6 → hỏi 1 câu', 'Cân bằng giá/chất lượng'),

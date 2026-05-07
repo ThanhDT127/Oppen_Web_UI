@@ -24,11 +24,11 @@ Request flow: Open WebUI → Middleware → LiteLLM (inject cache_control) → A
 
 **Chi phí:**
 
-| Loại | Claude Opus 4.6 | Sonnet 4.6 | Haiku 4.5 |
-|------|------------------|------------|-----------|
-| Input thường | $5.00/MTok | $3.00/MTok | $1.00/MTok |
-| Cache write (+25%) | $6.25/MTok | $3.75/MTok | $1.25/MTok |
-| Cache read (-90%) | **$0.50/MTok** | **$0.30/MTok** | **$0.10/MTok** |
+| STT | Loại               | Claude Opus 4.6 | Sonnet 4.6     | Haiku 4.5      |
+| --- | ------------------ | --------------- | -------------- | -------------- |
+| 01  | Input thường       | $5.00/MTok      | $3.00/MTok     | $1.00/MTok     |
+| 02  | Cache write (+25%) | $6.25/MTok      | $3.75/MTok     | $1.25/MTok     |
+| 03  | Cache read (-90%)  | **$0.50/MTok**  | **$0.30/MTok** | **$0.10/MTok** |
 
 **Break-even:** Sau ~2 requests với cùng system prompt, chi phí caching đã có lời.
 
@@ -54,20 +54,20 @@ Google tự động cache content phổ biến cho Gemini 2.5+ models.
 
 ### 1.3 Model Compatibility Matrix
 
-| Provider | Model | Caching Type | Cần config? | Trạng thái |
-|----------|-------|-------------|-------------|------------|
-| Anthropic | claude-opus-4-6 | Prompt caching | Đã bật (LiteLLM auto-inject) | ✅ Active |
-| Anthropic | claude-sonnet-4-6 | Prompt caching | Đã bật | ✅ Active |
-| Anthropic | claude-haiku-4-5 | Prompt caching | Đã bật | ✅ Active |
-| Google | gemini-3.1-pro-preview | Implicit caching | Không cần | ✅ Automatic |
-| Google | gemini-3.1-flash-lite-preview | Implicit caching | Không cần | ✅ Automatic |
-| Google | gemini-2.5-flash | Implicit caching | Không cần | ✅ Automatic |
-| OpenAI | gpt-5.4 | Server-side auto | Không kiểm soát | ⚪ Not applicable |
-| OpenAI | gpt-5.2 | Server-side auto | Không kiểm soát | ⚪ Not applicable |
-| OpenAI | gpt-5 | Server-side auto | Không kiểm soát | ⚪ Not applicable |
-| xAI | grok-4.20-reasoning | Không hỗ trợ | N/A | ❌ Not supported |
-| xAI | grok-4-1-fast-reasoning | Không hỗ trợ | N/A | ❌ Not supported |
-| xAI | grok-4-1-fast-non-reasoning | Không hỗ trợ | N/A | ❌ Not supported |
+| STT | Provider  | Model                         | Caching Type     | Cần config?                  | Trạng thái       |
+| --- | --------- | ----------------------------- | ---------------- | ---------------------------- | ---------------- |
+| 01  | Anthropic | claude-opus-4-6               | Prompt caching   | Đã bật (LiteLLM auto-inject) | ✅ Active         |
+| 02  | Anthropic | claude-sonnet-4-6             | Prompt caching   | Đã bật                       | ✅ Active         |
+| 03  | Anthropic | claude-haiku-4-5              | Prompt caching   | Đã bật                       | ✅ Active         |
+| 04  | Google    | gemini-3.1-pro-preview        | Implicit caching | Không cần                    | ✅ Automatic      |
+| 05  | Google    | gemini-3.1-flash-lite-preview | Implicit caching | Không cần                    | ✅ Automatic      |
+| 06  | Google    | gemini-2.5-flash              | Implicit caching | Không cần                    | ✅ Automatic      |
+| 07  | OpenAI    | gpt-5.4                       | Server-side auto | Không kiểm soát              | ⚪ Not applicable |
+| 08  | OpenAI    | gpt-5.2                       | Server-side auto | Không kiểm soát              | ⚪ Not applicable |
+| 09  | OpenAI    | gpt-5                         | Server-side auto | Không kiểm soát              | ⚪ Not applicable |
+| 10  | xAI       | grok-4.20-reasoning           | Không hỗ trợ     | N/A                          | ❌ Not supported  |
+| 11  | xAI       | grok-4-1-fast-reasoning       | Không hỗ trợ     | N/A                          | ❌ Not supported  |
+| 12  | xAI       | grok-4-1-fast-non-reasoning   | Không hỗ trợ     | N/A                          | ❌ Not supported  |
 
 ---
 
@@ -88,12 +88,12 @@ Response flow: Provider → LiteLLM (tính cost + set header) → Middleware (đ
 
 Khi model gọi provider web search (ví dụ Gemini Google Search Grounding), chi phí search tool invocation **đã bao gồm** trong `x-litellm-response-cost`:
 
-| Provider | Tool name | Chi phí/1K calls | Tracking |
-|----------|-----------|-----------------|----------|
-| OpenAI | `web_search` | $10 | ✅ Qua LiteLLM header |
-| Google | `google_search` grounding | $35 (free 5K/tháng) | ✅ Qua LiteLLM header |
-| xAI | `web_search` + `x_search` | $5 | ✅ Qua LiteLLM header |
-| Anthropic | `web_search` | $10 | ✅ Qua LiteLLM header |
+| STT | Provider  | Tool name                 | Chi phí/1K calls    | Tracking             |
+| --- | --------- | ------------------------- | ------------------- | -------------------- |
+| 01  | OpenAI    | `web_search`              | $10                 | ✅ Qua LiteLLM header |
+| 02  | Google    | `google_search` grounding | $35 (free 5K/tháng) | ✅ Qua LiteLLM header |
+| 03  | xAI       | `web_search` + `x_search` | $5                  | ✅ Qua LiteLLM header |
+| 04  | Anthropic | `web_search`              | $10                 | ✅ Qua LiteLLM header |
 
 > **Lưu ý:** Hiện tại hệ thống dùng SearXNG (self-hosted, $0) cho web search. Provider search chỉ phát sinh nếu bật qua Open WebUI tools hoặc cấu hình riêng.
 
@@ -101,10 +101,10 @@ Khi model gọi provider web search (ví dụ Gemini Google Search Grounding), c
 
 Middleware ghi thêm 2 fields vào audit log:
 
-| Field | Ý nghĩa | Provider |
-|-------|---------|----------|
-| `cached_tokens_created` | Tokens ghi vào cache lần đầu | Anthropic |
-| `cached_tokens_read` | Tokens đọc từ cache (giảm chi phí) | Anthropic, Gemini |
+| STT | Field                   | Ý nghĩa                            | Provider          |
+| --- | ----------------------- | ---------------------------------- | ----------------- |
+| 01  | `cached_tokens_created` | Tokens ghi vào cache lần đầu       | Anthropic         |
+| 02  | `cached_tokens_read`    | Tokens đọc từ cache (giảm chi phí) | Anthropic, Gemini |
 
 **Ví dụ audit line:**
 ```json

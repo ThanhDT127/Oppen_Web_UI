@@ -29,14 +29,14 @@ RAG (Retrieval-Augmented Generation) là kỹ thuật cho phép LLM trả lời 
 
 ### 1.2. Các thành phần chính
 
-| Thành phần      | Technology                                                       | Vai trò                                                         |
-| --------------- | ---------------------------------------------------------------- | --------------------------------------------------------------- |
-| Vector DB       | PostgreSQL + PGVector 0.8.0                                      | Lưu trữ và tìm kiếm vector embeddings                           |
-| Embedding Model | `gemini-embedding-001` (qua Middleware)                          | Chuyển text thành vector 1536 chiều (giảm từ 3072)              |
-| Text Splitter   | Character-based splitter                                         | Chia document thành chunks                                      |
-| OCR Engine      | Docling (`quay.io/docling-project/docling-serve-cpu`, port 5001) | Extract text từ PDF scan, Word, hình ảnh                        |
-| Search          | Hybrid (BM25 + Vector)                                           | Kết hợp keyword search + semantic search                        |
-| Index           | HNSW (Hierarchical Navigable Small World)                        | Tìm kiếm approximate nearest neighbors                          |
+| STT | Thành phần      | Technology                                                       | Vai trò                                                         |
+| --- | --------------- | ---------------------------------------------------------------- | --------------------------------------------------------------- |
+| 01  | Vector DB       | PostgreSQL + PGVector 0.8.0                                      | Lưu trữ và tìm kiếm vector embeddings                           |
+| 02  | Embedding Model | `gemini-embedding-001` (qua Middleware)                          | Chuyển text thành vector 1536 chiều (giảm từ 3072)              |
+| 03  | Text Splitter   | Character-based splitter                                         | Chia document thành chunks                                      |
+| 04  | OCR Engine      | Docling (`quay.io/docling-project/docling-serve-cpu`, port 5001) | Extract text từ PDF scan, Word, hình ảnh                        |
+| 05  | Search          | Hybrid (BM25 + Vector)                                           | Kết hợp keyword search + semantic search                        |
+| 06  | Index           | HNSW (Hierarchical Navigable Small World)                        | Tìm kiếm approximate nearest neighbors                          |
 
 ---
 
@@ -243,14 +243,14 @@ LLM: Theo tài liệu nội bộ (nguồn: HR_Policy.pdf, trang 15),
 
 ### 4.1. Giới hạn cấu hình hiện tại
 
-| Thông số                     | Giá trị                              | Ghi chú                                  |
-| ---------------------------- | ------------------------------------ | ---------------------------------------- |
-| File size tối đa             | **2048 MB**                          | `RAG_FILE_MAX_SIZE=2048`                 |
-| Số files / lần upload        | **20 files**                         | `RAG_FILE_MAX_COUNT=20`                  |
-| Chunk size                   | 1500 ký tự                           | ~225-300 từ tiếng Việt                   |
-| Chunk overlap                | 100 ký tự                            | ~15-20 từ overlap                        |
-| Embedding dimension          | 1536 (Gemini, giảm từ native 3072)   | `dimensions: 1536` inject bởi middleware |
-| Max input tokens (embedding) | 2048 tokens                          | Gemini embedding-001 hỗ trợ 2048 tokens  |
+| STT | Thông số                     | Giá trị                              | Ghi chú                                  |
+| --- | ---------------------------- | ------------------------------------ | ---------------------------------------- |
+| 01  | File size tối đa             | **2048 MB**                          | `RAG_FILE_MAX_SIZE=2048`                 |
+| 02  | Số files / lần upload        | **20 files**                         | `RAG_FILE_MAX_COUNT=20`                  |
+| 03  | Chunk size                   | 1500 ký tự                           | ~225-300 từ tiếng Việt                   |
+| 04  | Chunk overlap                | 100 ký tự                            | ~15-20 từ overlap                        |
+| 05  | Embedding dimension          | 1536 (Gemini, giảm từ native 3072)   | `dimensions: 1536` inject bởi middleware |
+| 06  | Max input tokens (embedding) | 2048 tokens                          | Gemini embedding-001 hỗ trợ 2048 tokens  |
 
 ### 4.2. Ví dụ: Upload văn bản 100 trang
 
@@ -300,16 +300,16 @@ Lưu ý khi xử lý file lớn:
 
 ### 4.4. Giới hạn thực tế và khuyến nghị
 
-| Tình huống      | Khả thi?       | Ghi chú                                  |
-| --------------- | -------------- | ---------------------------------------- |
-| PDF 10 trang    | ✅ Tốt         | Xử lý < 10 giây                          |
-| PDF 100 trang   | ✅ Tốt         | Xử lý < 1 phút                           |
-| PDF 500 trang   | ✅ Khả thi     | Xử lý 2-5 phút                           |
-| PDF 1000+ trang | ⚠️ Cần monitor | Có thể timeout, cần tăng config          |
-| File > 100 MB   | ✅ Khả thi     | RAG_FILE_MAX_SIZE=2048, Docling xử lý OK |
-| File > 1 GB     | ⚠️ Cần tuning  | Tăng timeout, monitor Docling RAM        |
-| 100 files nhỏ   | ✅ Khả thi     | Upload theo batch 20 files               |
-| Tiếng Việt      | ✅ Tốt         | `gemini-embedding-001` hỗ trợ đa ngôn ngữ |
+| STT | Tình huống      | Khả thi?       | Ghi chú                                   |
+| --- | --------------- | -------------- | ----------------------------------------- |
+| 01  | PDF 10 trang    | ✅ Tốt         | Xử lý < 10 giây                           |
+| 02  | PDF 100 trang   | ✅ Tốt         | Xử lý < 1 phút                            |
+| 03  | PDF 500 trang   | ✅ Khả thi     | Xử lý 2-5 phút                            |
+| 04  | PDF 1000+ trang | ⚠️ Cần monitor | Có thể timeout, cần tăng config           |
+| 05  | File > 100 MB   | ✅ Khả thi     | RAG_FILE_MAX_SIZE=2048, Docling xử lý OK  |
+| 06  | File > 1 GB     | ⚠️ Cần tuning  | Tăng timeout, monitor Docling RAM         |
+| 07  | 100 files nhỏ   | ✅ Khả thi     | Upload theo batch 20 files                |
+| 08  | Tiếng Việt      | ✅ Tốt         | `gemini-embedding-001` hỗ trợ đa ngôn ngữ |
 
 ### 4.5. Cấu hình embedding hiện tại (đã tối ưu cho tiếng Việt)
 
