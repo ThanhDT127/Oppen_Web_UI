@@ -55,7 +55,7 @@ GET /v1/models
   "object": "list",
   "data": [
     {
-      "id": "gpt-4-turbo",
+      "id": "chat-gpt-5.4",
       "object": "model",
       "created": 1234567890,
       "owned_by": "openai"
@@ -73,6 +73,35 @@ GET /v1/models
 **Mã trạng thái:**
 - `200 OK` - Lấy danh sách thành công
 - `502 Bad Gateway` - LiteLLM proxy không khả dụng
+
+---
+
+### Trạng thái Quota
+
+```http
+GET /v1/_mw/quota-status?user_id=<user_id>
+```
+
+Hoặc xác thực qua Header thay vì `user_id`:
+```http
+GET /v1/_mw/quota-status
+Authorization: Bearer <subkey>
+```
+
+**Mô tả:** Truy vấn thông tin quota hiện tại của người dùng. Trả về dưới dạng phần trăm (không chứa chi tiết nhạy cảm), rất phù hợp sử dụng cho UI (Frontend) hoặc Open WebUI Filter để thông báo/chặn gửi tin nếu đã hết quota.
+
+**Phản hồi:**
+```json
+{
+  "active": true,
+  "quota_used_pct": 85.5,
+  "quota_remaining_pct": 14.5
+}
+```
+
+**Mã trạng thái:**
+- `200 OK` - Lấy trạng thái thành công
+- `400 Bad Request` - Cần truyền tham số user_id hoặc Header Authorization
 
 ---
 
@@ -95,7 +124,7 @@ Authorization: Bearer <subkey>
 **Nội dung Request:**
 ```json
 {
-  "model": "gpt-4-turbo",
+  "model": "chat-gpt-5.4",
   "messages": [
     {
       "role": "system",
@@ -118,7 +147,7 @@ Authorization: Bearer <subkey>
   "id": "chatcmpl-abc123",
   "object": "chat.completion",
   "created": 1234567890,
-  "model": "gpt-4-turbo",
+  "model": "chat-gpt-5.4",
   "choices": [
     {
       "index": 0,
@@ -156,7 +185,7 @@ Authorization: Bearer <subkey>
 **Nội dung Request:**
 ```json
 {
-  "model": "gpt-4-turbo",
+  "model": "chat-gpt-5.4",
   "messages": [
     {
       "role": "user",
@@ -170,11 +199,11 @@ Authorization: Bearer <subkey>
 **Phản hồi:** Server-Sent Events (SSE) stream
 
 ```
-data: {"id":"chatcmpl-xyz","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4-turbo","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+data: {"id":"chatcmpl-xyz","object":"chat.completion.chunk","created":1234567890,"model":"chat-gpt-5.4","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
 
-data: {"id":"chatcmpl-xyz","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4-turbo","choices":[{"index":0,"delta":{"content":"Once"},"finish_reason":null}]}
+data: {"id":"chatcmpl-xyz","object":"chat.completion.chunk","created":1234567890,"model":"chat-gpt-5.4","choices":[{"index":0,"delta":{"content":"Once"},"finish_reason":null}]}
 
-data: {"id":"chatcmpl-xyz","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4-turbo","choices":[{"index":0,"delta":{"content":" upon"},"finish_reason":null}]}
+data: {"id":"chatcmpl-xyz","object":"chat.completion.chunk","created":1234567890,"model":"chat-gpt-5.4","choices":[{"index":0,"delta":{"content":" upon"},"finish_reason":null}]}
 
 ...
 
@@ -223,6 +252,48 @@ whisper-1
 - `200 OK` - Chuyển đổi thành công
 - `400 Bad Request` - Định dạng file không hợp lệ
 - `401 Unauthorized` - Subkey không hợp lệ
+
+---
+
+### Tạo Embedding Vector
+
+```http
+POST /v1/embeddings
+Content-Type: application/json
+Authorization: Bearer <subkey>
+```
+
+**Nội dung Request:**
+```json
+{
+  "model": "gemini-embedding-001",
+  "input": "This is a text to embed for vector search."
+}
+```
+
+**Phản hồi:**
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "embedding",
+      "embedding": [ 0.1, -0.05, 0.3, 0.8 ],
+      "index": 0
+    }
+  ],
+  "model": "gemini-embedding-001",
+  "usage": {
+    "prompt_tokens": 10,
+    "total_tokens": 10
+  }
+}
+```
+
+**Mã trạng thái:**
+- `200 OK` - Hoàn thành thành công
+- `401 Unauthorized` - Subkey không hợp lệ
+- `403 Forbidden` - Vượt quá quota
 
 ---
 
@@ -313,9 +384,15 @@ Cookie: mw_dashboard_token=<jwt_token>
     "tokens_total": 15000,
     "cost_total_usd": 0.025,
     "p95_latency_ms": 1250.5,
+    "pending_open_count": 0,
     "chat_calls": 40,
+    "embedding_calls": 2,
     "image_calls": 2,
-    "audio_calls": 3
+    "audio_calls": 1,
+    "video_calls": 0,
+    "billable_calls": 43,
+    "nonbillable_calls": 2,
+    "usage_missing_calls": 0
   },
   "breakdown_by_user": [...],
   "breakdown_by_model": [...],
@@ -333,6 +410,76 @@ Cookie: mw_dashboard_token=<jwt_token>
 **Mã trạng thái:**
 - `200 OK` - Lấy tổng hợp thành công
 - `403 Forbidden` - JWT token không hợp lệ hoặc hết hạn
+
+---
+
+### Truy vấn Audit Log (Xác thực JWT hoặc Admin)
+
+```http
+GET /v1/_mw/audit/query?limit=50&offset=0
+Cookie: mw_dashboard_token=<jwt_token>
+```
+
+**Mô tả:** Tìm kiếm và lọc lịch sử request/audit log (phân trang).
+
+**Tham số truy vấn:**
+- `limit` (int) - Số lượng kết quả (1-500, mặc định: 50)
+- `offset` (int) - Vị trí bắt đầu
+- `user_id` / `model` / `status` / `endpoint` (string) - Bộ lọc tìm kiếm
+- `min_cost` / `max_cost` (float) - Lọc theo chi phí lệnh gọi
+- `start` / `end` (ISO datetime) - Khoảng thời gian
+- `sort_by` (string) - "timestamp", "cost", "tokens", "duration"
+- `sort_order` (string) - "asc", "desc"
+
+**Phản hồi:**
+```json
+{
+  "total": 125,
+  "limit": 50,
+  "offset": 0,
+  "results": [
+    {
+      "ts": "2026-03-03T10:40:15+07:00",
+      "user_id": "user1",
+      "model": "chat-gpt-5.4",
+      "status": "ok",
+      "cost_usd": 0.002
+    }
+  ],
+  "source": "database"
+}
+```
+
+---
+
+### Quản lý Thông báo Admin (Notifications)
+
+```http
+GET /v1/_mw/admin/notifications
+Cookie: mw_dashboard_token=<jwt_token>
+```
+
+**Mô tả:** Lấy danh sách thông báo quản trị viên (ví dụ cảnh báo có người dùng sắp hết quota, alert hệ thống). 
+Các API liên quan (Yêu cầu JWT hoặc Admin Key):
+- `GET /v1/_mw/admin/notifications` - Danh sách thông báo
+- `GET /v1/_mw/admin/notifications/unread` - Đếm thông báo chưa đọc
+- `POST /v1/_mw/admin/notifications/{id}/read` - Đánh dấu thông báo đã đọc
+- `POST /v1/_mw/admin/notifications/read-all` - Đánh dấu đọc tất cả
+
+---
+
+### Cấu hình Cảnh báo & Alert (Alert Config)
+
+```http
+GET /v1/_mw/admin/alerts/config
+Authorization: Bearer <admin_key>
+```
+
+**Mô tả:** Đọc và cập nhật cấu hình thông báo (ví dụ cấu hình SMTP server, ngưỡng bật cảnh báo 80% quota, email nhận cảnh báo).
+Các API liên quan (Chỉ dành cho Admin Key):
+- `GET /v1/_mw/admin/alerts/config` - Lấy cấu hình
+- `PUT /v1/_mw/admin/alerts/config` - Lưu cấu hình mới
+- `POST /v1/_mw/admin/alerts/test-email` - Gửi email test xem SMTP hoạt động tốt không
 
 ---
 
@@ -432,7 +579,7 @@ X-Admin-Key: <admin_key>
   "ok": true,
   "request_id": "mw_abc123def456",
   "user_id": "user1",
-  "model": "gpt-4-turbo",
+  "model": "chat-gpt-5.4",
   "prompt_tokens": 250,
   "completion_tokens": 180,
   "total_tokens": 430,
@@ -486,18 +633,18 @@ data: {"subkey":"sk_user_old456","timestamp":"2025-12-22T10:37:00Z"}
 
 ### Tham số Chat Completion
 
-| Tham số              | Kiểu        | Bắt buộc | Mặc định | Mô tả                                 |
-| -------------------- | ----------- | -------- | -------- | --------------------------------------|
-| `model`              | string      | Co       | -        | ID model (vd: "gpt-4-turbo")          |
-| `messages`           | array       | Co       | -        | Lịch sử hội thoại                     |
-| `temperature`        | float       | Không    | 0.7      | Nhiệt độ lấy mẫu (0-2)                |
-| `max_tokens`         | integer     | Không    | -        | Độ dài phản hồi tối đa                |
-| `stream`             | boolean     | Không    | false    | Bật phản hồi streaming                |
-| `top_p`              | float       | Không    | 1.0      | Ngưỡng lấy mẫu nucleus                |
-| `frequency_penalty`  | float       | Không    | 0.0      | Phạt lặp lại (-2 đến 2)               |
-| `presence_penalty`   | float       | Không    | 0.0      | Phạt đa dạng chủ đề (-2 đến 2)        |
-| `stop`               | string/array| Không    | null     | Chuỗi dừng                            |
-| `user`               | string      | Không    | -        | Định danh người dùng cuối để theo dõi |
+| STT | Tham số             | Kiểu         | Bắt buộc | Mặc định | Mô tả                                 |
+| --- | ------------------- | ------------ | -------- | -------- | ------------------------------------- |
+| 01  | `model`             | string       | Co       | -        | ID model (vd: "chat-gpt-5.4")          |
+| 02  | `messages`          | array        | Co       | -        | Lịch sử hội thoại                     |
+| 03  | `temperature`       | float        | Không    | 0.7      | Nhiệt độ lấy mẫu (0-2)                |
+| 04  | `max_tokens`        | integer      | Không    | -        | Độ dài phản hồi tối đa                |
+| 05  | `stream`            | boolean      | Không    | false    | Bật phản hồi streaming                |
+| 06  | `top_p`             | float        | Không    | 1.0      | Ngưỡng lấy mẫu nucleus                |
+| 07  | `frequency_penalty` | float        | Không    | 0.0      | Phạt lặp lại (-2 đến 2)               |
+| 08  | `presence_penalty`  | float        | Không    | 0.0      | Phạt đa dạng chủ đề (-2 đến 2)        |
+| 09  | `stop`              | string/array | Không    | null     | Chuỗi dừng                            |
+| 10  | `user`              | string       | Không    | -        | Định danh người dùng cuối để theo dõi |
 
 ### Đối tượng Message
 
@@ -545,15 +692,15 @@ Tất cả lỗi theo định dạng OpenAI:
 
 ### Mã Lỗi
 
-| HTTP Status | Loại lỗi                 | Mô tả                        |
-| ----------- | ------------------------ | ---------------------------- |
-| 400         | `invalid_request_error`  | Request body không hợp lệ    |
-| 401         | `authentication_error`   | Thiếu hoặc sai API key       |
-| 403         | `quota_exceeded_error`   | Đã đạt giới hạn quota user   |
-| 404         | `not_found_error`        | Tài nguyên không tồn tại     |
-| 429         | `rate_limit_error`       | Quá nhiều request            |
-| 500         | `internal_error`         | Lỗi phía server              |
-| 502         | `gateway_error`          | LiteLLM proxy không khả dụng |
+| STT | HTTP Status | Loại lỗi                | Mô tả                        |
+| --- | ----------- | ----------------------- | ---------------------------- |
+| 01  | 400         | `invalid_request_error` | Request body không hợp lệ    |
+| 02  | 401         | `authentication_error`  | Thiếu hoặc sai API key       |
+| 03  | 403         | `quota_exceeded_error`  | Đã đạt giới hạn quota user   |
+| 04  | 404         | `not_found_error`       | Tài nguyên không tồn tại     |
+| 05  | 429         | `rate_limit_error`      | Quá nhiều request            |
+| 06  | 500         | `internal_error`        | Lỗi phía server              |
+| 07  | 502         | `gateway_error`         | LiteLLM proxy không khả dụng |
 
 ---
 
@@ -562,7 +709,7 @@ Tất cả lỗi theo định dạng OpenAI:
 **Triển khai hiện tại:** Không có giới hạn tốc độ toàn cục (kiểm soát bởi LiteLLM proxy).
 
 **Giới hạn Per-User:** Thực thi qua quota subkey:
-- Mỗi subkey có `quota` (số request đồng thời tối đa)
+- Mỗi subkey có `quota` (hạn mức chi phí tính bằng USD hoặc theo Tokens cho từng chu kỳ tuần/tháng. API hiện không giới hạn số lượng request per minute để tránh ảnh hưởng luồng hoạt động song song).
 - Vượt quota trả về `403 Forbidden`
 - Quota tự động reset khi request hoàn thành
 
@@ -599,7 +746,7 @@ curl -X POST http://localhost:5000/v1/chat/completions \
   -H "Authorization: Bearer sk_user_abc123" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-4-turbo",
+    "model": "chat-gpt-5.4",
     "messages": [{"role": "user", "content": "Hello!"}],
     "stream": false
   }'
@@ -636,5 +783,5 @@ curl http://localhost:5000/v1/_mw/summary -b cookies.txt
 
 ---
 
-**Cập nhật lần cuối:** 7 tháng 3, 2026  
-**Phiên bản API:** 2.0 (DB-backed, tương thích OpenAI)
+**Cập nhật lần cuối:** 23 tháng 04, 2026  
+**Phiên bản API:** 2.1 (Bổ sung Embeddings API, Audit Query, và Notification/Alert config)
