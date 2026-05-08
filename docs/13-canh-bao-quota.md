@@ -22,10 +22,10 @@
 
 Hệ thống cảnh báo quota có 2 mục tiêu chính:
 
-| Mục tiêu | Đối tượng | Ý nghĩa |
-|----------|:---------:|---------|
-| Cảnh báo quota user | **User** | Mỗi user dùng subkey riêng, có hạn mức riêng |
-| Cảnh báo budget API | **Admin** | Tất cả user dùng chung API key, admin cần biết chi phí |
+| STT | Mục tiêu            | Đối tượng | Ý nghĩa                                                |
+| --- | ------------------- | --------- | ------------------------------------------------------ |
+| 01  | Cảnh báo quota user | **User**  | Mỗi user dùng subkey riêng, có hạn mức riêng           |
+| 02  | Cảnh báo budget API | **Admin** | Tất cả user dùng chung API key, admin cần biết chi phí |
 
 Hệ thống tách biệt hoàn toàn 2 loại cảnh báo này vì bản chất khác nhau:
 - **User quota**: Hết → chỉ user đó bị chặn (403), các user khác vẫn hoạt động bình thường
@@ -84,15 +84,15 @@ User C ──[subkey_C]──┘     │         │   └── GEMINI_API_KEY 
 └──────────────────────────────────┘  └──────────────────────────────────┘
 ```
 
-| Tiêu chí | User Quota | API Budget |
-|----------|:----------:|:----------:|
-| **Đối tượng** | 1 user cụ thể | Tất cả users chung |
-| **Key sử dụng** | Subkey riêng | API key chung (OPENAI/GEMINI) |
-| **Hạn mức** | Admin set per user ($10, $20...) | Admin set per provider ($100, $50) |
-| **Nguồn data** | `mw_users.quota.used_cost_usd` | `SUM(mw_audit_log.cost_usd)` by model |
-| **Reset** | Monthly/daily (tự động) | Monthly (tự động) |
-| **Khi hết** | User đó bị chặn (403) | **KHÔNG tự chặn**, chỉ cảnh báo |
-| **Cảnh báo cho** | **USER** (email) + admin (dashboard) | **ADMIN** (email + dashboard) |
+| STT | Tiêu chí         | User Quota                           | API Budget                            |
+| --- | ---------------- | ------------------------------------ | ------------------------------------- |
+| 01  | **Đối tượng**    | 1 user cụ thể                        | Tất cả users chung                    |
+| 02  | **Key sử dụng**  | Subkey riêng                         | API key chung (OPENAI/GEMINI)         |
+| 03  | **Hạn mức**      | Admin set per user ($10, $20...)     | Admin set per provider ($100, $50)    |
+| 04  | **Nguồn data**   | `mw_users.quota.used_cost_usd`       | `SUM(mw_audit_log.cost_usd)` by model |
+| 05  | **Reset**        | Monthly/daily (tự động)              | Monthly (tự động)                     |
+| 06  | **Khi hết**      | User đó bị chặn (403)                | **KHÔNG tự chặn**, chỉ cảnh báo       |
+| 07  | **Cảnh báo cho** | **USER** (email) + admin (dashboard) | **ADMIN** (email + dashboard)         |
 
 ---
 
@@ -132,11 +132,11 @@ User A gửi chat (dùng subkey_A)
 
 ### Ngưỡng cảnh báo
 
-| Ngưỡng | Level | Email User | Email Admin | Dashboard | Hành động |
-|:------:|:-----:|:----------:|:-----------:|:---------:|-----------|
-| 80% | info | ✅ | ❌ | ✅ | Nhắc nhở user |
-| 95% | warning | ✅ | ❌ | ✅ | Cảnh báo khẩn |
-| 100% | critical | ✅ | ✅ | ✅ | **CHẶN user** |
+| STT | Ngưỡng | Level    | Email User | Email Admin | Dashboard | Hành động     |
+| --- | ------ | -------- | ---------- | ----------- | --------- | ------------- |
+| 01  | 80%    | info     | ✅          | ❌           | ✅         | Nhắc nhở user |
+| 02  | 95%    | warning  | ✅          | ❌           | ✅         | Cảnh báo khẩn |
+| 03  | 100%   | critical | ✅          | ✅           | ✅         | **CHẶN user** |
 
 ### Email user nhận được
 
@@ -219,13 +219,20 @@ Tất cả user gửi request
 
 ### Ngưỡng cảnh báo (per-provider)
 
-| Provider | Ngưỡng | Email Admin | Dashboard | Hành động |
-|----------|:------:|:-----------:|:---------:|-----------|
-| OpenAI | 70% | ❌ | ✅ | Thông tin |
-| OpenAI | 90% | ❌ | ✅ | Cảnh báo |
-| OpenAI | 100% | ✅ | ✅ | **Cảnh báo khẩn** |
-| Gemini | 80% | ❌ | ✅ | Thông tin |
-| Gemini | 100% | ✅ | ✅ | **Cảnh báo khẩn** |
+| STT | Provider  | Ngưỡng | Email Admin | Dashboard | Hành động         |
+| --- | --------- | :----: | :---------: | :-------: | ----------------- |
+| 01  | OpenAI    | 70%    | ❌           | ✅         | Thông tin          |
+| 02  | OpenAI    | 90%    | ❌           | ✅         | Cảnh báo           |
+| 03  | OpenAI    | 100%   | ✅           | ✅         | **Cảnh báo khẩn** |
+| 04  | Gemini    | 80%    | ❌           | ✅         | Thông tin          |
+| 05  | Gemini    | 100%   | ✅           | ✅         | **Cảnh báo khẩn** |
+| 06  | xAI       | 70%    | ❌           | ✅         | Thông tin          |
+| 07  | xAI       | 90%    | ❌           | ✅         | Cảnh báo           |
+| 08  | xAI       | 100%   | ✅           | ✅         | **Cảnh báo khẩn** |
+| 09  | Anthropic | 70%    | ❌           | ✅         | Thông tin          |
+| 10  | Anthropic | 90%    | ❌           | ✅         | Cảnh báo           |
+| 11  | Anthropic | 100%   | ✅           | ✅         | **Cảnh báo khẩn** |
+
 
 > **Lưu ý:** API Budget KHÔNG tự chặn vì chặn = tất cả user dừng. Admin phải quyết định: nạp thêm tiền hoặc tăng budget trong config.
 
@@ -317,10 +324,10 @@ cost = X.XX
 
 ### 2 Nguồn dữ liệu cho cảnh báo
 
-| Nguồn | Table | Dùng cho |
-|-------|-------|---------|
-| Cost per user (period) | `mw_users.quota.used_cost_usd` | **User quota alert** |
-| Cost per request (có model) | `mw_audit_log.cost_usd` | **Per-provider budget** |
+| STT | Nguồn                       | Table                          | Dùng cho                |
+| --- | --------------------------- | ------------------------------ | ----------------------- |
+| 01  | Cost per user (period)      | `mw_users.quota.used_cost_usd` | **User quota alert**    |
+| 02  | Cost per request (có model) | `mw_audit_log.cost_usd`        | **Per-provider budget** |
 
 ---
 
@@ -400,12 +407,12 @@ Chỉ cần đổi:
 
 ### Tất cả JSON đều đã có trong DB
 
-| File JSON | Table DB | Code dùng gì? |
-|-----------|----------|--------------|
-| `users.json` | `mw_users` | DB first, JSON = backup |
-| `prices.json` | `mw_prices` | DB first, JSON = backup |
-| `alert_config.json` | `mw_config` (key='alert_config') | DB first, JSON = seed + backup |
-| `system_alerts.json` | `mw_config` (key='system_alerts') | DB first, JSON = backup |
+| STT | File JSON            | Table DB                          | Code dùng gì?                  |
+| --- | -------------------- | --------------------------------- | ------------------------------ |
+| 01  | `users.json`         | `mw_users`                        | DB first, JSON = backup        |
+| 02  | `prices.json`        | `mw_prices`                       | DB first, JSON = backup        |
+| 03  | `alert_config.json`  | `mw_config` (key='alert_config')  | DB first, JSON = seed + backup |
+| 04  | `system_alerts.json` | `mw_config` (key='system_alerts') | DB first, JSON = backup        |
 
 ### Cơ chế đồng bộ
 
@@ -464,11 +471,11 @@ Khi DB lỗi:         JSON → code (fallback)
 
 ### Yêu cầu
 
-| Yêu cầu | Chi tiết |
-|---------|---------|
-| Gmail App Password | Tạo tại myaccount.google.com → Security → App passwords |
-| Biến môi trường | `SMTP_PASSWORD` trong `.env` |
-| User email | Tự động lấy từ Open WebUI DB (user đăng ký bằng email) |
+| STT | Yêu cầu            | Chi tiết                                                |
+| --- | ------------------ | ------------------------------------------------------- |
+| 01  | Gmail App Password | Tạo tại myaccount.google.com → Security → App passwords |
+| 02  | Biến môi trường    | `SMTP_PASSWORD` trong `.env`                            |
+| 03  | User email         | Tự động lấy từ Open WebUI DB (user đăng ký bằng email)  |
 
 ---
 
@@ -484,20 +491,20 @@ Khi DB lỗi:         JSON → code (fallback)
 
 ### API Endpoints
 
-| Method | Endpoint | Mô tả |
-|--------|----------|-------|
-| GET | `/v1/_mw/admin/notifications` | Danh sách (limit, offset) |
-| GET | `/v1/_mw/admin/notifications/unread` | Số unread |
-| POST | `/v1/_mw/admin/notifications/{id}/read` | Đánh dấu đã đọc |
-| POST | `/v1/_mw/admin/notifications/read-all` | Đánh dấu tất cả |
+| STT | Method | Endpoint                                | Mô tả                     |
+| --- | ------ | --------------------------------------- | ------------------------- |
+| 01  | GET    | `/v1/_mw/admin/notifications`           | Danh sách (limit, offset) |
+| 02  | GET    | `/v1/_mw/admin/notifications/unread`    | Số unread                 |
+| 03  | POST   | `/v1/_mw/admin/notifications/{id}/read` | Đánh dấu đã đọc           |
+| 04  | POST   | `/v1/_mw/admin/notifications/read-all`  | Đánh dấu tất cả           |
 
 ### Màu sắc theo level
 
-| Level | Màu viền trái | Nền |
-|-------|:-------------:|-----|
-| info | `#667eea` (xanh) | Nhạt |
-| warning | `#f59e0b` (vàng) | Vàng nhạt |
-| critical | `#ef4444` (đỏ) | Đỏ nhạt |
+| STT | Level    | Màu viền trái    | Nền       |
+| --- | -------- | ---------------- | --------- |
+| 01  | info     | `#667eea` (xanh) | Nhạt      |
+| 02  | warning  | `#f59e0b` (vàng) | Vàng nhạt |
+| 03  | critical | `#ef4444` (đỏ)   | Đỏ nhạt   |
 
 ---
 
@@ -505,29 +512,29 @@ Khi DB lỗi:         JSON → code (fallback)
 
 ### Backend
 
-| File | Chức năng |
-|------|----------|
-| `core/alerting.py` | Logic kiểm tra ngưỡng, routing alert |
-| `core/notification.py` | Fan-out service (DB + email + digest) |
-| `core/quota.py` | Enforce & bump quota per user |
-| `core/cost.py` | Tính chi phí (LiteLLM → prices backup) |
-| `api/notifications.py` | REST API cho dashboard |
-| `main.py` | APScheduler + routes |
+| STT | File                   | Chức năng                              |
+| --- | ---------------------- | -------------------------------------- |
+| 01  | `core/alerting.py`     | Logic kiểm tra ngưỡng, routing alert   |
+| 02  | `core/notification.py` | Fan-out service (DB + email + digest)  |
+| 03  | `core/quota.py`        | Enforce & bump quota per user          |
+| 04  | `core/cost.py`         | Tính chi phí (LiteLLM → prices backup) |
+| 05  | `api/notifications.py` | REST API cho dashboard                 |
+| 06  | `main.py`              | APScheduler + routes                   |
 
 ### Frontend
 
-| File | Chức năng |
-|------|----------|
-| `dashboard/index.html` | Bell icon + dropdown panel |
-| `dashboard/js/notifications.js` | Poll, render, mark read |
-| `dashboard/css/dashboard.css` | Notification styles |
+| STT | File                            | Chức năng                  |
+| --- | ------------------------------- | -------------------------- |
+| 01  | `dashboard/index.html`          | Bell icon + dropdown panel |
+| 02  | `dashboard/js/notifications.js` | Poll, render, mark read    |
+| 03  | `dashboard/css/dashboard.css`   | Notification styles        |
 
 ### Config & Data
 
-| File | Chức năng |
-|------|----------|
-| `data/alert_config.json` | Cấu hình SMTP + thresholds (seed) |
-| `data/system_alerts.json` | Tracking đã gửi threshold nào (backup) |
+| STT | File                      | Chức năng                              |
+| --- | ------------------------- | -------------------------------------- |
+| 01  | `data/alert_config.json`  | Cấu hình SMTP + thresholds (seed)      |
+| 02  | `data/system_alerts.json` | Tracking đã gửi threshold nào (backup) |
 
 ---
 
@@ -552,8 +559,8 @@ docker logs openwebui-middleware | grep "daily_digest"
 
 Qua Dashboard API:
 ```bash
-curl -X PUT http://10.0.0.1:5000/v1/_mw/admin/alerts/config \
-  -H "Authorization: Bearer ADMIN_KEY" \
+curl -X PUT http://localhost:5000/v1/_mw/admin/alerts/config \
+  -H "X-Admin-Key: $ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{ "admin_alerts": { "api_budgets": { "openai": { "budget_usd": 200 } } } }'
 ```
@@ -562,16 +569,16 @@ curl -X PUT http://10.0.0.1:5000/v1/_mw/admin/alerts/config \
 
 ```bash
 # Test email gửi được
-curl -X POST http://10.0.0.1:5000/v1/_mw/admin/alerts/test-email \
-  -H "Authorization: Bearer ADMIN_KEY"
+curl -X POST http://localhost:5000/v1/_mw/admin/alerts/test-email \
+  -H "X-Admin-Key: $ADMIN_KEY"
 
 # Xem notifications
-curl http://10.0.0.1:5000/v1/_mw/admin/notifications \
-  -H "Authorization: Bearer ADMIN_KEY"
+curl http://localhost:5000/v1/_mw/admin/notifications \
+  -H "X-Admin-Key: $ADMIN_KEY"
 
 # Xem unread count
-curl http://10.0.0.1:5000/v1/_mw/admin/notifications/unread \
-  -H "Authorization: Bearer ADMIN_KEY"
+curl http://localhost:5000/v1/_mw/admin/notifications/unread \
+  -H "X-Admin-Key: $ADMIN_KEY"
 ```
 
 ### Xem chi phí per-provider (SQL)
@@ -617,7 +624,7 @@ GROUP BY provider;
 - **Provider budget:** Tự động vì tính từ `mw_audit_log WHERE ts >= đầu tháng`
 - **System alerts:** Xóa thủ công nếu cần:
   ```bash
-  curl -X PUT http://IP:5000/v1/_mw/admin/alerts/config \
-    -H "Authorization: Bearer ADMIN_KEY" \
+  curl -X PUT http://localhost:5000/v1/_mw/admin/alerts/config \
+    -H "X-Admin-Key: $ADMIN_KEY" \
     -d '{}' # Reset system_alerts
   ```
