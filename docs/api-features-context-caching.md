@@ -54,20 +54,22 @@ Google tự động cache content phổ biến cho Gemini 2.5+ models.
 
 ### 1.3 Model Compatibility Matrix
 
-| STT | Provider  | Model                         | Caching Type     | Cần config?                  | Trạng thái       |
-| --- | --------- | ----------------------------- | ---------------- | ---------------------------- | ---------------- |
-| 01  | Anthropic | claude-opus-4-6               | Prompt caching   | Đã bật (LiteLLM auto-inject) | ✅ Active         |
-| 02  | Anthropic | claude-sonnet-4-6             | Prompt caching   | Đã bật                       | ✅ Active         |
-| 03  | Anthropic | claude-haiku-4-5              | Prompt caching   | Đã bật                       | ✅ Active         |
-| 04  | Google    | gemini-3.1-pro-preview        | Implicit caching | Không cần                    | ✅ Automatic      |
-| 05  | Google    | gemini-3.1-flash-lite-preview | Implicit caching | Không cần                    | ✅ Automatic      |
-| 06  | Google    | gemini-2.5-flash              | Implicit caching | Không cần                    | ✅ Automatic      |
-| 07  | OpenAI    | gpt-5.4                       | Server-side auto | Không kiểm soát              | ⚪ Not applicable |
-| 08  | OpenAI    | gpt-5.2                       | Server-side auto | Không kiểm soát              | ⚪ Not applicable |
-| 09  | OpenAI    | gpt-5                         | Server-side auto | Không kiểm soát              | ⚪ Not applicable |
-| 10  | xAI       | grok-4.20-reasoning           | Không hỗ trợ     | N/A                          | ❌ Not supported  |
-| 11  | xAI       | grok-4-1-fast-reasoning       | Không hỗ trợ     | N/A                          | ❌ Not supported  |
-| 12  | xAI       | grok-4-1-fast-non-reasoning   | Không hỗ trợ     | N/A                          | ❌ Not supported  |
+> **Alias** = tên dùng khi gọi API (định nghĩa trong `litellm/litellm_config.yaml`).
+
+| STT | Provider  | Alias (gọi API)              | Provider Model                      | Caching Type     | Cần config?                  | Trạng thái       |
+| --- | --------- | ---------------------------- | ----------------------------------- | ---------------- | ---------------------------- | ---------------- |
+| 01  | Anthropic | `chat-claude-opus-4.6`       | `anthropic/claude-opus-4-6`         | Prompt caching   | Đã bật (LiteLLM auto-inject) | ✅ Active         |
+| 02  | Anthropic | `chat-claude-sonnet-4.6`     | `anthropic/claude-sonnet-4-6`       | Prompt caching   | Đã bật                       | ✅ Active         |
+| 03  | Anthropic | `chat-claude-haiku-4.5`      | `anthropic/claude-haiku-4-5`        | Prompt caching   | Đã bật                       | ✅ Active         |
+| 04  | Google    | `chat-gemini-3.1-pro`        | `gemini/gemini-3.1-pro-preview`     | Implicit caching | Không cần                    | ✅ Automatic      |
+| 05  | Google    | `chat-gemini-3.1-flash-lite` | `gemini/gemini-3.1-flash-lite-preview` | Implicit caching | Không cần                 | ✅ Automatic      |
+| 06  | Google    | `chat-gemini-2.5-flash`      | `gemini/gemini-2.5-flash`           | Implicit caching | Không cần                    | ✅ Automatic      |
+| 07  | OpenAI    | `chat-gpt-5.4`               | `openai/gpt-5.4`                    | Server-side auto | Không kiểm soát              | ⚪ Not applicable |
+| 08  | OpenAI    | `chat-gpt-5.2`               | `openai/gpt-5.2`                    | Server-side auto | Không kiểm soát              | ⚪ Not applicable |
+| 09  | OpenAI    | `chat-gpt-5`                 | `openai/gpt-5`                      | Server-side auto | Không kiểm soát              | ⚪ Not applicable |
+| 10  | xAI       | `chat-grok-4.20`             | `xai/grok-4.20-reasoning`           | Không hỗ trợ     | N/A                          | ❌ Not supported  |
+| 11  | xAI       | `chat-grok-4.1-fast`         | `xai/grok-4-1-fast-reasoning`       | Không hỗ trợ     | N/A                          | ❌ Not supported  |
+| 12  | xAI       | `chat-grok-4.1-fast-lite`    | `xai/grok-4-1-fast-non-reasoning`   | Không hỗ trợ     | N/A                          | ❌ Not supported  |
 
 ---
 

@@ -21,11 +21,11 @@
 
 ### Tóm tắt 3 Phase
 
-| Phase | Users | Đồng thời | Chi phí thêm | Phức tạp | Thời gian |
-|:-----:|:-----:|:---------:|:------------:|:--------:|:---------:|
-| **1** | 200 | 50-80 | $0 | ⭐ Thấp | 1-2 ngày |
-| **2** | 500 | 100-150 | $0 | ⭐⭐ Trung bình | 1 tuần |
-| **3** | 1000+ | 200+ | +$50-300/tháng | ⭐⭐⭐ Cao | 2-4 tuần |
+| STT | Phase | Users | Đồng thời | Chi phí thêm   | Phức tạp      | Thời gian |
+| --- | ----- | ----- | --------- | -------------- | ------------- | --------- |
+| 01  | **1** | 200   | 50-80     | $0             | ⭐ Thấp        | 1-2 ngày  |
+| 02  | **2** | 500   | 100-150   | $0             | ⭐⭐ Trung bình | 1 tuần    |
+| 03  | **3** | 1000+ | 200+      | +$50-300/tháng | ⭐⭐⭐ Cao       | 2-4 tuần  |
 
 ---
 
@@ -45,30 +45,30 @@ Internet (KHÔNG CÓ NGINX)
 
 ### Thông số hiện tại
 
-| Service | Workers | DB pool | RAM limit | Vấn đề |
-|---------|:-------:|:-------:|:---------:|--------|
-| Open WebUI | 1 (mặc định) | — | Không giới hạn | Chậm khi nhiều user |
-| Middleware | 1 | min=2, max=10 | Không giới hạn | Bottleneck DB |
-| LiteLLM | 1 | — | Không giới hạn | Không rate limit |
-| PostgreSQL | — | max_conn=100 | Không giới hạn | Không đủ connections |
-| SearXNG | 1 | — | Không giới hạn | Google sẽ ban |
+| STT | Service    | Workers      | DB pool       | RAM limit      | Vấn đề               |
+| --- | ---------- | ------------ | ------------- | -------------- | -------------------- |
+| 01  | Open WebUI | 1 (mặc định) | —             | Không giới hạn | Chậm khi nhiều user  |
+| 02  | Middleware | 1            | min=2, max=10 | Không giới hạn | Bottleneck DB        |
+| 03  | LiteLLM    | 1            | —             | Không giới hạn | Không rate limit     |
+| 04  | PostgreSQL | —            | max_conn=100  | Không giới hạn | Không đủ connections |
+| 05  | SearXNG    | 1            | —             | Không giới hạn | Google sẽ ban        |
 
 ---
 
 ## 3. Các vấn đề cần giải quyết
 
-| # | Vấn đề | Mức độ | Loại |
-|:-:|--------|:------:|:----:|
-| 1 | PostgreSQL port 5432 EXPOSED | 🔴 Critical | Bảo mật |
-| 2 | LiteLLM port 4000 EXPOSED (bypass middleware) | 🔴 Critical | Bảo mật |
-| 3 | Không có Nginx / HTTPS | 🔴 Critical | Bảo mật |
-| 4 | Middleware 1 worker | 🟡 High | Hiệu năng |
-| 5 | LiteLLM 1 worker, không rate limit | 🟡 High | Hiệu năng |
-| 6 | DB pool max=10 | 🟡 High | Hiệu năng |
-| 7 | PostgreSQL max_connections=100 | 🟡 High | Hiệu năng |
-| 8 | SearXNG limiter TẮT | 🟡 Medium | Ổn định |
-| 9 | ENABLE_SIGNUP=true | 🟡 Medium | Bảo mật |
-| 10 | Không có Docker resource limits | 🟡 Medium | Ổn định |
+| #  | Vấn đề                                        | Mức độ     | Loại      |
+| -- | --------------------------------------------- | ---------- | --------- |
+| 1  | PostgreSQL port 5432 EXPOSED                  | 🔴 Critical | Bảo mật   |
+| 2  | LiteLLM port 4000 EXPOSED (bypass middleware) | 🔴 Critical | Bảo mật   |
+| 3  | Không có Nginx / HTTPS                        | 🔴 Critical | Bảo mật   |
+| 4  | Middleware 1 worker                           | 🟡 High     | Hiệu năng |
+| 5  | LiteLLM 1 worker, không rate limit            | 🟡 High     | Hiệu năng |
+| 6  | DB pool max=10                                | 🟡 High     | Hiệu năng |
+| 7  | PostgreSQL max_connections=100                | 🟡 High     | Hiệu năng |
+| 8  | SearXNG limiter TẮT                           | 🟡 Medium   | Ổn định   |
+| 9  | ENABLE_SIGNUP=true                            | 🟡 Medium   | Bảo mật   |
+| 10 | Không có Docker resource limits               | 🟡 Medium   | Ổn định   |
 
 ---
 
@@ -109,16 +109,16 @@ Internet
 
 ### 4.2 Phân bổ tài nguyên (18 CPU / 32GB)
 
-| Service | Workers | CPU limit | RAM limit | RAM reserve |
-|---------|:-------:|:---------:|:---------:|:-----------:|
-| **Open WebUI** | **6** | 6 | 10GB | 4GB |
-| **Middleware** | **4** | 4 | 2GB | 512MB |
-| **LiteLLM** | **4** | 4 | 4GB | 1GB |
-| **PostgreSQL** | — | 2 | 8GB | 4GB |
-| **SearXNG** | — | 1 | 1GB | 256MB |
-| **Nginx** | auto | 1 | 512MB | 128MB |
-| **Redis** | — | 0.5 | 256MB | 64MB |
-| **Tổng** | **14** | **18.5** | **~26GB/32GB** | **~10GB** |
+| STT | Service        | Workers | CPU limit | RAM limit      | RAM reserve |
+| --- | -------------- | ------- | --------- | -------------- | ----------- |
+| 01  | **Open WebUI** | **6**   | 6         | 10GB           | 4GB         |
+| 02  | **Middleware** | **4**   | 4         | 2GB            | 512MB       |
+| 03  | **LiteLLM**    | **4**   | 4         | 4GB            | 1GB         |
+| 04  | **PostgreSQL** | —       | 2         | 8GB            | 4GB         |
+| 05  | **SearXNG**    | —       | 1         | 1GB            | 256MB       |
+| 06  | **Nginx**      | auto    | 1         | 512MB          | 128MB       |
+| 07  | **Redis**      | —       | 0.5       | 256MB          | 64MB        |
+| 08  | **Tổng**       | **14**  | **18.5**  | **~26GB/32GB** | **~10GB**   |
 
 ### 4.3 Nginx — Reverse Proxy + HTTPS
 
@@ -440,22 +440,22 @@ searxng:
 
 ### 4.11 Năng lực Phase 1
 
-| Chỉ số | Hiện tại (1 worker) | Phase 1 (tối ưu) |
-|--------|:------------------:|:-----------------:|
-| Users đăng ký | ~50 | **200-300** |
-| Online cùng lúc | ~20 | **100-150** |
-| Chat đồng thời | ~10 | **50-80** |
-| Web search/giờ | ~10 | **~60** |
-| Throughput | ~10 req/s | **~60-80 req/s** |
+| STT | Chỉ số          | Hiện tại (1 worker) | Phase 1 (tối ưu) |
+| --- | --------------- | ------------------- | ---------------- |
+| 01  | Users đăng ký   | ~50                 | **200-300**      |
+| 02  | Online cùng lúc | ~20                 | **100-150**      |
+| 03  | Chat đồng thời  | ~10                 | **50-80**        |
+| 04  | Web search/giờ  | ~10                 | **~60**          |
+| 05  | Throughput      | ~10 req/s           | **~60-80 req/s** |
 
 ### 4.12 Giới hạn API Provider (không liên quan server)
 
-| Provider | RPM (trả phí) | 50 user đồng thời | Đủ? |
-|----------|:------------:|:-----------------:|:---:|
-| OpenAI GPT-4o | 500 | ~50 req cùng lúc | ✅ |
-| OpenAI GPT-5 | 100 | ~50 req cùng lúc | ⚠️ Sát |
-| Gemini 2.5 Pro | 1000 | ~50 req cùng lúc | ✅ |
-| Gemini 2.5 Flash | 2000 | ~50 req cùng lúc | ✅ |
+| STT | Provider         | RPM (trả phí) | 50 user đồng thời | Đủ?    |
+| --- | ---------------- | ------------- | ----------------- | ------ |
+| 01  | OpenAI GPT-4o    | 500           | ~50 req cùng lúc  | ✅      |
+| 02  | OpenAI GPT-5     | 100           | ~50 req cùng lúc  | ⚠️ Sát |
+| 03  | Gemini 2.5 Pro   | 1000          | ~50 req cùng lúc  | ✅      |
+| 04  | Gemini 2.5 Flash | 2000          | ~50 req cùng lúc  | ✅      |
 
 > **Lưu ý:** Nếu 50 người cùng dùng GPT-5, có thể vượt rate limit 100 RPM. Giải pháp: phân tải giữa các model hoặc tăng API tier.
 
@@ -492,13 +492,13 @@ searxng:
 
 ### 5.2 Yêu cầu thêm cho Phase 2
 
-| Yêu cầu | Mục đích | Trạng thái |
-|---------|---------|:----------:|
-| **Redis** | Session management giữa các instances | ✅ Đã thêm Phase 1 |
-| **Shared WEBUI_SECRET_KEY** | Đồng bộ JWT token | ✅ Đã có |
-| **PostgreSQL (external)** | Shared database | ✅ Đang dùng |
-| **PGVector (external)** | Shared vector DB | ✅ Đang dùng |
-| **Shared storage** | Upload files, cache | ⚠️ Cần NFS/shared volume |
+| STT | Yêu cầu                     | Mục đích                              | Trạng thái               |
+| --- | --------------------------- | ------------------------------------- | ------------------------ |
+| 01  | **Redis**                   | Session management giữa các instances | ✅ Đã thêm Phase 1        |
+| 02  | **Shared WEBUI_SECRET_KEY** | Đồng bộ JWT token                     | ✅ Đã có                  |
+| 03  | **PostgreSQL (external)**   | Shared database                       | ✅ Đang dùng              |
+| 04  | **PGVector (external)**     | Shared vector DB                      | ✅ Đang dùng              |
+| 05  | **Shared storage**          | Upload files, cache                   | ⚠️ Cần NFS/shared volume |
 
 ### 5.3 Docker-compose Phase 2
 
@@ -542,12 +542,12 @@ upstream mw_api {
 
 ### 5.5 Năng lực Phase 2
 
-| Chỉ số | Phase 1 | Phase 2 |
-|--------|:-------:|:-------:|
-| Chat đồng thời | 50-80 | **100-150** |
-| Online cùng lúc | 100-150 | **300-400** |
-| Users đăng ký | 200-300 | **500+** |
-| Fault tolerance | ❌ | ✅ (1 chết → còn 2) |
+| STT | Chỉ số          | Phase 1 | Phase 2            |
+| --- | --------------- | ------- | ------------------ |
+| 01  | Chat đồng thời  | 50-80   | **100-150**        |
+| 02  | Online cùng lúc | 100-150 | **300-400**        |
+| 03  | Users đăng ký   | 200-300 | **500+**           |
+| 04  | Fault tolerance | ❌       | ✅ (1 chết → còn 2) |
 
 ---
 
@@ -580,11 +580,11 @@ upstream mw_api {
 
 ### 6.2 Công nghệ lựa chọn
 
-| Công nghệ | Phức tạp | Khi nào dùng |
-|-----------|:--------:|-------------|
-| **Docker Swarm** | ⭐⭐ | 200-1000 users, team nhỏ |
-| **Kubernetes** | ⭐⭐⭐⭐ | 1000+ users, team DevOps |
-| **Cloud (AWS/GCP)** | ⭐⭐ | Có budget, cần nhanh |
+| STT | Công nghệ           | Phức tạp | Khi nào dùng             |
+| --- | ------------------- | -------- | ------------------------ |
+| 01  | **Docker Swarm**    | ⭐⭐       | 200-1000 users, team nhỏ |
+| 02  | **Kubernetes**      | ⭐⭐⭐⭐     | 1000+ users, team DevOps |
+| 03  | **Cloud (AWS/GCP)** | ⭐⭐       | Có budget, cần nhanh     |
 
 ### 6.3 Docker Swarm Setup
 
@@ -601,12 +601,12 @@ docker stack deploy -c docker-stack.yml openwebui
 
 ### 6.4 Năng lực Phase 3
 
-| Chỉ số | Phase 2 | Phase 3 (2 servers) | Phase 3 (4 servers) |
-|--------|:-------:|:------------------:|:------------------:|
-| Chat đồng thời | 100-150 | **200-300** | **500+** |
-| Users đăng ký | 500 | **1000** | **2000+** |
-| Fault tolerance | Partial | ✅ Full | ✅ Full |
-| Chi phí thêm | $0 | +$50-100/tháng | +$150-300/tháng |
+| STT | Chỉ số          | Phase 2 | Phase 3 (2 servers) | Phase 3 (4 servers) |
+| --- | --------------- | ------- | ------------------- | ------------------- |
+| 01  | Chat đồng thời  | 100-150 | **200-300**         | **500+**            |
+| 02  | Users đăng ký   | 500     | **1000**            | **2000+**           |
+| 03  | Fault tolerance | Partial | ✅ Full              | ✅ Full              |
+| 04  | Chi phí thêm    | $0      | +$50-100/tháng      | +$150-300/tháng     |
 
 ---
 
@@ -614,12 +614,12 @@ docker stack deploy -c docker-stack.yml openwebui
 
 ### 7.1 Các phương pháp
 
-| Chiến lược | Cách hoạt động | Khi nào dùng |
-|-----------|---------------|-------------|
-| **Round Robin** | Luân phiên đều giữa các instance | Đơn giản, tải đều |
-| **Least Connections** | Gửi đến instance ít việc nhất | **Tốt nhất cho chat** |
-| **IP Hash** | Cùng IP → cùng instance | Khi KHÔNG có Redis |
-| **Weighted** | Instance mạnh nhận nhiều hơn | Khi server khác spec |
+| STT | Chiến lược            | Cách hoạt động                   | Khi nào dùng          |
+| --- | --------------------- | -------------------------------- | --------------------- |
+| 01  | **Round Robin**       | Luân phiên đều giữa các instance | Đơn giản, tải đều     |
+| 02  | **Least Connections** | Gửi đến instance ít việc nhất    | **Tốt nhất cho chat** |
+| 03  | **IP Hash**           | Cùng IP → cùng instance          | Khi KHÔNG có Redis    |
+| 04  | **Weighted**          | Instance mạnh nhận nhiều hơn     | Khi server khác spec  |
 
 ### 7.2 Khuyến nghị
 
@@ -649,14 +649,14 @@ Tầng 4: Application-level (Phase 1)
 
 ### 7.4 So sánh với mô hình Facebook
 
-| Khía cạnh | Facebook | Hệ thống này |
-|-----------|---------|-------------|
-| Quy mô | 3 tỷ users | 200 users |
-| Servers | 100,000+ | 1-3 |
-| Load Balancer | Custom L4/L7 | Nginx |
-| Database | Sharded MySQL | 1 PostgreSQL |
-| Cache | Memcached cluster | Redis (1 instance) |
-| CDN | Tự xây | Cloudflare (nếu cần) |
+| STT | Khía cạnh     | Facebook          | Hệ thống này         |
+| --- | ------------- | ----------------- | -------------------- |
+| 01  | Quy mô        | 3 tỷ users        | 200 users            |
+| 02  | Servers       | 100,000+          | 1-3                  |
+| 03  | Load Balancer | Custom L4/L7      | Nginx                |
+| 04  | Database      | Sharded MySQL     | 1 PostgreSQL         |
+| 05  | Cache         | Memcached cluster | Redis (1 instance)   |
+| 06  | CDN           | Tự xây            | Cloudflare (nếu cần) |
 
 → **Nguyên lý giống nhau** (phân tầng, replicas, load balancing), chỉ khác quy mô.
 
@@ -666,24 +666,24 @@ Tầng 4: Application-level (Phase 1)
 
 ### 8.1 Các vector tấn công và giải pháp
 
-| Vector | Hiện trạng | Giải pháp | Phase |
-|--------|:----------:|----------|:-----:|
-| PostgreSQL exposed | ❌ Mở | Đóng port, internal only | 1 |
-| LiteLLM exposed | ❌ Mở | Đóng port, internal only | 1 |
-| Không HTTPS | ❌ | Nginx + SSL certificate | 1 |
-| Không rate limit | ❌ | Nginx limit_req zones | 1 |
-| ENABLE_SIGNUP=true | ❌ | Đổi false, admin tạo TK | 1 |
-| Brute force login | ❌ | Nginx rate limit 5r/m | 1 |
-| DDoS | ❌ | Nginx + Cloudflare | 2-3 |
-| API key sniffing | ❌ | HTTPS | 1 |
+| STT | Vector             | Hiện trạng | Giải pháp                | Phase |
+| --- | ------------------ | ---------- | ------------------------ | ----- |
+| 01  | PostgreSQL exposed | ❌ Mở       | Đóng port, internal only | 1     |
+| 02  | LiteLLM exposed    | ❌ Mở       | Đóng port, internal only | 1     |
+| 03  | Không HTTPS        | ❌          | Nginx + SSL certificate  | 1     |
+| 04  | Không rate limit   | ❌          | Nginx limit_req zones    | 1     |
+| 05  | ENABLE_SIGNUP=true | ❌          | Đổi false, admin tạo TK  | 1     |
+| 06  | Brute force login  | ❌          | Nginx rate limit 5r/m    | 1     |
+| 07  | DDoS               | ❌          | Nginx + Cloudflare       | 2-3   |
+| 08  | API key sniffing   | ❌          | HTTPS                    | 1     |
 
 ### 8.2 SSL Certificate
 
-| Loại | Giá | Phù hợp |
-|------|:---:|:-------:|
-| Self-signed | $0 | ✅ Nội bộ công ty |
-| Let's Encrypt | $0 | ✅ Có domain public |
-| Mua certificate | $10-50/năm | ✅ Production |
+| STT | Loại            | Giá        | Phù hợp            |
+| --- | --------------- | ---------- | ------------------ |
+| 01  | Self-signed     | $0         | ✅ Nội bộ công ty   |
+| 02  | Let's Encrypt   | $0         | ✅ Có domain public |
+| 03  | Mua certificate | $10-50/năm | ✅ Production       |
 
 **Tạo self-signed (nội bộ):**
 

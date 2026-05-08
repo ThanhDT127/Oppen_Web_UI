@@ -55,16 +55,16 @@ Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware,
 
 ### 1.2 Docker Services
 
-| Service        | Port | Chức Năng                          |
-| -------------- | ---- | -----------------------------------|
-| **Nginx**      | 3000 | Reverse proxy, HTTPS, load balance |
-| **Open WebUI** | 8080 | Giao diện người dùng (internal)    |
-| **Middleware** | 5000 | Xác thực + Quota (internal)        |
-| **LiteLLM**    | 4000 | LLM Proxy (internal)               |
-| **PostgreSQL** | 5432 | Database + Vector DB (internal)    |
-| **Docling**    | 5001 | OCR / Document extraction          |
-| **SearXNG**    | 8080 | Web search engine (internal)       |
-| **Redis**      | 6379 | Cache + SearXNG limiter            |
+| STT | Service        | Port | Chức Năng                          |
+| --- | -------------- | ---- | ---------------------------------- |
+| 01  | **Nginx**      | 3000 | Reverse proxy, HTTPS, load balance |
+| 02  | **Open WebUI** | 8080 | Giao diện người dùng (internal)    |
+| 03  | **Middleware** | 5000 | Xác thực + Quota (internal)        |
+| 04  | **LiteLLM**    | 4000 | LLM Proxy (internal)               |
+| 05  | **PostgreSQL** | 5432 | Database + Vector DB (internal)    |
+| 06  | **Docling**    | 5001 | OCR / Document extraction          |
+| 07  | **SearXNG**    | 8080 | Web search engine (internal)       |
+| 08  | **Redis**      | 6379 | Cache + SearXNG limiter            |
 
 ---
 
@@ -72,38 +72,38 @@ Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware,
 
 ### Quy Ước Đặt Tên
 
-| Prefix  | Chức Năng                                    |
-| ------- | -------------------------------------------- |
-| `chat-` | **Chat AI** - Hỏi đáp text + vision          |
-| `img-`  | **Image Generation** - Tạo ảnh từ text       |
+| STT | Prefix  | Chức Năng                              |
+| --- | ------- | -------------------------------------- |
+| 01  | `chat-` | **Chat AI** - Hỏi đáp text + vision    |
+| 02  | `img-`  | **Image Generation** - Tạo ảnh từ text |
 
 ### Danh Sách Model
 
 #### Chat AI (12 models – 4 providers)
-| Model                               | Provider   | Ghi Chú                       |
-| ----------------------------------- | ---------- | ----------------------------- |
-| `chat-gpt-5.4`                      | OpenAI     | Flagship, reasoning mạnh nhất |
-| `chat-gpt-5.2`                      | OpenAI     | Cân bằng                      |
-| `chat-gpt-5`                        | OpenAI     | Tiêu chuẩn                    |
-| `chat-gemini-3.1-pro-preview`       | Google     | Flagship Google, reasoning    |
-| `chat-gemini-3.1-flash-lite-preview`| Google     | Nhanh, chi phí thấp           |
-| `chat-gemini-2.5-flash`             | Google     | Cân bằng, tiếng Việt tốt      |
-| `chat-grok-4.20-reasoning`          | xAI        | Reasoning mạnh                |
-| `chat-grok-4-1-fast-reasoning`      | xAI        | Nhanh, reasoning              |
-| `chat-grok-4-1-fast-non-reasoning`  | xAI        | Nhanh nhất, rẻ                |
-| `chat-claude-opus-4.6`              | Anthropic  | Flagship, phân tích sâu       |
-| `chat-claude-sonnet-4.6`            | Anthropic  | Cân bằng                      |
-| `chat-claude-haiku-4.5`             | Anthropic  | Nhanh, tiết kiệm              |
+| STT | Model                                | Provider  | Ghi Chú                       |
+| --- | ------------------------------------ | --------- | ----------------------------- |
+| 01  | `chat-gpt-5.4`                       | OpenAI    | Flagship, reasoning mạnh nhất |
+| 02  | `chat-gpt-5.2`                       | OpenAI    | Cân bằng                      |
+| 03  | `chat-gpt-5`                         | OpenAI    | Tiêu chuẩn                    |
+| 04  | `chat-gemini-3.1-pro-preview`        | Google    | Flagship Google, reasoning    |
+| 05  | `chat-gemini-3.1-flash-lite-preview` | Google    | Nhanh, chi phí thấp           |
+| 06  | `chat-gemini-2.5-flash`              | Google    | Cân bằng, tiếng Việt tốt      |
+| 07  | `chat-grok-4.20`                     | xAI       | Reasoning mạnh                |
+| 08  | `chat-grok-4.1-fast`                 | xAI       | Nhanh, reasoning              |
+| 09  | `chat-grok-4.1-fast-lite`            | xAI       | Nhanh nhất, rẻ                |
+| 10  | `chat-claude-opus-4.6`               | Anthropic | Flagship, phân tích sâu       |
+| 11  | `chat-claude-sonnet-4.6`             | Anthropic | Cân bằng                      |
+| 12  | `chat-claude-haiku-4.5`              | Anthropic | Nhanh, tiết kiệm              |
 
 #### Image Generation (6 models)
-| Model                    | Provider | Ghi Chú                        |
-| ------------------------ | -------- | ------------------------------ |
-| `img-gpt-image-1.5`      | OpenAI   | Mới nhất, 4x nhanh hơn         |
-| `img-gpt-image-1`        | OpenAI   | Chất lượng cao                 |
-| `img-gemini-3.1-flash`   | Google   | Nhanh, chi phí thấp            |
-| `img-gemini-3-pro`       | Google   | Chất lượng cao                 |
-| `img-grok-imagine`       | xAI      | Tiêu chuẩn                     |
-| `img-grok-imagine-pro`   | xAI      | ✅ Khuyến nghị, chất lượng cao |
+| STT | Model                  | Provider | Ghi Chú                       |
+| --- | ---------------------- | -------- | ----------------------------- |
+| 01  | `img-gpt-1.5`          | OpenAI   | Mới nhất, 4x nhanh hơn        |
+| 02  | `img-gpt-1`            | OpenAI   | Chất lượng cao                |
+| 03  | `img-gemini-3.1-flash` | Google   | Nhanh, chi phí thấp           |
+| 04  | `img-gemini-3-pro`     | Google   | Chất lượng cao                |
+| 05  | `img-grok-imagine`     | xAI      | Tiêu chuẩn                    |
+| 06  | `img-grok-imagine-pro` | xAI      | ✅ Khuyến nghị, chất lượng cao |
 
 ---
 
@@ -126,7 +126,7 @@ Câu hỏi → Tìm chunks liên quan → Ghép vào context → LLM trả lời
 1. **Workspace** → **Models** → Click **[+]**
 2. Điền:
    - **Name**: Tên model (vd: "Tài Liệu Dự Án")
-   - **Base Model**: `mm-gemini-2.5-flash`
+   - **Base Model**: `chat-gemini-2.5-flash`
    - **Knowledge**: Chọn KB của bạn
 3. **Save**
 4. Chat với model này → AI tự động tìm trong KB
@@ -148,12 +148,12 @@ Câu hỏi → Tìm chunks liên quan → Ghép vào context → LLM trả lời
 
 **Admin Panel → Settings → Documents**
 
-| Tham Số       | Mặc Định | Mô Tả                   |
-| ------------- | -------- | ----------------------- |
-| Top K         | 5        | Số chunks retrieve      |
-| Chunk Size    | 1500     | Kích thước mỗi chunk    |
-| Chunk Overlap | 100      | Độ chồng lấp            |
-| Hybrid Search | On       | Vector + Keyword search |
+| STT | Tham Số       | Mặc Định | Mô Tả                   |
+| --- | ------------- | -------- | ----------------------- |
+| 01  | Top K         | 5        | Số chunks retrieve      |
+| 02  | Chunk Size    | 1500     | Kích thước mỗi chunk    |
+| 03  | Chunk Overlap | 100      | Độ chồng lấp            |
+| 04  | Hybrid Search | On       | Vector + Keyword search |
 
 ---
 
@@ -174,7 +174,7 @@ curl -X POST http://localhost:5000/v1/images/generations \
   -H "Authorization: Bearer subkey_admin_123" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "img-gemini-flash",
+    "model": "img-gemini-3.1-flash",
     "prompt": "A futuristic city at sunset",
     "size": "1024x1024"
   }'
@@ -232,24 +232,24 @@ curl -X POST -H "X-Admin-Key: admin_key" \
 
 ### 6.1 Kiến Trúc — 2 Hệ Thống User
 
-| Hệ thống       | Database                       | Vai trò                              |
-| -------------- | ------------------------------ | ------------------------------------ |
-| **Open WebUI** | `openwebui` → bảng `user`      | Đăng nhập web, phân quyền Admin/User |
-| **Middleware** | `middleware` → bảng `mw_users` | Xác thực API, quản lý quota, subkey  |
+| STT | Hệ thống       | Database                       | Vai trò                              |
+| --- | -------------- | ------------------------------ | ------------------------------------ |
+| 01  | **Open WebUI** | `openwebui` → bảng `user`      | Đăng nhập web, phân quyền Admin/User |
+| 02  | **Middleware** | `middleware` → bảng `mw_users` | Xác thực API, quản lý quota, subkey  |
 
 > ⚠️ Hai hệ thống **độc lập** — user_id trong middleware không liên kết với user_id trong Open WebUI.
 
 ### 6.2 Quản Lý qua Dashboard (Giao Diện)
 
-Truy cập: `http://<server>:5000/dashboard` → Tab **Users**
+Truy cập: `https://openwebui.rangdong.com.vn:51122/dashboard` → Tab **Users**
 
-| Thao tác           | Cách làm                                            |
-| ------------------ | --------------------------------------------------- |
-| **Tạo user**       | Nhấn ➕ Add User → Điền form → Create → Copy subkey |
-| **Sửa user**       | Nhấn ✏️ → Sửa quota/model/role → Save               |
-| **Xóa user**       | Nhấn 🗑️ → Confirm 2 lần                             |
-| **Rotate key**     | Nhấn 🔑 → Confirm → Copy subkey mới                 |
-| **Enable/Disable** | Nhấn 🔴/🟢 toggle                                   |
+| STT | Thao tác           | Cách làm                                           |
+| --- | ------------------ | -------------------------------------------------- |
+| 01  | **Tạo user**       | Nhấn ➕ Add User → Điền form → Create → Copy subkey |
+| 02  | **Sửa user**       | Nhấn ✏️ → Sửa quota/model/role → Save              |
+| 03  | **Xóa user**       | Nhấn 🗑️ → Confirm 2 lần                            |
+| 04  | **Rotate key**     | Nhấn 🔑 → Confirm → Copy subkey mới                 |
+| 05  | **Enable/Disable** | Nhấn 🔴/🟢 toggle                                    |
 
 ### 6.3 Subkey — Bảo Mật
 
@@ -288,11 +288,11 @@ curl -X POST http://localhost:5000/v1/_mw/admin/users/alice/rotate_key \
 
 ### 7.1 Các Định Dạng
 
-| Công cụ                | Mô Tả                                           |
-| ---------------------- | ----------------------------------------------- |
-| **Xuất Excel** (.xlsx) | Trích xuất bảng biểu, auto-format số/ngày/tiền  |
-| **Xuất PDF**           | Xuất hội thoại, hỗ trợ tiếng Việt (font DejaVu) |
-| **Xuất Word** (.docx)  | Xuất hội thoại dạng Word                        |
+| STT | Công cụ                | Mô Tả                                           |
+| --- | ---------------------- | ----------------------------------------------- |
+| 01  | **Xuất Excel** (.xlsx) | Trích xuất bảng biểu, auto-format số/ngày/tiền  |
+| 02  | **Xuất PDF**           | Xuất hội thoại, hỗ trợ tiếng Việt (font DejaVu) |
+| 03  | **Xuất Word** (.docx)  | Xuất hội thoại dạng Word                        |
 
 ### 7.2 Cách Sử Dụng
 
@@ -310,13 +310,13 @@ curl -X POST http://localhost:5000/v1/_mw/admin/users/alice/rotate_key \
 
 ### 8.1 Lỗi Thường Gặp
 
-| Lỗi                     | Nguyên Nhân                     | Giải Pháp                   |
-| ----------------------- | ------------------------------- | --------------------------- |
-| 401 Missing sub-key     | Thiếu Authorization header      | Thêm `Bearer <subkey>`      |
-| 403 Invalid sub-key     | Subkey sai hoặc user bị disable | Kiểm tra DB hoặc rotate key |
-| 403 Model not allowed   | Model bị chặn                   | Thêm vào allowed_models     |
-| 403 Quota exceeded      | Hết quota                       | Reset hoặc tăng limit       |
-| 502 LiteLLM unavailable | LiteLLM chưa chạy               | Kiểm tra container          |
+| STT | Lỗi                     | Nguyên Nhân                     | Giải Pháp                   |
+| --- | ----------------------- | ------------------------------- | --------------------------- |
+| 01  | 401 Missing sub-key     | Thiếu Authorization header      | Thêm `Bearer <subkey>`      |
+| 02  | 403 Invalid sub-key     | Subkey sai hoặc user bị disable | Kiểm tra DB hoặc rotate key |
+| 03  | 403 Model not allowed   | Model bị chặn                   | Thêm vào allowed_models     |
+| 04  | 403 Quota exceeded      | Hết quota                       | Reset hoặc tăng limit       |
+| 05  | 502 LiteLLM unavailable | LiteLLM chưa chạy               | Kiểm tra container          |
 
 ### 8.2 Kiểm Tra Service
 
@@ -349,12 +349,12 @@ curl http://localhost:5000/v1/models \
 
 ### URLs
 
-| Service        | URL                                                |
-| -------------- | -------------------------------------------------- |
-| Open WebUI     | https://openwebui.rangdong.com.vn:51122             |
-| Dashboard      | https://openwebui.rangdong.com.vn:51122/dashboard   |
-| Middleware API | https://openwebui.rangdong.com.vn:51122/v1/_mw/     |
-| LLM API        | https://openwebui.rangdong.com.vn:51122/v1/          |
+| STT | Service        | URL                                               |
+| --- | -------------- | ------------------------------------------------- |
+| 01  | Open WebUI     | https://openwebui.rangdong.com.vn:51122           |
+| 02  | Dashboard      | https://openwebui.rangdong.com.vn:51122/dashboard |
+| 03  | Middleware API | https://openwebui.rangdong.com.vn:51122/v1/_mw/   |
+| 04  | LLM API        | https://openwebui.rangdong.com.vn:51122/v1/       |
 
 ### Commands
 

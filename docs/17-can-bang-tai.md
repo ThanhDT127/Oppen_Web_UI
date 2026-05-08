@@ -31,13 +31,13 @@ Tầng 4: LiteLLM (4 workers + rpm/tpm per model → API providers)
 
 ### Năng lực hiện tại (Phase 1 — ĐÃ TRIỂN KHAI)
 
-| Chỉ số | Giá trị |
-|--------|:-------:|
-| Users đăng ký | 200-300 |
-| Online cùng lúc | 100-150 |
-| **Chat đồng thời** | **50-80** |
-| Web search/giờ | ~60 |
-| Throughput | ~60-80 req/s |
+| STT | Chỉ số             | Giá trị      |
+| --- | ------------------ | ------------ |
+| 01  | Users đăng ký      | 200-300      |
+| 02  | Online cùng lúc    | 100-150      |
+| 03  | **Chat đồng thời** | **50-80**    |
+| 04  | Web search/giờ     | ~60          |
+| 05  | Throughput         | ~60-80 req/s |
 
 ---
 
@@ -45,27 +45,27 @@ Tầng 4: LiteLLM (4 workers + rpm/tpm per model → API providers)
 
 **Server:** 20 CPU / 32GB RAM
 
-| Service | Workers | CPU | RAM limit | RAM reserved |
-|---------|:-------:|:---:|:---------:|:------------:|
-| **Open WebUI** | 6 | 6 | 10GB | 4GB |
-| **Middleware** | 4 | 4 | 2GB | 512MB |
-| **LiteLLM** | 4 | 4 | 4GB | 1GB |
-| **PostgreSQL** | — | 2 | 8GB | 4GB |
-| **SearXNG** | — | 1 | 1GB | — |
-| **Redis** | — | 0.5 | 256MB | — |
-| **Nginx** | auto | 1 | 512MB | — |
-| **Tổng** | **14** | **18.5** | **25.8GB** | **9.5GB** |
-| **Còn dư (cho OS)** | — | **1.5** | **6.2GB** | — |
+| STT | Service             | Workers | CPU      | RAM limit  | RAM reserved |
+| --- | ------------------- | ------- | -------- | ---------- | ------------ |
+| 01  | **Open WebUI**      | 6       | 6        | 10GB       | 4GB          |
+| 02  | **Middleware**      | 4       | 4        | 2GB        | 512MB        |
+| 03  | **LiteLLM**         | 4       | 4        | 4GB        | 1GB          |
+| 04  | **PostgreSQL**      | —       | 2        | 8GB        | 4GB          |
+| 05  | **SearXNG**         | —       | 1        | 1GB        | —            |
+| 06  | **Redis**           | —       | 0.5      | 256MB      | —            |
+| 07  | **Nginx**           | auto    | 1        | 512MB      | —            |
+| 08  | **Tổng**            | **14**  | **18.5** | **25.8GB** | **9.5GB**    |
+| 09  | **Còn dư (cho OS)** | —       | **1.5**  | **6.2GB**  | —            |
 
 ### Tại sao phân bổ như vậy?
 
-| Service | Lý do CPU | Lý do RAM |
-|---------|-----------|-----------|
-| WebUI 6 CPU | Nặng nhất: chạy ML embedding model + serve HTML | 10GB: model ~2GB + 6 workers ×1GB |
-| MW 4 CPU | 4 workers async, check quota DB | 2GB đủ (chỉ proxy + DB query) |
-| LiteLLM 4 CPU | 4 workers gọi API, I/O bound | 4GB dự phòng cho nhiều model configs |
-| PG 2 CPU | DB queries, index scan | 8GB: shared_buffers=4GB + query cache |
-| Nginx 1 CPU | Chỉ forward, **10,000+ req/s với 1 CPU** | 512MB quá đủ |
+| STT | Service       | Lý do CPU                                       | Lý do RAM                             |
+| --- | ------------- | ----------------------------------------------- | ------------------------------------- |
+| 01  | WebUI 6 CPU   | Nặng nhất: chạy ML embedding model + serve HTML | 10GB: model ~2GB + 6 workers ×1GB     |
+| 02  | MW 4 CPU      | 4 workers async, check quota DB                 | 2GB đủ (chỉ proxy + DB query)         |
+| 03  | LiteLLM 4 CPU | 4 workers gọi API, I/O bound                    | 4GB dự phòng cho nhiều model configs  |
+| 04  | PG 2 CPU      | DB queries, index scan                          | 8GB: shared_buffers=4GB + query cache |
+| 05  | Nginx 1 CPU   | Chỉ forward, **10,000+ req/s với 1 CPU**        | 512MB quá đủ                          |
 
 ---
 
@@ -73,11 +73,11 @@ Tầng 4: LiteLLM (4 workers + rpm/tpm per model → API providers)
 
 ### Rate Limiting
 
-| Zone | Rate | Burst | Áp dụng cho | Mục đích |
-|------|:----:|:-----:|------------|---------|
-| `chat` | 10 req/s | 50 | `/` (trang chính) | Chống spam |
-| `login` | 5 req/phút | 3 | `/api/v1/auths/` | Chống brute force |
-| Không limit | — | — | `/_app/`, `/static/`, `/ws/` | Static files, WebSocket |
+| STT | Zone        | Rate       | Burst | Áp dụng cho                  | Mục đích                |
+| --- | ----------- | ---------- | ----- | ---------------------------- | ----------------------- |
+| 01  | `chat`      | 10 req/s   | 50    | `/` (trang chính)            | Chống spam              |
+| 02  | `login`     | 5 req/phút | 3     | `/api/v1/auths/`             | Chống brute force       |
+| 03  | Không limit | —          | —     | `/_app/`, `/static/`, `/ws/` | Static files, WebSocket |
 
 ### Cách hoạt động
 
@@ -111,12 +111,12 @@ litellm_settings:
 
 ### Giới hạn API Provider
 
-| Provider | Model | RPM (provider limit) | Chiến lược |
-|----------|-------|:--------------------:|-----------|
-| OpenAI | GPT-5 | 100 | ⚠️ Bottleneck — cần fallback |
-| OpenAI | GPT-4o | 500 | ✅ Đủ |
-| Google | Gemini 2.5 Pro | 1000 | ✅ Dư thừa |
-| Google | Gemini 2.5 Flash | 2000 | ✅ Rất dư |
+| STT | Provider | Model            | RPM (provider limit) | Chiến lược                   |
+| --- | -------- | ---------------- | -------------------- | ---------------------------- |
+| 01  | OpenAI   | GPT-5            | 100                  | ⚠️ Bottleneck — cần fallback |
+| 02  | OpenAI   | GPT-4o           | 500                  | ✅ Đủ                         |
+| 03  | Google   | Gemini 2.5 Pro   | 1000                 | ✅ Dư thừa                    |
+| 04  | Google   | Gemini 2.5 Flash | 2000                 | ✅ Rất dư                     |
 
 ### Load Balancing giữa nhiều API key
 
@@ -163,12 +163,12 @@ Nếu cần tăng RPM, thêm nhiều API key cho cùng model:
 init_pool(DATABASE_URL, minconn=5, maxconn=30)
 ```
 
-| Tham số | Giá trị | Ý nghĩa |
-|---------|:-------:|---------|
-| `minconn` | 5 | Luôn giữ sẵn 5 kết nối DB (không cần tạo mới) |
-| `maxconn` | 30 | Tối đa 30 kết nối đồng thời |
-| Workers | 4 | 4 tiến trình, mỗi worker có pool riêng |
-| **Tổng max** | **120** | 4 workers × 30 connections = 120 DB connections |
+| STT | Tham số      | Giá trị | Ý nghĩa                                         |
+| --- | ------------ | ------- | ----------------------------------------------- |
+| 01  | `minconn`    | 5       | Luôn giữ sẵn 5 kết nối DB (không cần tạo mới)   |
+| 02  | `maxconn`    | 30      | Tối đa 30 kết nối đồng thời                     |
+| 03  | Workers      | 4       | 4 tiến trình, mỗi worker có pool riêng          |
+| 04  | **Tổng max** | **120** | 4 workers × 30 connections = 120 DB connections |
 
 ### PostgreSQL connections
 
@@ -188,12 +188,12 @@ Tổng:        ~170 / 300 → CÒN DƯ 130 ✅
 
 ### 4 cách tăng RPM
 
-| # | Cách | Tăng | Chi phí | Phức tạp |
-|:-:|------|:----:|:-------:|:--------:|
-| 1 | **Nâng tier** (deposit thêm) | ×5-100 | $40-400 | ⭐ |
-| 2 | **Nhiều API key** (cùng provider) | ×2-3 | $0 | ⭐ |
-| 3 | **Fallback** (multi-provider) | ×2-3 | $0 | ⭐⭐ |
-| 4 | **Phân nhóm user** (model khác nhau) | Không giới hạn | $0 | ⭐⭐ |
+| # | Cách                                 | Tăng           | Chi phí | Phức tạp |
+| - | ------------------------------------ | -------------- | ------- | -------- |
+| 1 | **Nâng tier** (deposit thêm)         | ×5-100         | $40-400 | ⭐        |
+| 2 | **Nhiều API key** (cùng provider)    | ×2-3           | $0      | ⭐        |
+| 3 | **Fallback** (multi-provider)        | ×2-3           | $0      | ⭐⭐       |
+| 4 | **Phân nhóm user** (model khác nhau) | Không giới hạn | $0      | ⭐⭐       |
 
 ### Khuyến nghị
 
