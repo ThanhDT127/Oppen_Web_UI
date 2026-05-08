@@ -79,7 +79,7 @@ Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware,
 
 ### Danh Sách Model
 
-#### Chat AI (12 models – 4 providers)
+#### Chat AI (14 models – 5 providers)
 | STT | Model                                | Provider  | Ghi Chú                       |
 | --- | ------------------------------------ | --------- | ----------------------------- |
 | 01  | `chat-gpt-5.4`                       | OpenAI    | Flagship, reasoning mạnh nhất |
@@ -94,6 +94,8 @@ Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware,
 | 10  | `chat-claude-opus-4.6`               | Anthropic | Flagship, phân tích sâu       |
 | 11  | `chat-claude-sonnet-4.6`             | Anthropic | Cân bằng                      |
 | 12  | `chat-claude-haiku-4.5`              | Anthropic | Nhanh, tiết kiệm              |
+| 13  | `chat-deepseek-v4-pro`               | DeepSeek  | Reasoning mạnh, 1M context    |
+| 14  | `chat-deepseek-v4-flash`             | DeepSeek  | Nhanh nhất, rẻ nhất fleet     |
 
 #### Image Generation (6 models)
 | STT | Model                  | Provider | Ghi Chú                       |

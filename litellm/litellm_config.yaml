@@ -127,6 +127,22 @@ model_list:
       model: xai/grok-imagine-image-pro
       api_key: os.environ/XAI_API_KEY
 
+  # ============================================================
+  # DEEPSEEK CHAT MODELS via OpenRouter (2)
+  # ============================================================
+
+  # DeepSeek V4 Pro (1.6T/49B active, 1M context, advanced reasoning)
+  - model_name: chat-deepseek-v4-pro
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-pro
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # DeepSeek V4 Flash (284B/13B active, 1M context, fast & cheap)
+  - model_name: chat-deepseek-v4-flash
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+
 # ============================================================
 # EMBEDDING MODELS
 # ============================================================

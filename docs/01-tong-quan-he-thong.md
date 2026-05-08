@@ -86,7 +86,7 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
 #### C. Tối ưu chi phí sử dụng AI
 
 - Multi-provider routing: Tự động chọn provider rẻ nhất cho cùng chất lượng
-- Bảng giá model: Cập nhật giá input/output token cho 19 models trong DB
+- Bảng giá model: Cập nhật giá input/output token cho 21 models trong DB
 - Quota enforcement: Vượt quota - tự động từ chối, không phát sinh chi phí ngoài kế hoạch
 - Cost dashboard: Real-time tracking chi phí theo user, model, thời gian
 - Ước tính: 10 users x 20 requests/ngày ~ $50-150/tháng (so với $300/tháng cho ChatGPT Enterprise)
@@ -288,7 +288,7 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
     ║     │  │  DuckDuckGo  │          │  Model routing      │       ║
     ║     │  │  Brave       │          │  Retry / Fallback   │       ║
     ║     │  │  Bing        │          │  SSE streaming      │       ║
-    ║     │  │  Google (tắt)│          │  19 models config   │       ║
+    ║     │  │  Google (tắt)│          │  21 models config   │       ║
     ║     │  └───────┬──────┘          └──────────┬──────────┘       ║
     ║     │          │ cache                      │                  ║
     ║     │          ▼                            │                  ║
@@ -419,7 +419,7 @@ Container: openwebui-litellm
 | 02  | Multi-provider | OpenAI + Gemini + xAI + Anthropic qua 1 gateway         |
 | 03  | Retry/Fallback | Tự động retry khi lỗi, fallback sang provider khác      |
 | 04  | Streaming      | Forward SSE stream từ LLM > middleware > client         |
-| 05  | Config         | litellm/litellm_config.yaml - 19 models định nghĩa sẵn  |
+| 05  | Config         | litellm/litellm_config.yaml - 21 models định nghĩa sẵn  |
 
 ### 6.5. PostgreSQL + PGVector (Tier 3b)
 
@@ -439,7 +439,7 @@ docker-compose.yml:
     nginx           # nginx:alpine                       3000     1     512MB  ← CỬA DUY NHẤT
     postgres        # pgvector/pgvector:0.8.0-pg16       —        2     8GB
     redis           # redis:7-alpine                     —        0.5   256MB
-    litellm         # ghcr.io/berriai/litellm             —        4     4GB
+    litellm         # ghcr.io/berriai/litellm:v1.83.14     —        4     4GB
     middleware      # Custom build (./llm-mw/Dockerfile)  —        4     2GB
     open-webui      # Custom build (Dockerfile.openwebui) —        6     10GB
     searxng          # searxng/searxng:latest              —        1     1GB
@@ -521,7 +521,7 @@ Lưu ý: Không có Foreign Key giữa 2 databases (by design - cross-database F
 
 ### 7.3. Tích hợp - API Providers
 
-19 models được cấu hình trong litellm/litellm_config.yaml:
+21 models được cấu hình trong litellm/litellm_config.yaml:
 - 12 chat models (3 OpenAI + 3 Google + 3 xAI + 3 Anthropic)
 - 6 image models (2 OpenAI + 2 Google + 2 xAI)
 - 1 embedding model (Google Gemini)
@@ -760,7 +760,7 @@ Tabs: Overview / Logs / Access / Users
 | 03  | nginx/nginx.conf            | Reverse proxy + SSL config | Thêm route, đổi rate limit |
 | 04  | nginx/ssl/fullchain.pem     | SSL certificate            | Gia hạn cert hàng năm      |
 | 05  | nginx/ssl/privkey.pem       | SSL private key            | Gia hạn cert hàng năm      |
-| 06  | litellm/litellm_config.yaml | Danh sách 19 models        | Thêm/bớt model AI          |
+| 06  | litellm/litellm_config.yaml | Danh sách 21 models        | Thêm/bớt model AI          |
 | 07  | searxng/settings.yml        | Cấu hình SearXNG search    | Thêm/bớt search engine     |
 | 08  | llm-mw/data/users.json      | User backup (source: DB)   | Không sửa trực tiếp        |
 | 09  | llm-mw/data/prices.json     | Price backup (source: DB)  | Không sửa trực tiếp        |
