@@ -28,7 +28,7 @@ async def health_check(request: Request):
     try:
         client: httpx.AsyncClient = request.app.state.http_client
         resp = await client.get(
-            f"{LITELLM_BASE}/health",
+            f"{LITELLM_BASE.rstrip('/').replace('/v1', '')}/health/liveliness",
             headers={"Authorization": f"Bearer {LITELLM_KEY}"},
             timeout=5.0
         )

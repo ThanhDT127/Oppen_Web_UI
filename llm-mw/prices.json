@@ -5,14 +5,15 @@
       "input_per_1m": "USD per 1,000,000 input tokens",
       "output_per_1m": "USD per 1,000,000 output tokens"
     },
-    "updated_utc": "2026-03-26",
+    "updated_utc": "2026-05-08",
     "sources": {
       "openai": "https://platform.openai.com/docs/pricing",
       "gemini": "https://ai.google.dev/gemini-api/docs/pricing",
       "xai": "https://docs.x.ai/docs/models#models-and-pricing",
-      "anthropic": "https://docs.anthropic.com/en/docs/about-claude/pricing"
+      "anthropic": "https://docs.anthropic.com/en/docs/about-claude/pricing",
+      "deepseek": "https://openrouter.ai/deepseek/deepseek-v4-pro"
     },
-    "notes": "4-provider pricing. Middleware primarily trusts LiteLLM x-litellm-response-cost; these values are fallback."
+    "notes": "5-provider pricing (OpenAI, Gemini, xAI, Anthropic, DeepSeek via OpenRouter). Middleware primarily trusts LiteLLM x-litellm-response-cost; these values are fallback."
   },
   "gpt-5.4": {
     "input_per_1m": 2.50,
@@ -118,6 +119,16 @@
   "claude-haiku-4-5": {
     "input_per_1m": 1.00,
     "output_per_1m": 5.00
+  },
+  "deepseek-v4-pro": {
+    "input_per_1m": 1.74,
+    "output_per_1m": 3.48,
+    "notes": "DeepSeek V4 Pro via OpenRouter - 1.6T/49B active, 1M context"
+  },
+  "deepseek-v4-flash": {
+    "input_per_1m": 0.14,
+    "output_per_1m": 0.28,
+    "notes": "DeepSeek V4 Flash via OpenRouter - 284B/13B active, 1M context"
   },
   "gemini-embedding-001": {
     "input_per_1m": 0.15,
