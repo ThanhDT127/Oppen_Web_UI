@@ -307,6 +307,9 @@ The Oppen Web UI system consists of **9 Docker containers** on the same network,
 | 06  | Cost tracking tự động  | Tính chi phí mỗi request theo bảng giá model (input + output token) |
 | 07  | Bảng giá tùy chỉnh     | Admin cấu hình giá riêng cho từng model trong `mw_prices`           |
 | 08  | Email alert            | Cấu hình ngưỡng cảnh báo + email thông báo khi vượt ngưỡng          |
+| 09  | Smart Routing (Auto)   | Tự động chọn model theo độ phức tạp: SIMPLE/MEDIUM/COMPLEX/REASONING |
+| 10  | Quota downgrade        | Khi quota ≥60%, Auto model tự chuyển sang tier SIMPLE (tiết kiệm)    |
+| 11  | Routing warning        | Hiển thị cảnh báo inline khi model bị downgrade do quota             |
 
 ### 8. Admin Dashboard (Middleware :5000)
 

@@ -7,14 +7,25 @@ import httpx
 
 from config import LITELLM_BASE, LITELLM_KEY, RESTRICTED_MODELS
 from core.auth import require_user
+from core.smart_routing import PROVIDER_TIERS
 from utils.helpers import env_truthy
 from utils.logging import detail_log
+
+# Display names for auto-routing models
+_AUTO_MODEL_NAMES = {
+    "openai-auto": "ChatGPT (Auto)",
+    "gemini-auto": "Gemini (Auto)",
+    "grok-auto": "Grok (Auto)",
+    "claude-auto": "Claude (Auto)",
+    "deepseek-auto": "DeepSeek (Auto)",
+}
 
 
 async def list_models(request: Request):
     """
     List available models from LiteLLM.
     Filters out restricted models unless MW_EXPOSE_RESTRICTED_MODELS is enabled.
+    Injects virtual auto-routing models for eligible users.
     """
     user = require_user(request)
     
@@ -55,6 +66,27 @@ async def list_models(request: Request):
                             continue
                     
                     filtered.append(item)
+
+                # Inject auto-routing virtual models
+                # Collect IDs already in filtered list for tier eligibility check
+                filtered_ids = {
+                    item.get("id") or item.get("model") or item.get("name")
+                    for item in filtered if isinstance(item, dict)
+                }
+                for auto_name, tiers in PROVIDER_TIERS.items():
+                    # User can use auto model if they have access to any tier model
+                    tier_models = set(tiers.values())
+                    if allow_all or any(m in allowed_models for m in tier_models):
+                        # Only add if at least one tier model exists in LiteLLM
+                        if tier_models & filtered_ids:
+                            filtered.insert(0, {
+                                "id": auto_name,
+                                "object": "model",
+                                "created": 1677610602,
+                                "owned_by": "smart-routing",
+                                "name": _AUTO_MODEL_NAMES.get(auto_name, auto_name),
+                            })
+
                 payload["data"] = filtered
             return payload
         return {"data": []}

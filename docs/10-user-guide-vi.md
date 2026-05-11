@@ -1,6 +1,6 @@
 # 📘 HƯỚNG DẪN SỬ DỤNG - OPEN WEBUI STACK
 
-> **Phiên bản:** 3.0 | **Cập nhật:** 06/03/2026
+> **Phiên bản:** 4.0 | **Cập nhật:** 11/05/2026
 
 Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware, bao gồm kiến trúc, RAG, tạo ảnh, quản lý user, và troubleshooting.
 
@@ -106,6 +106,18 @@ Tài liệu hướng dẫn sử dụng hệ thống Open WebUI với Middleware,
 | 04  | `img-gemini-3-pro`     | Google   | Chất lượng cao                |
 | 05  | `img-grok-imagine`     | xAI      | Tiêu chuẩn                    |
 | 06  | `img-grok-imagine-pro` | xAI      | ✅ Khuyến nghị, chất lượng cao |
+
+#### Smart Routing — Auto Models (5 models)
+
+| STT | Model ID        | Tên Hiển Thị     | Mô Tả                                            |
+| --- | --------------- | ---------------- | ------------------------------------------------- |
+| 01  | `openai-auto`   | ChatGPT (Auto)   | Tự chọn GPT-5 / 5.2 / 5.4 theo độ phức tạp       |
+| 02  | `gemini-auto`   | Gemini (Auto)    | Tự chọn 2.5-flash / 3.1-flash-lite / 3.1-pro      |
+| 03  | `grok-auto`     | Grok (Auto)      | Tự chọn 4.1-fast-lite / 4.1-fast / 4.20           |
+| 04  | `claude-auto`   | Claude (Auto)    | Tự chọn haiku / sonnet / opus                      |
+| 05  | `deepseek-auto` | DeepSeek (Auto)  | Tự chọn v4-flash / v4-pro                          |
+
+> 💡 **Cách hoạt động:** Smart Routing phân tích độ phức tạp câu hỏi (độ dài, từ khóa, số lượt chat, file đính kèm) để chọn model phù hợp nhất. Khi quota đạt ≥60%, hệ thống tự động chuyển sang model tiết kiệm nhất.
 
 ---
 

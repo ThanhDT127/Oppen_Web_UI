@@ -1,34 +1,42 @@
 ## Prerequisites
-- [ ] 0a. Change `upgrade-litellm` phải hoàn thành
-- [ ] 0b. Change `add-deepseek-openrouter` phải hoàn thành
+- [x] 0a. Change `upgrade-litellm` hoàn thành ✅
+- [x] 0b. Change `add-deepseek-openrouter` hoàn thành ✅
 
-## LiteLLM Config
-- [ ] 1. Thêm `openai-auto` complexity router vào litellm_config.yaml
-- [ ] 2. Thêm `gemini-auto` complexity router
-- [ ] 3. Thêm `grok-auto` complexity router
-- [ ] 4. Thêm `claude-auto` complexity router
-- [ ] 5. Thêm `deepseek-auto` complexity router
-- [ ] 6. Test routing: verify tier selection cho 5 providers
+## Smart Routing Module
+- [x] 1. Tạo `core/smart_routing.py` — complexity scoring + tier mapping
+  - 5 providers × 4 tiers (SIMPLE/MEDIUM/COMPLEX/REASONING)
+  - Keyword boost: Vietnamese + English
+  - Conversation depth + message length scoring
+  - Quota downgrade at 60%
+- [x] 2-5. Tier mappings cho openai/gemini/grok/claude/deepseek (tất cả trong 1 module)
 
-## Middleware Pre-routing
-- [ ] 7. Implement quota % check trong api/chat.py
-- [ ] 8. Implement model rewrite logic (>=60% → force SIMPLE)
-- [ ] 9. Implement warning message injection
-- [ ] 10. (Optional) Keyword scoring boost
-- [ ] 11. (Optional) Vision/file attachment detection → boost
+## Middleware Integration
+- [x] 7. Integrate smart routing vào `api/chat.py`
+  - Auto-model detection → resolve before LiteLLM call
+  - body["model"] rewritten to concrete model
+  - Quota % calculation from user data
+  - Vision/file detection → boost complexity
+- [x] 8. Quota >=60% → force SIMPLE tier
+- [x] 9. Warning message injection (streaming + non-streaming)
+  - Routing downgrade warning: "⚡ Quota đạt X%, đã chuyển sang model tiết kiệm"
+  - Combined with existing quota warning
+- [x] 10. Keyword scoring boost (Vietnamese + English)
+- [x] 11. Vision/file attachment detection → boost
 
-## Open WebUI Config
-- [ ] 12. Ẩn individual model visibility (chỉ admin thấy)
-- [ ] 13. Show 5 auto models cho user
+## Auth Integration
+- [x] Updated `assert_model_allowed` to handle auto-model names
+
+## Deploy
+- [x] 12-13. Docker build + restart ✅
 
 ## Testing
-- [ ] 14. Test routing: 10 simple queries → flash
-- [ ] 15. Test routing: 10 complex queries → pro
-- [ ] 16. Test quota 60% → force flash
-- [ ] 17. Test quota 100% → 403
-- [ ] 18. Test warning message trong chat response
+- [x] 14. Test smart routing: simple query → SIMPLE tier ✅
+- [x] 15. Test model list API: auto models injected ✅
+- [x] 16. Test auth: auto-model allowed check ✅
+- [x] 17. Test quota >=60% → force SIMPLE ✅
+- [x] 18. Test warning message injection ✅
 
 ## Docs
-- [ ] 19. Cập nhật user guide (model selection → auto)
-- [ ] 20. Cập nhật architecture docs
-- [ ] 21. Cập nhật API reference
+- [x] 19. Cập nhật user guide `10-user-guide-vi.md` ✅ (thêm Smart Routing section + bảng auto models)
+- [x] 20. Cập nhật architecture `03-architecture.md` ✅ (thêm 3 rows: Smart Routing, Quota downgrade, Warning)
+- [x] 21. Cập nhật API reference `07-api-reference.md` ✅ (thêm auto models vào /v1/models response, v2.2)
