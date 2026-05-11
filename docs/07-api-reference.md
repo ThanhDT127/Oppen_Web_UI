@@ -47,7 +47,7 @@ GET /health
 GET /v1/models
 ```
 
-**Mô tả:** Lấy danh sách các mô hình LLM từ LiteLLM proxy.
+**Mô tả:** Lấy danh sách các mô hình LLM từ LiteLLM proxy. Bao gồm cả các **virtual auto-routing models** (inject bởi middleware).
 
 **Phản hồi:**
 ```json
@@ -55,20 +55,23 @@ GET /v1/models
   "object": "list",
   "data": [
     {
+      "id": "openai-auto",
+      "object": "model",
+      "created": 1234567890,
+      "owned_by": "smart-routing",
+      "name": "ChatGPT (Auto)"
+    },
+    {
       "id": "chat-gpt-5.4",
       "object": "model",
       "created": 1234567890,
       "owned_by": "openai"
-    },
-    {
-      "id": "gemini-pro",
-      "object": "model",
-      "created": 1234567890,
-      "owned_by": "google"
     }
   ]
 }
 ```
+
+> Auto models (`*-auto`) chỉ hiện nếu user có quyền dùng ít nhất 1 model trong tier.
 
 **Mã trạng thái:**
 - `200 OK` - Lấy danh sách thành công
@@ -783,5 +786,5 @@ curl http://localhost:5000/v1/_mw/summary -b cookies.txt
 
 ---
 
-**Cập nhật lần cuối:** 23 tháng 04, 2026  
-**Phiên bản API:** 2.1 (Bổ sung Embeddings API, Audit Query, và Notification/Alert config)
+**Cập nhật lần cuối:** 11 tháng 05, 2026  
+**Phiên bản API:** 2.2 (Thêm Smart Routing — Auto Models)

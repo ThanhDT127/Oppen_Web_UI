@@ -270,9 +270,22 @@ def require_user(request: Request) -> Dict[str, Any]:
 def assert_model_allowed(user: Dict[str, Any], model: str):
     """
     Check if user is allowed to use specified model.
+    Auto-model names (e.g. 'openai-auto') are allowed if user has wildcard
+    access or access to any model from that provider.
     """
     allowed_models = user.get("allowed_models", [])
-    if allowed_models != ["*"] and model not in allowed_models:
+    if allowed_models == ["*"]:
+        return  # Wildcard: all models allowed
+
+    # Auto-model check: allow if user has access to any model in that provider's tiers
+    from core.smart_routing import PROVIDER_TIERS
+    if model in PROVIDER_TIERS:
+        tier_models = set(PROVIDER_TIERS[model].values())
+        if any(m in allowed_models for m in tier_models):
+            return
+        raise HTTPException(403, f"Model '{model}' not allowed for {user['user_id']}")
+
+    if model not in allowed_models:
         raise HTTPException(403, f"Model '{model}' not allowed for {user['user_id']}")
 
 

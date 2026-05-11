@@ -72,6 +72,24 @@ def _get_quota_warning_text(user_id: str) -> str | None:
         return None
 
 
+def _get_routing_warning_text(request: Request) -> str | None:
+    """
+    Return warning text if smart routing downgraded the model tier.
+    """
+    try:
+        downgraded = getattr(request.state, "routing_downgraded", False)
+        if not downgraded:
+            return None
+        quota_pct = getattr(request.state, "routing_quota_percent", 0)
+        return (
+            f"\n\n---\n"
+            f"⚡ **Auto-routing**: Quota đạt **{quota_pct:.0f}%**, "
+            f"đã chuyển sang model tiết kiệm để bảo toàn ngân sách."
+        )
+    except Exception:
+        return None
+
+
 def _is_image_generation_model(model: str) -> bool:
     """Check if model is an image generation model."""
     if not isinstance(model, str):
@@ -795,10 +813,47 @@ async def chat_completions(request: Request):
     limit_cost = float(quota.get("limit_cost_usd", 0.0))
     used_cost = float(quota.get("used_cost_usd", 0.0))
 
-    # OpenAI's newest reasoning-first models may treat `max_tokens` differently.
-    # When users chat via OpenWebUI, it often sends `max_tokens`.
-    # For gpt-5*, translate to `max_completion_tokens` to avoid responses that spend all tokens
-    # on reasoning and return empty visible content.
+    # ── Smart Routing: resolve auto-model to concrete model ──
+    _routing_downgraded = False
+    _routing_tier = None
+    from core.smart_routing import is_auto_model, resolve_auto_model
+    if is_auto_model(model):
+        # Calculate quota percentage
+        quota_percent = (used_cost / limit_cost * 100) if limit_cost > 0 else 0.0
+
+        # Detect vision/file content in messages
+        _has_vision = False
+        _has_files = False
+        if isinstance(messages, list):
+            for msg in messages:
+                if isinstance(msg, dict):
+                    content = msg.get("content")
+                    if isinstance(content, list):
+                        for item in content:
+                            if isinstance(item, dict):
+                                if item.get("type") == "image_url":
+                                    _has_vision = True
+                                elif item.get("type") in ("file", "document", "attachment"):
+                                    _has_files = True
+
+        original_model = model
+        model, _routing_tier, _routing_downgraded = resolve_auto_model(
+            model, messages or [], quota_percent,
+            has_vision=_has_vision, has_files=_has_files,
+        )
+        body["model"] = model
+
+        detail_log(
+            "chat.smart_route",
+            request=request,
+            user_id=user.get("user_id"),
+            original_model=original_model,
+            resolved_model=model,
+            tier=_routing_tier,
+            quota_percent=round(quota_percent, 1),
+            downgraded=_routing_downgraded,
+        )
+
     # Normalize provider-specific parameters (replaces old GPT-5 only handling)
     _normalize_provider_params(model, body)
 
@@ -814,6 +869,11 @@ async def chat_completions(request: Request):
         "Content-Type": "application/json",
         "X-Request-ID": request_id,
     }
+
+    # Store smart routing info for warning injection
+    request.state.routing_downgraded = _routing_downgraded
+    request.state.routing_tier = _routing_tier
+    request.state.routing_quota_percent = (used_cost / limit_cost * 100) if limit_cost > 0 else 0.0
 
     is_stream = bool(body.get("stream"))
 
@@ -983,9 +1043,15 @@ async def _handle_streaming(request: Request, user: dict, model: str, body: dict
         # After stream completes, check quota warning
         # _finalize_streaming already ran in the finally block
         # We need to check quota status here since we can now yield
-        warning_text = _get_quota_warning_text(user["user_id"])
-        if warning_text:
-            # Yield quota warning as an extra SSE content chunk
+        combined_warnings = ""
+        routing_warning = _get_routing_warning_text(request)
+        if routing_warning:
+            combined_warnings += routing_warning
+        quota_warning = _get_quota_warning_text(user["user_id"])
+        if quota_warning:
+            combined_warnings += quota_warning
+        if combined_warnings:
+            # Yield warnings as an extra SSE content chunk
             warning_chunk = {
                 "id": f"chatcmpl-{request_id}",
                 "object": "chat.completion.chunk",
@@ -993,12 +1059,12 @@ async def _handle_streaming(request: Request, user: dict, model: str, body: dict
                 "model": model,
                 "choices": [{
                     "index": 0,
-                    "delta": {"content": warning_text},
+                    "delta": {"content": combined_warnings},
                     "finish_reason": None
                 }]
             }
             yield f"data: {json.dumps(warning_chunk)}\n\n".encode("utf-8")
-            logger.info("stream_quota_warning_injected rid=%s user=%s", request_id, user["user_id"])
+            logger.info("stream_warning_injected rid=%s user=%s", request_id, user["user_id"])
         
         # Send [DONE] marker last
         yield b"data: [DONE]\n\n"
@@ -1094,18 +1160,24 @@ async def _handle_non_streaming(request: Request, user: dict, model: str, body: 
         _safe_alert_check(user["user_id"], cost_usd)
     )
 
-    # Inject quota warning into response content (if above threshold)
-    warning_text = _get_quota_warning_text(user["user_id"])
-    if warning_text:
+    # Inject warnings into response content (routing downgrade + quota)
+    combined_warnings = ""
+    routing_warning = _get_routing_warning_text(request)
+    if routing_warning:
+        combined_warnings += routing_warning
+    quota_warning = _get_quota_warning_text(user["user_id"])
+    if quota_warning:
+        combined_warnings += quota_warning
+    if combined_warnings:
         try:
             choices = data.get("choices", [])
             if choices and isinstance(choices, list):
                 msg = choices[0].get("message", {})
                 if isinstance(msg.get("content"), str):
-                    msg["content"] += warning_text
-                    logger.info("non_stream_quota_warning_injected rid=%s user=%s", request_id, user["user_id"])
+                    msg["content"] += combined_warnings
+                    logger.info("non_stream_warning_injected rid=%s user=%s", request_id, user["user_id"])
         except Exception as e:
-            logger.debug("quota_warning_inject_failed rid=%s: %s", request_id, e)
+            logger.debug("warning_inject_failed rid=%s: %s", request_id, e)
 
     data["_mw_user"] = user["user_id"]
     data["_mw_request_id"] = request_id
