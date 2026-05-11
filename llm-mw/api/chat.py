@@ -83,8 +83,8 @@ def _get_routing_warning_text(request: Request) -> str | None:
         quota_pct = getattr(request.state, "routing_quota_percent", 0)
         return (
             f"\n\n---\n"
-            f"⚡ **Auto-routing**: Quota đạt **{quota_pct:.0f}%**, "
-            f"đã chuyển sang model tiết kiệm để bảo toàn ngân sách."
+            f"*✨ Hệ thống đang dùng model phù hợp để giữ trải nghiệm ổn định cho bạn "
+            f"(quota hiện tại: {quota_pct:.0f}%).*"
         )
     except Exception:
         return None
