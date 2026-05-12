@@ -12,7 +12,7 @@ import httpx
 
 from config import LITELLM_BASE, LITELLM_KEY, logger
 from core.auth import require_user, assert_model_allowed
-from core.quota import maybe_reset_quota, enforce_and_bump_quota
+from core.quota import maybe_reset_quota, enforce_and_bump_quota, get_quota_reset_info
 from core.cost import calc_cost_usd, append_pending, remove_pending, load_prices, calc_image_cost_from_body
 from core.audit_state import init_audit_state, set_usage_state, set_error_state, set_counters
 from services.litellm import get_cost_from_headers, find_usage_in_log
@@ -813,6 +813,64 @@ async def chat_completions(request: Request):
     limit_cost = float(quota.get("limit_cost_usd", 0.0))
     used_cost = float(quota.get("used_cost_usd", 0.0))
 
+    # ── PRE-CHECK: Block if quota already exceeded BEFORE calling LLM ──
+    _quota_already_exceeded = False
+    if limit_cost > 0 and used_cost >= limit_cost:
+        _quota_already_exceeded = True
+    if limit_tokens > 0 and used_tokens >= limit_tokens:
+        _quota_already_exceeded = True
+
+    if _quota_already_exceeded:
+        reset_info = get_quota_reset_info(user)
+        period_label = reset_info["period_label"]
+        days_left = reset_info["days_until_reset"]
+        quota_msg = (
+            f"🔒 Bạn đã sử dụng hết quota {period_label} này. "
+            f"Quota tiếp theo sẽ reset trong **{days_left} ngày**.\n\n"
+            f"Vui lòng liên hệ admin nếu cần nâng hạn mức."
+        )
+        logger.info("quota_pre_block user=%s period=%s days_left=%d", user["user_id"], period_label, days_left)
+        # Return fake response instead of 403 error
+        from datetime import datetime, timezone
+        fake_resp = {
+            "id": f"chatcmpl-quota-{rid}",
+            "object": "chat.completion",
+            "created": int(datetime.now(timezone.utc).timestamp()),
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": quota_msg},
+                "finish_reason": "stop"
+            }],
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "_mw_user": user["user_id"],
+            "_mw_quota_blocked": True,
+        }
+        is_stream = bool(body.get("stream"))
+        if is_stream:
+            # Fake streaming response
+            async def _fake_stream():
+                chunk = {
+                    "id": f"chatcmpl-quota-{rid}",
+                    "object": "chat.completion.chunk",
+                    "created": int(datetime.now(timezone.utc).timestamp()),
+                    "model": model,
+                    "choices": [{"index": 0, "delta": {"role": "assistant", "content": quota_msg}, "finish_reason": None}]
+                }
+                yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode("utf-8")
+                done_chunk = {
+                    "id": f"chatcmpl-quota-{rid}",
+                    "object": "chat.completion.chunk",
+                    "created": int(datetime.now(timezone.utc).timestamp()),
+                    "model": model,
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]
+                }
+                yield f"data: {json.dumps(done_chunk, ensure_ascii=False)}\n\n".encode("utf-8")
+                yield b"data: [DONE]\n\n"
+            return StreamingResponse(_fake_stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Request-ID": rid})
+        else:
+            return JSONResponse(status_code=200, content=fake_resp)
+
     # ── Smart Routing: resolve auto-model to concrete model ──
     _routing_downgraded = False
     _routing_tier = None
@@ -1139,19 +1197,13 @@ async def _handle_non_streaming(request: Request, user: dict, model: str, body: 
     set_usage_state(request, prompt_tokens, completion_tokens, total_tokens, cost_usd)
 
     if limit_tokens > 0 and used_tokens + total_tokens > limit_tokens:
-        set_error_state(request, "quota", f"Token quota exceeded")
-        raise HTTPException(403, detail={
-            "detail": f"⚠️ Bạn đã hết quota token tháng này (đã dùng {used_tokens + total_tokens:,}/{limit_tokens:,} tokens). Vui lòng liên hệ admin để được nâng hạn mức.",
-            "error_code": "QUOTA_EXCEEDED",
-            "quota_info": {"type": "tokens", "used": used_tokens + total_tokens, "limit": limit_tokens, "percent": round((used_tokens + total_tokens) / limit_tokens * 100, 1)}
-        })
+        # Log but do NOT raise 403 — response already sent to user.
+        # Pre-check will block the NEXT request.
+        logger.warning("quota_post_exceeded user=%s type=tokens used=%d limit=%d",
+                        user["user_id"], used_tokens + total_tokens, limit_tokens)
     if limit_cost > 0 and used_cost + cost_usd > limit_cost + 1e-9:
-        set_error_state(request, "quota", f"Cost quota exceeded")
-        raise HTTPException(403, detail={
-            "detail": f"⚠️ Bạn đã hết quota tháng này (đã dùng ${used_cost + cost_usd:.2f}/${limit_cost:.2f}). Vui lòng liên hệ admin để được nâng hạn mức.",
-            "error_code": "QUOTA_EXCEEDED",
-            "quota_info": {"type": "cost", "used": round(used_cost + cost_usd, 4), "limit": round(limit_cost, 2), "percent": round((used_cost + cost_usd) / limit_cost * 100, 1)}
-        })
+        logger.warning("quota_post_exceeded user=%s type=cost used=%.4f limit=%.2f",
+                        user["user_id"], used_cost + cost_usd, limit_cost)
 
     enforce_and_bump_quota(user["user_id"], add_tokens=total_tokens, add_cost_usd=cost_usd)
 
