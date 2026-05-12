@@ -54,6 +54,42 @@ def maybe_reset_quota(user: Dict[str, Any]):
         # DO NOT reset user["used_*"] - those are lifetime counters
 
 
+def get_quota_reset_info(user: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Calculate quota period info for user-facing messages.
+
+    Returns:
+        Dict with keys: period_label (str), days_until_reset (int)
+    """
+    quota = user.get("quota", {})
+    period = quota.get("period", "monthly")
+    tz_str = quota.get("timezone", "UTC")
+    zone = ZoneInfo(tz_str) if tz_str else ZoneInfo("UTC")
+    now = dt.datetime.now(zone)
+
+    if period == "weekly":
+        period_label = "tuần"
+        # Next Monday
+        days_until = 7 - now.weekday()
+        if days_until == 0:
+            days_until = 7
+    else:
+        period_label = "tháng"
+        # First day of next month
+        if now.month == 12:
+            next_start = dt.datetime(now.year + 1, 1, 1, tzinfo=zone)
+        else:
+            next_start = dt.datetime(now.year, now.month + 1, 1, tzinfo=zone)
+        days_until = (next_start - now).days
+        if days_until < 1:
+            days_until = 1
+
+    return {
+        "period_label": period_label,
+        "days_until_reset": days_until,
+    }
+
+
 def enforce_and_bump_quota(
     user_id: str,
     *,
