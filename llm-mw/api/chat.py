@@ -895,11 +895,17 @@ async def chat_completions(request: Request):
                                     _has_files = True
 
         original_model = model
-        model, _routing_tier, _routing_downgraded = resolve_auto_model(
+        model, _routing_tier, _routing_downgraded, _thinking_params = await resolve_auto_model(
             model, messages or [], quota_percent,
             has_vision=_has_vision, has_files=_has_files,
         )
         body["model"] = model
+
+        # Inject thinking/reasoning params per provider + tier
+        if _thinking_params:
+            body.update(_thinking_params)
+            logger.info("thinking_inject model=%s tier=%s params=%s",
+                        model, _routing_tier, list(_thinking_params.keys()))
 
         detail_log(
             "chat.smart_route",
@@ -910,6 +916,7 @@ async def chat_completions(request: Request):
             tier=_routing_tier,
             quota_percent=round(quota_percent, 1),
             downgraded=_routing_downgraded,
+            thinking=list(_thinking_params.keys()) if _thinking_params else None,
         )
 
     # Normalize provider-specific parameters (replaces old GPT-5 only handling)
