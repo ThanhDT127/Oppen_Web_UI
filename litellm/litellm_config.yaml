@@ -30,24 +30,12 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.1-pro-preview
       api_key: os.environ/GEMINI_API_KEY
-  - model_name: chat-gemini-3.1-pro
-    litellm_params:
-      model: vertex_ai/gemini-3.1-pro-preview
-      vertex_project: os.environ/VERTEX_PROJECT
-      vertex_location: os.environ/VERTEX_LOCATION
-      vertex_credentials: /app/vertex.json
 
   # Gemini 3.1 Flash-Lite (Budget — Mar 2026, 1M context)
   - model_name: chat-gemini-3.1-flash-lite
     litellm_params:
       model: gemini/gemini-3.1-flash-lite-preview
       api_key: os.environ/GEMINI_API_KEY
-  - model_name: chat-gemini-3.1-flash-lite
-    litellm_params:
-      model: vertex_ai/gemini-3-flash-preview
-      vertex_project: os.environ/VERTEX_PROJECT
-      vertex_location: os.environ/VERTEX_LOCATION
-      vertex_credentials: /app/vertex.json
 
   # Gemini 2.5 Flash (Stable — mid-tier)
   - model_name: chat-gemini-2.5-flash

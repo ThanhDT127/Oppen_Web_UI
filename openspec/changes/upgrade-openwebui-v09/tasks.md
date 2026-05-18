@@ -1,36 +1,54 @@
-## Backup (MANDATORY)
-- [ ] 1. `pg_dump` PostgreSQL → backup.sql
-- [ ] 2. Export custom tools/functions (JSON từ Admin Panel)
-- [ ] 3. Backup Dockerfile.openwebui hiện tại
+## 1. Preflight va inventory
 
-## Sửa Custom Functions (TRƯỚC khi deploy)
-- [ ] 4. Sửa Export Excel Tool → async
-- [ ] 5. Sửa Export PDF Tool → async
-- [ ] 6. Sửa Export Word Tool → async
-- [ ] 7. Sửa Timezone Inject Filter → async
-- [ ] 8. Test functions trên staging (nếu có)
+- [ ] 1.1 Xac nhan target upgrade chinh thuc la `ghcr.io/open-webui/open-webui:v0.9.5`
+- [ ] 1.2 Inventory toan bo custom tools/functions/filters dang ton tai trong Open WebUI runtime, khong chi trong repo
+- [ ] 1.3 Xac dinh co hay khong custom client/script dang goi logout bang `GET`
+- [ ] 1.4 Xac dinh co hay khong workflow dang dua vao unauthenticated retrieval status endpoint
+- [ ] 1.5 Ra soat connection/config nao co the bi anh huong boi driver change `asyncpg -> psycopg`
 
-## Deploy
-- [ ] 9. Cập nhật Dockerfile.openwebui: base image → `v0.9.0`
-- [ ] 10. `docker compose build open-webui`
-- [ ] 11. `docker compose up -d open-webui`
-- [ ] 12. Monitor logs: verify Alembic migration
-- [ ] 13. Clear browser cache (Ctrl+F5)
+## 2. Backup va staging readiness
 
-## Verification
-- [ ] 14. Login/logout
-- [ ] 15. Chat completion (all providers)
-- [ ] 16. RAG: upload + query
-- [ ] 17. Image generation
-- [ ] 18. Export Excel/PDF/Word
-- [ ] 19. Admin Panel
-- [ ] 20. MW Dashboard
+- [ ] 2.1 Backup database `openwebui`
+- [ ] 2.2 Backup database `middleware`
+- [ ] 2.3 Backup `Dockerfile.openwebui` va `docker-compose.yml`
+- [ ] 2.4 Backup `openwebui_data` volume neu can phuc hoi nhanh
+- [ ] 2.5 Export settings, models, tools, functions tu Admin Panel neu deployment dang dung nhieu runtime config
 
-## Docs
-- [ ] 21. Cập nhật version trong docs
-- [ ] 22. Document tính năng mới (Skills, Automations, etc.)
+## 3. Runtime compatibility fixes
 
-## Rollback (nếu cần)
-- [ ] R1. Revert Dockerfile.openwebui
-- [ ] R2. `docker compose build open-webui && docker compose up -d open-webui`
-- [ ] R3. Restore pg_dump nếu DB migration fail
+- [ ] 3.1 Sua cac custom runtime tools/functions/filters chua tuong thich async
+- [ ] 3.2 Xac nhan `tools/tool_export_all.py` va cac artifact trong repo van tuong thich voi `v0.9.5`
+- [ ] 3.3 Ra soat anh huong cua permission hardening doi voi sharing, tool updates, file attachments, knowledge attachments
+- [ ] 3.4 Ra soat anh huong cua security hardening doi voi external image URLs, HTML/file previews, va outbound fetch behavior
+
+## 4. Image pin va deployment changes
+
+- [ ] 4.1 Cap nhat `Dockerfile.openwebui` sang `open-webui:v0.9.5`
+- [ ] 4.2 Danh gia co can them env vars moi cho hardening nhu `AIOHTTP_CLIENT_ALLOW_REDIRECTS`, `IFRAME_CSP`, `TERMINAL_PROXY_HEADERS`, `CUSTOM_API_KEY_HEADER` hay khong
+- [ ] 4.3 Build Open WebUI image tren staging
+- [ ] 4.4 Khoi dong staging va theo doi migration/log startup
+
+## 5. Staging verification
+
+- [ ] 5.1 Test login/logout va session flow
+- [ ] 5.2 Test chat completion cho tat ca providers
+- [ ] 5.3 Test streaming, usage tracking, va dashboard analytics
+- [ ] 5.4 Test RAG upload/query voi Docling + PGVector
+- [ ] 5.5 Test web search qua SearXNG, bao gom search co nhieu ngon ngu neu can
+- [ ] 5.6 Test custom tools/functions/filters, bao gom export flow
+- [ ] 5.7 Test persisted chats, attachments, file preview, va Admin Panel
+- [ ] 5.8 Test multi-worker WebSocket behavior voi Redis manager
+
+## 6. Production rollout
+
+- [ ] 6.1 Chot cua so maintenance, tranh rolling update
+- [ ] 6.2 Build va deploy Open WebUI production trong mot dot dong thoi
+- [ ] 6.3 Theo doi logs de xac nhan migration thanh cong va khong co crash async/runtime
+- [ ] 6.4 Chay smoke test production ngay sau deploy
+
+## 7. Rollback va hau kiem
+
+- [ ] 7.1 Chuan bi rollback image/build neu startup hoac smoke test that bai
+- [ ] 7.2 Chuan bi rollback database tu backup neu migration gay loi nghiem trong
+- [ ] 7.3 Cap nhat docs van hanh theo version moi va thay doi behavior
+- [ ] 7.4 Danh gia tinh nang moi nao nen bat sau upgrade: Automations, Calendar, task management, hardening env vars, Channel tool support
