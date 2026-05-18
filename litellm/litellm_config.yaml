@@ -22,7 +22,7 @@ model_list:
       api_key: os.environ/OPENAI_API_KEY
 
   # ============================================================
-  # GOOGLE GEMINI CHAT MODELS (3)
+  # GOOGLE GEMINI CHAT MODELS (3) — API key + Vertex AI fallback
   # ============================================================
 
   # Gemini 3.1 Pro (Flagship — Feb 2026, 1M context)
@@ -42,6 +42,12 @@ model_list:
     litellm_params:
       model: gemini/gemini-2.5-flash
       api_key: os.environ/GEMINI_API_KEY
+  - model_name: chat-gemini-2.5-flash
+    litellm_params:
+      model: vertex_ai/gemini-2.5-flash
+      vertex_project: os.environ/VERTEX_PROJECT
+      vertex_location: os.environ/VERTEX_LOCATION
+      vertex_credentials: /app/vertex.json
 
   # ============================================================
   # XAI GROK CHAT MODELS (3)
@@ -147,8 +153,7 @@ model_list:
 # EMBEDDING MODELS
 # ============================================================
 
-  # Gemini Embedding (3072-dim native, reduced to 1536 via middleware)
-  # Middleware injects dimensions=1536 to stay within PGVector HNSW 2000-dim limit
+  # Gemini Embedding — API key only (Vertex embedding API differs)
   - model_name: gemini-embedding-001
     litellm_params:
       model: gemini/gemini-embedding-001

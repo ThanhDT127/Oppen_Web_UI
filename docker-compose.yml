@@ -56,12 +56,16 @@ services:
       - XAI_API_KEY=${XAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/vertex.json
+      - VERTEX_PROJECT=YOUR_GCP_PROJECT_ID
+      - VERTEX_LOCATION=us-central1
       - TZ=Asia/Ho_Chi_Minh
     volumes:
       - ./litellm/litellm_config.yaml:/app/config.yaml:ro
+      - ./vertex.json:/app/vertex.json:ro
       - litellm_logs:/app/logs
-    # Step 1: 4 workers + remove detailed_debug for production
-    command: [ "--config", "/app/config.yaml", "--port", "4000", "--num_workers", "4" ]
+    # Step 1: 2 workers (reduced from 4 — vertex_ai credentials compatibility)
+    command: [ "--config", "/app/config.yaml", "--port", "4000", "--num_workers", "2" ]
     # Step 5: Port closed for security (internal only)
     # ports:
     #   - "4000:4000"
