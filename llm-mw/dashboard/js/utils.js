@@ -23,24 +23,25 @@ export function formatTimestamp(ts, bucket) {
 export function updateStatus(type, message) {
     const dot = document.getElementById('statusDot');
     const msg = document.getElementById('statusMessage');
-    
+
     if (!dot || !msg) return;
-    
+
     dot.className = 'status-dot';
     msg.className = 'status-message';
-    
+
     if (type === 'error') {
         dot.classList.add('error');
         msg.classList.add('error');
     } else if (type === 'warning') {
         dot.classList.add('warning');
     }
-    
+
     msg.textContent = message;
 }
 
-// Centralized fetch with credentials and 403 handling
-// Note: 403 handler will be set by auth module to avoid circular dependency
+// Centralized fetch with cookie credentials and 403 handling.
+// Admin auth is carried by the HttpOnly mw_admin_session cookie set at login.
+// Note: 403 handler will be set by auth module to avoid circular dependency.
 let handle403 = null;
 
 export function set403Handler(handler) {
@@ -48,18 +49,20 @@ export function set403Handler(handler) {
 }
 
 export async function mwFetch(path, opts = {}) {
-    const defaultOpts = {
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(opts.headers || {})
-        }
+    const defaultHeaders = {
+        'Content-Type': 'application/json',
+        ...(opts.headers || {})
     };
-    const mergedOpts = { ...defaultOpts, ...opts };
-    
+
+    const mergedOpts = {
+        ...opts,
+        credentials: 'include',
+        headers: defaultHeaders
+    };
+
     try {
         const res = await fetch(path, mergedOpts);
-        
+
         // Handle 403 - session expired or unauthorized
         if (res.status === 403) {
             console.warn('403 Forbidden - auth required');
@@ -71,7 +74,7 @@ export async function mwFetch(path, opts = {}) {
             }
             return null;
         }
-        
+
         return res;
     } catch (err) {
         console.error(`mwFetch error for ${path}:`, err);

@@ -27,6 +27,34 @@ from core.auth import load_users, save_users, get_lock
 ALERT_CONFIG_FILE = os.path.join(BACKUP_DATA_DIR, "alert_config.json")
 SYSTEM_ALERTS_FILE = os.path.join(BACKUP_DATA_DIR, "system_alerts.json")
 
+DEFAULT_ALERT_CONFIG = {
+    "smtp": {
+        "enabled": False,
+        "host": "",
+        "port": 587,
+        "username": "",
+        "password_env": "SMTP_PASSWORD",
+        "from_email": "",
+        "use_tls": True
+    },
+    "admin_alerts": {
+        "emails": [],
+        "api_budgets": {},
+        "per_user_quota": {
+            "enabled": True,
+            "thresholds": [80, 95, 100]
+        },
+        "daily_digest_enabled": True,
+        "send_email_realtime": True,
+        "dashboard_alerts_enabled": True
+    },
+    "user_alerts": {
+        "enabled": True,
+        "send_email": True,
+        "thresholds": [80, 95, 100]
+    }
+}
+
 
 def _db_available() -> bool:
     """Check if database pool is initialized."""
@@ -41,6 +69,8 @@ def _db_available() -> bool:
 
 def load_alert_config() -> dict:
     """Load alert configuration. DB first, then file fallback."""
+    config = DEFAULT_ALERT_CONFIG.copy()
+
     if _db_available():
         try:
             from core.db import db_conn
@@ -50,14 +80,31 @@ def load_alert_config() -> dict:
                 row = cur.fetchone()
                 cur.close()
             if row:
-                return row[0]
+                # Merge DB config into default
+                db_cfg = row[0]
+                for k, v in db_cfg.items():
+                    if isinstance(v, dict) and isinstance(config.get(k), dict):
+                        config[k].update(v)
+                    else:
+                        config[k] = v
+                return config
         except Exception:
             pass
+
     # File fallback
-    if not os.path.exists(ALERT_CONFIG_FILE):
-        return {"smtp": {"enabled": False}}
-    with open(ALERT_CONFIG_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    if os.path.exists(ALERT_CONFIG_FILE):
+        try:
+            with open(ALERT_CONFIG_FILE, "r", encoding="utf-8") as f:
+                file_cfg = json.load(f)
+                for k, v in file_cfg.items():
+                    if isinstance(v, dict) and isinstance(config.get(k), dict):
+                        config[k].update(v)
+                    else:
+                        config[k] = v
+        except Exception:
+            pass
+            
+    return config
 
 
 def save_alert_config(config: dict):
@@ -78,8 +125,11 @@ def save_alert_config(config: dict):
         except Exception:
             pass
     # Always write file backup
-    with open(ALERT_CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2, ensure_ascii=False)
+    try:
+        with open(ALERT_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error("save_alert_config_file_failed: %s", str(e))
 
 
 def load_system_alerts() -> dict:

@@ -19,6 +19,7 @@ from api.models import list_models
 from api.chat import chat_completions
 from api.images import generate_images
 from api.audio import transcribe_audio
+from api.embeddings import create_embeddings
 from api.media import serve_media
 from api.admin import get_usage, reset_quota, reconcile_usage
 from api.summary import get_summary
@@ -33,6 +34,7 @@ from api.user_admin import (
 )
 from api.dashboard_login import dashboard_login, dashboard_logout
 from api.auth_check import get_auth_check
+from api.auth_test import auth_test
 from api.quota_status import get_quota_status, get_alert_config, update_alert_config, test_alert_email
 from api.notifications import list_notifications, unread_count, mark_notification_read, mark_all_read
 from fastapi.responses import FileResponse
@@ -89,10 +91,25 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware - Allow calls from local tools/UI
+# CORS middleware - Allow calls from production domain + internal Docker network
+import os as _os
+_MW_PUBLIC_URL = _os.getenv("MW_PUBLIC_URL", "https://openwebui.rangdong.com.vn:51122")
+# Build allowed origins list:
+# 1. Public URL (browser requests from Open WebUI Settings page)
+# 2. HTTP variant (in case of internal proxy without SSL)
+# 3. Server-to-server requests (no Origin header) bypass CORS automatically
+_cors_origins = [_MW_PUBLIC_URL]
+# Add http variant if public URL is https
+if _MW_PUBLIC_URL.startswith("https://"):
+    _cors_origins.append(_MW_PUBLIC_URL.replace("https://", "http://"))
+# Add any extra origins from environment (comma-separated)
+_extra_origins = _os.getenv("MW_CORS_ORIGINS", "")
+if _extra_origins:
+    _cors_origins.extend([o.strip() for o in _extra_origins.split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -141,6 +158,7 @@ app.add_api_route("/v1/models", list_models, methods=["GET"])
 
 # Chat, Images, Audio
 app.add_api_route("/v1/chat/completions", chat_completions, methods=["POST"])
+app.add_api_route("/v1/embeddings", create_embeddings, methods=["POST"])
 app.add_api_route("/v1/images/generations", generate_images, methods=["POST"])
 app.add_api_route("/v1/audio/transcriptions", transcribe_audio, methods=["POST"])
 
@@ -189,6 +207,9 @@ app.add_api_route("/v1/_mw/admin/notifications/read-all", mark_all_read, methods
 app.add_api_route("/v1/_mw/dashboard/login", dashboard_login, methods=["POST"])
 app.add_api_route("/v1/_mw/dashboard/logout", dashboard_logout, methods=["POST"])
 app.add_api_route("/v1/_mw/auth_check", get_auth_check, methods=["GET"])
+
+# Auth diagnostic endpoint (any user with valid Bearer token)
+app.add_api_route("/v1/_mw/auth-test", auth_test, methods=["GET"])
 
 # Mount static files for dashboard (css, js, vendor)
 import os

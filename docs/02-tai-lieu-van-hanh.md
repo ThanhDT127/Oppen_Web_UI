@@ -32,43 +32,44 @@
 
 ### 0.1. Tổng quan hệ thống (System Overview)
 
-Hệ thống AI nội bộ gồm **8 services** chạy trên Docker, quản lý bởi Nginx reverse proxy:
+Hệ thống AI nội bộ gồm **9 services** chạy trên Docker, quản lý bởi Nginx reverse proxy:
 
-| Service    | Container            | Port (nội bộ) | Vai trò                                 |
-| ---------- | -------------------- | :-----------: | -------------------------------------- |
-| **Nginx**  | openwebui-nginx      | **3000 HTTPS**| Reverse proxy, SSL, rate limiting (ĐẦU VÀO DUY NHẤT) |
-| Open WebUI | openwebui-app        | 8080          | Giao diện chat, RAG, knowledge         |
-| Middleware | openwebui-middleware | 5000          | Auth, quota, cost, dashboard           |
-| LiteLLM    | openwebui-litellm    | 4000          | LLM proxy (OpenAI + Gemini)            |
-| PostgreSQL | openwebui-postgres   | 5432          | Database + PGVector                    |
-| SearXNG    | openwebui-searxng    | 8080          | Web search (internal only)             |
-| Redis      | openwebui-redis      | 6379          | Cache search + rate limiter            |
+| STT | Service    | Container            | Port (nội bộ)  | Vai trò                                              |
+| --- | ---------- | -------------------- | -------------- | ---------------------------------------------------- |
+| 01  | **Nginx**  | openwebui-nginx      | **3000 HTTPS** | Reverse proxy, SSL, rate limiting (ĐẦU VÀO DUY NHẤT) |
+| 02  | Open WebUI | openwebui-app        | 8080           | Giao diện chat, RAG, knowledge                       |
+| 03  | Middleware | openwebui-middleware | 5000           | Auth, quota, cost, dashboard                         |
+| 04  | LiteLLM    | openwebui-litellm    | 4000           | LLM proxy (OpenAI + Gemini + xAI + Anthropic)        |
+| 05  | PostgreSQL | openwebui-postgres   | 5432           | Database + PGVector                                  |
+| 06  | Docling    | openwebui-docling    | 5001           | OCR / Document extraction                            |
+| 07  | SearXNG    | openwebui-searxng    | 8080           | Web search (internal only)                           |
+| 08  | Redis      | openwebui-redis      | 6379           | Cache search + rate limiter                          |
 
 ### 0.2. Phạm vi và Deliverables
 
-| Phạm vi               | Chi tiết                                       |
-| --------------------- | ---------------------------------------------- |
-| Hệ điều hành server   | Windows Server 2019+ / Ubuntu 20.04+           |
-| Docker                | Docker Engine 24.0+, Compose v2.20+            |
-| Databases             | PostgreSQL 16 + PGVector 0.8.0 (2 databases)   |
-| API Providers         | OpenAI API, Google Gemini API                  |
-| Models                | 20 models (14 chat + 3 image + 1 TTS + 2 STT)  |
-| Users                 | 200+ concurrent                                |
+| STT | Phạm vi             | Chi tiết                                          |
+| --- | ------------------- | ------------------------------------------------- |
+| 01  | Hệ điều hành server | Windows Server 2019+ / Ubuntu 20.04+              |
+| 02  | Docker              | Docker Engine 24.0+, Compose v2.20+               |
+| 03  | Databases           | PostgreSQL 16 + PGVector 0.8.0 (2 databases)      |
+| 04  | API Providers       | OpenAI, Google Gemini, xAI Grok, Anthropic Claude |
+| 05  | Models              | 19 models (12 chat + 6 image + 1 embedding)       |
+| 06  | Users               | 200+ concurrent                                   |
 
 ### 0.3. Danh mục tài sản (Asset List)
 
-| Tài sản         | Đường dẫn                    | Mô tả                      |
-| --------------- | ---------------------------- | -------------------------- |
-| Source code     | Oppen_Web_UI/                | Root project               |
-| Middleware      | llm-mw/                      | Python FastAPI middleware  |
-| Dashboard       | llm-mw/dashboard/            | HTML/CSS/JS SPA            |
-| LiteLLM config  | litellm/litellm_config.yaml  | Model definitions          |
-| Docker config   | docker-compose.yml           | Stack orchestration        |
-| Environment     | .env                         | API keys, secrets          |
-| Scripts         | scripts/                     | Management scripts         |
-| Nginx config    | nginx/nginx.conf             | Reverse proxy routing, SSL |
-| SSL cert        | nginx/ssl/                   | fullchain.pem + privkey.pem|
-| Documentation   | docs/                        | 17 tài liệu (01-17)        |
+| STT | Tài sản        | Đường dẫn                   | Mô tả                       |
+| --- | -------------- | --------------------------- | --------------------------- |
+| 01  | Source code    | Oppen_Web_UI/               | Root project                |
+| 02  | Middleware     | llm-mw/                     | Python FastAPI middleware   |
+| 03  | Dashboard      | llm-mw/dashboard/           | HTML/CSS/JS SPA             |
+| 04  | LiteLLM config | litellm/litellm_config.yaml | Model definitions           |
+| 05  | Docker config  | docker-compose.yml          | Stack orchestration         |
+| 06  | Environment    | .env                        | API keys, secrets           |
+| 07  | Scripts        | scripts/                    | Management scripts          |
+| 08  | Nginx config   | nginx/nginx.conf            | Reverse proxy routing, SSL  |
+| 09  | SSL cert       | nginx/ssl/                  | fullchain.pem + privkey.pem |
+| 10  | Documentation  | docs/                       | 17 tài liệu (01-17)         |
 
 ---
 
@@ -87,7 +88,7 @@ Hệ thống AI nội bộ gồm **8 services** chạy trên Docker, quản lý 
                                 │
     ╔═══════════════════════════╪════════════════════════════════════╗
     ║  Windows Server (20 CPU / 32GB RAM)                            ║
-    ║  Docker Compose · 8 containers · openwebui-network             ║
+    ║  Docker Compose · 9 containers · openwebui-network             ║
     ║                               │                                ║
     ║  ┌────────────────────────────▼────────────────────────────┐   ║
     ║  │          NGINX (openwebui-nginx) :3000 HTTPS            │   ║
@@ -130,7 +131,7 @@ Hệ thống AI nội bộ gồm **8 services** chạy trên Docker, quản lý 
     ║     │  │  DuckDuckGo  │          │  Model routing      │       ║
     ║     │  │  Brave       │          │  Retry  Fallback    │       ║
     ║     │  │  Bing        │          │  SSE streaming      │       ║
-    ║     │  │  Google      │          │  20 models config   │       ║
+    ║     │  │  Google      │          │  19 models config   │       ║
     ║     │  └───────┬──────┘          └──────────┬──────────┘       ║
     ║     │          │ cache                      │                  ║
     ║     │          ▼                            │                  ║
@@ -155,8 +156,10 @@ Hệ thống AI nội bộ gồm **8 services** chạy trên Docker, quản lý 
     ║  │  max_conn=300        │                                      ║
     ║  └──────────────────────┘                                      ║
     ║                                                                ║
+    ║  DOCLING (:5001) — OCR/Document extraction (PDF, DOCX, scan)   ║
+    ║                                                                ║
     ║  Port mở: CHỈ Nginx :3000/tcp                                  ║
-    ║  Port ĐÓNG: 8080, 5000, 4000, 5432, 6379                       ║
+    ║  Port ĐÓNG: 8080, 5000, 5001, 4000, 5432, 6379                 ║
     ╚══════════════════════════════════════════════╪═════════════════╝
                                                    │
                                     LiteLLM gọi API ra ngoài
@@ -197,15 +200,16 @@ Hệ thống AI nội bộ gồm **8 services** chạy trên Docker, quản lý 
 
 ### 1.2. Các thành phần chính
 
-| #   | Thành phần  | Công nghệ           | Workers | CPU  | RAM    | Image                               |
-| --- | ----------- | ------------------- | :-----: | :--: | :----: | ----------------------------------- |
-| 0   | **Nginx**   | Nginx alpine        | auto    | 1    | 512MB  | nginx:alpine                        |
-| 1   | Open WebUI  | Python + SvelteKit  | 6       | 6    | 10GB   | Custom (Dockerfile.openwebui)       |
-| 2   | Middleware  | Python + FastAPI    | 4       | 4    | 2GB    | Custom (./llm-mw/Dockerfile)        |
-| 3   | LiteLLM     | Python              | 4       | 4    | 4GB    | ghcr.io/berriai/litellm:main-latest |
-| 4   | PostgreSQL  | C                   | —       | 2    | 8GB    | pgvector/pgvector:0.8.0-pg16        |
-| 5   | SearXNG     | Python              | —       | 1    | 1GB    | searxng/searxng:latest              |
-| 6   | Redis       | C                   | —       | 0.5  | 256MB  | redis:7-alpine                      |
+| # | Thành phần | Công nghệ          | Workers | CPU | RAM   | Image                                     |
+| - | ---------- | ------------------ | ------- | --- | ----- | ----------------------------------------- |
+| 0 | **Nginx**  | Nginx alpine       | auto    | 1   | 512MB | nginx:alpine                              |
+| 1 | Open WebUI | Python + SvelteKit | 6       | 6   | 10GB  | Custom (Dockerfile.openwebui)             |
+| 2 | Middleware | Python + FastAPI   | 4       | 4   | 2GB   | Custom (./llm-mw/Dockerfile)              |
+| 3 | LiteLLM    | Python             | 4       | 4   | 4GB   | ghcr.io/berriai/litellm:main-latest       |
+| 4 | PostgreSQL | C                  | —       | 2   | 8GB   | pgvector/pgvector:0.8.0-pg16              |
+| 5 | Docling    | Python             | 1       | 2   | 2GB   | quay.io/docling-project/docling-serve-cpu |
+| 6 | SearXNG    | Python             | —       | 1   | 1GB   | searxng/searxng:latest                    |
+| 7 | Redis      | C                  | —       | 0.5 | 256MB | redis:7-alpine                            |
 
 ### 1.3. Phân chia modules trong Middleware
 
@@ -220,6 +224,8 @@ llm-mw/
     cost.py                # Tra cứu giá, tính chi phí, kiểm tra quota
     db.py                  # PostgreSQL pool, schema, CRUD
     alerting.py            # Cảnh báo quota, thông báo
+    notification.py        # Daily digest scheduler, notification logic
+    audit_state.py         # Per-request audit state tracking
   api/
     user_admin.py          # CRUD user, xoay khóa, xóa
     summary.py             # Tổng hợp metrics (v1)
@@ -228,6 +234,16 @@ llm-mw/
     access_logs.py         # Nhật ký truy cập phân trang
     audit_query.py         # Truy vấn audit trail admin
     models.py              # Danh sách models
+    quota_status.py        # Trạng thái quota user real-time
+    notifications.py       # Hệ thống thông báo nội bộ
+    auth_check.py          # Kiểm tra xác thực session
+    auth_test.py           # Endpoint test auth (diagnostic)
+    dashboard_login.py     # Đăng nhập/đăng xuất dashboard
+    images.py              # Sinh ảnh (image generation)
+    embeddings.py          # Tạo vector embeddings
+    audio.py               # Chuyển đổi giọng nói → văn bản (STT)
+    media.py               # Phục vụ file media
+  services/                # Background services & schedulers
   dashboard/
     index.html             # Điểm vào SPA
     css/dashboard.css      # Giao diện
@@ -241,6 +257,8 @@ llm-mw/
   data/
     users.json             # Bản sao lưu user (nguồn: DB)
     prices.json            # Bản sao lưu giá (nguồn: DB)
+    alert_config.json      # Cấu hình cảnh báo quota
+    system_alerts.json     # Trạng thái cảnh báo hệ thống
 ```
 
 ---
@@ -249,15 +267,15 @@ llm-mw/
 
 ### 2.1. Yêu cầu hệ thống
 
-| Tài nguyên | Tối thiểu    | Hiện tại (Production)   |
-| ---------- | ------------ | ---------------------- |
-| RAM        | 16 GB        | **32 GB** (25.8GB allocated) |
-| CPU        | 8 cores      | **20 cores** (18.5 allocated) |
-| Storage    | 50 GB free   | 100 GB+ (DB + uploads) |
-| Docker     | Engine 24.0+ | Latest                 |
-| Compose    | v2.20+       | Latest                 |
-| Network    | LAN access   | **Firewall + NAT + HTTPS** |
-| SSL        | —            | **Wildcard cert *.rangdong.com.vn** |
+| STT | Tài nguyên | Tối thiểu    | Hiện tại (Production)               |
+| --- | ---------- | ------------ | ----------------------------------- |
+| 01  | RAM        | 16 GB        | **32 GB** (25.8GB allocated)        |
+| 02  | CPU        | 8 cores      | **20 cores** (18.5 allocated)       |
+| 03  | Storage    | 50 GB free   | 100 GB+ (DB + uploads)              |
+| 04  | Docker     | Engine 24.0+ | Latest                              |
+| 05  | Compose    | v2.20+       | Latest                              |
+| 06  | Network    | LAN access   | **Firewall + NAT + HTTPS**          |
+| 07  | SSL        | —            | **Wildcard cert *.rangdong.com.vn** |
 
 ### 2.2. Cài đặt dependencies
 
@@ -309,16 +327,16 @@ WEBUI_SECRET_KEY=webui_secret_min_32_chars
 
 #### Mô tả từng biến
 
-| Biến              | Vai trò                                 | Sử dụng bởi  |
-| ----------------- | --------------------------------------- | ------------ |
-| OPENAI_API_KEY    | Xác thực OpenAI API (GPT, DALL-E, TTS)  | LiteLLM      |
-| GEMINI_API_KEY    | Xác thực Google Gemini API              | LiteLLM      |
-| LITELLM_KEY       | Master key cho LiteLLM admin API        | LiteLLM      |
-| MW_SECRET         | Salt cho HMAC-SHA256 hash subkey        | Middleware   |
-| JWT_SECRET        | Secret cho JWT token signing            | Middleware   |
-| ADMIN_KEY         | Key đăng nhập Dashboard admin           | Middleware   |
-| POSTGRES_PASSWORD | Mật khẩu PostgreSQL                     | PostgreSQL   |
-| WEBUI_SECRET_KEY  | Secret cho Open WebUI sessions          | Open WebUI   |
+| STT | Biến              | Vai trò                                | Sử dụng bởi |
+| --- | ----------------- | -------------------------------------- | ----------- |
+| 01  | OPENAI_API_KEY    | Xác thực OpenAI API (GPT, DALL-E, TTS) | LiteLLM     |
+| 02  | GEMINI_API_KEY    | Xác thực Google Gemini API             | LiteLLM     |
+| 03  | LITELLM_KEY       | Master key cho LiteLLM admin API       | LiteLLM     |
+| 04  | MW_SECRET         | Salt cho HMAC-SHA256 hash subkey       | Middleware  |
+| 05  | JWT_SECRET        | Secret cho JWT token signing           | Middleware  |
+| 06  | ADMIN_KEY         | Key đăng nhập Dashboard admin          | Middleware  |
+| 07  | POSTGRES_PASSWORD | Mật khẩu PostgreSQL                    | PostgreSQL  |
+| 08  | WEBUI_SECRET_KEY  | Secret cho Open WebUI sessions         | Open WebUI  |
 
 ### 2.4. Khởi động hệ thống
 
@@ -371,7 +389,7 @@ curl -k https://localhost:3000/
 Mục đích: Đồng bộ pending requests với LiteLLM logs (tính cost chính xác cho streaming).
 
 - Tần suất: Tự động, triggered sau mỗi streaming response
-- Endpoint: POST /v1/_mw/admin/reconcile
+- Endpoint: POST /admin/reconcile
 - Phương thức: Đọc LiteLLM logs > match rid > cập nhật tokens/cost
 
 ### 3.2. Quota Reset
@@ -397,7 +415,7 @@ Mục đích: Gửi cảnh báo khi user gần hết quota.
 docker compose logs middleware | findstr "scheduler"
 
 # Reconcile thủ công
-curl -X POST http://localhost:5000/v1/_mw/admin/reconcile -H "X-Admin-Key: admin_master_key_456"
+curl -X POST http://localhost:5000/admin/reconcile -H "X-Admin-Key: admin_master_key_456"
 
 # Reset quota thủ công cho 1 user
 curl -X POST http://localhost:5000/admin/reset -H "X-Admin-Key: admin_master_key_456" -H "Content-Type: application/json" -d "{\"user_id\": \"user1\"}"
@@ -411,24 +429,24 @@ curl -X POST http://localhost:5000/admin/reset -H "X-Admin-Key: admin_master_key
 
 #### Database openwebui - 26 bảng
 
-| Nhóm      | Bảng chính                       | Mục đích                |
-| --------- | -------------------------------- | ----------------------- |
-| User      | user, auth                       | Tài khoản, credentials  |
-| Chat      | chat, message, channel           | Hội thoại               |
-| Knowledge | knowledge, file, knowledge_file  | Tài liệu                |
-| RAG       | document, document_chunk         | Vector embeddings       |
-| Config    | config, feedback, tag            | Cấu hình                |
+| STT | Nhóm      | Bảng chính                      | Mục đích               |
+| --- | --------- | ------------------------------- | ---------------------- |
+| 01  | User      | user, auth                      | Tài khoản, credentials |
+| 02  | Chat      | chat, message, channel          | Hội thoại              |
+| 03  | Knowledge | knowledge, file, knowledge_file | Tài liệu               |
+| 04  | RAG       | document, document_chunk        | Vector embeddings      |
+| 05  | Config    | config, feedback, tag           | Cấu hình               |
 
 #### Database middleware - 6 bảng
 
-| Bảng           | Columns                                    | Mục đích          |
-| -------------- | ------------------------------------------ | ----------------- |
-| mw_users       | user_id, subkey_hash, role, active, quota  | Quản lý user API  |
-| mw_prices      | model, input_per_1m, output_per_1m         | Bảng giá          |
-| mw_config      | key, value                                 | Config runtime    |
-| mw_pending     | rid, user_id, model                        | Pending requests  |
-| mw_audit_log   | ts, user_id, model, status, cost           | Audit log         |
-| mw_request_log | ts, method, path, status_code, latency     | HTTP access log   |
+| STT | Bảng           | Columns                                   | Mục đích         |
+| --- | -------------- | ----------------------------------------- | ---------------- |
+| 01  | mw_users       | user_id, subkey_hash, role, active, quota | Quản lý user API |
+| 02  | mw_prices      | model, input_per_1m, output_per_1m        | Bảng giá         |
+| 03  | mw_config      | key, value                                | Config runtime   |
+| 04  | mw_pending     | rid, user_id, model                       | Pending requests |
+| 05  | mw_audit_log   | ts, user_id, model, status, cost          | Audit log        |
+| 06  | mw_request_log | ts, method, path, status_code, latency    | HTTP access log  |
 
 ### 4.2. Kết nối Database
 
@@ -488,12 +506,12 @@ DELETE FROM mw_request_log WHERE ts < NOW() - INTERVAL '90 days';
 
 ### 5.1. Cấu trúc log
 
-| File log        | Vị trí                  | Định dạng     | Rotation             |
-| --------------- | ----------------------- | ------------- | -------------------- |
-| Audit log       | DB mw_audit_log         | JSONB payload | 90 ngày retention    |
-| Request log     | DB mw_request_log       | JSONB         | 90 ngày retention    |
-| Admin audit     | logs/admin_audit.jsonl  | JSONL         | 20MB max, 5 bản sao  |
-| Container logs  | Docker stdout           | Text          | Docker log driver    |
+| STT | File log       | Vị trí                 | Định dạng     | Rotation            |
+| --- | -------------- | ---------------------- | ------------- | ------------------- |
+| 01  | Audit log      | DB mw_audit_log        | JSONB payload | 90 ngày retention   |
+| 02  | Request log    | DB mw_request_log      | JSONB         | 90 ngày retention   |
+| 03  | Admin audit    | logs/admin_audit.jsonl | JSONL         | 20MB max, 5 bản sao |
+| 04  | Container logs | Docker stdout          | Text          | Docker log driver   |
 
 ### 5.2. API quản lý logs
 
@@ -502,7 +520,7 @@ DELETE FROM mw_request_log WHERE ts < NOW() - INTERVAL '90 days';
 curl "http://localhost:5000/v1/_mw/admin/audit?minutes=1440" -H "X-Admin-Key: admin_master_key_456"
 
 # Xem access logs (phân trang)
-curl "http://localhost:5000/v1/_mw/admin/access-logs?page=1&page_size=50" -H "X-Admin-Key: admin_master_key_456"
+curl "http://localhost:5000/v1/_mw/access_summary?minutes=1440" -H "X-Admin-Key: admin_master_key_456"
 
 # Xem summary metrics
 curl "http://localhost:5000/v1/_mw/summary?minutes=60" -H "X-Admin-Key: admin_master_key_456"
@@ -549,10 +567,10 @@ GROUP BY model ORDER BY total_cost DESC;
 
 ### 6.1. Hai hệ thống user
 
-| Hệ thống    | Database             | Mục đích                 | Quản lý qua                                  |
-| ----------- | -------------------- | ------------------------ | -------------------------------------------- |
-| Open WebUI  | openwebui.user       | Đăng nhập web, chat      | Admin Panel (https://....:51122/)            |
-| Middleware  | middleware.mw_users  | Auth API, quota, subkey  | Dashboard (https://....:51122/dashboard)     |
+| STT | Hệ thống   | Database            | Mục đích                | Quản lý qua                              |
+| --- | ---------- | ------------------- | ----------------------- | ---------------------------------------- |
+| 01  | Open WebUI | openwebui.user      | Đăng nhập web, chat     | Admin Panel (https://....:51122/)        |
+| 02  | Middleware | middleware.mw_users | Auth API, quota, subkey | Dashboard (https://....:51122/dashboard) |
 
 Lưu ý: Hai hệ thống độc lập - cần tạo user ở CẢ HAI nơi.
 
@@ -560,13 +578,13 @@ Lưu ý: Hai hệ thống độc lập - cần tạo user ở CẢ HAI nơi.
 
 Truy cập: `https://openwebui.rangdong.com.vn:51122/dashboard` > Tab Users
 
-| Thao tác        | Hướng dẫn                                                            |
-| --------------- | -------------------------------------------------------------------- |
-| Tạo user        | Add User > Điền user_id, role, quota, models > Create > Copy subkey  |
-| Sửa user        | Edit > Sửa trường cần > Save                                         |
-| Xóa user        | Delete > Xác nhận 2 lần (vĩnh viễn)                                  |
-| Xoay khóa       | Rotate > Xác nhận > Copy subkey mới                                  |
-| Bật/Tắt         | Toggle > disabled user bị 403                                        |
+| STT | Thao tác  | Hướng dẫn                                                           |
+| --- | --------- | ------------------------------------------------------------------- |
+| 01  | Tạo user  | Add User > Điền user_id, role, quota, models > Create > Copy subkey |
+| 02  | Sửa user  | Edit > Sửa trường cần > Save                                        |
+| 03  | Xóa user  | Delete > Xác nhận 2 lần (vĩnh viễn)                                 |
+| 04  | Xoay khóa | Rotate > Xác nhận > Copy subkey mới                                 |
+| 05  | Bật/Tắt   | Toggle > disabled user bị 403                                       |
 
 ### 6.3. CRUD qua API
 
@@ -602,16 +620,26 @@ curl -X POST http://localhost:5000/v1/_mw/admin/users/alice/enable \
 # Danh sách tất cả users
 curl http://localhost:5000/v1/_mw/admin/users \
   -H "X-Admin-Key: admin_master_key_456"
+
+# Đăng nhập Dashboard (lấy JWT cookie)
+curl -X POST http://localhost:5000/v1/_mw/dashboard/login \
+  -H "Content-Type: application/json" \
+  -c cookies.txt \
+  -d "{\"username\":\"admin\",\"password\":\"admin_master_key_456\"}"
+
+# Đăng xuất Dashboard
+curl -X POST http://localhost:5000/v1/_mw/dashboard/logout \
+  -b cookies.txt
 ```
 
 ### 6.4. Phân quyền (RBAC)
 
-| Role    | Middleware API  | Dashboard    | Admin Panel (WebUI)  |
-| ------- | --------------- | ------------ | -------------------- |
-| admin   | Full CRUD       | Full access  | Full admin           |
-| manager | API access      | Read-only    | -                    |
-| user    | API (giới hạn)  | Không có     | Standard user        |
-| pending | Không có        | Không có     | Chờ duyệt            |
+| STT | Role    | Middleware API | Dashboard   | Admin Panel (WebUI) |
+| --- | ------- | -------------- | ----------- | ------------------- |
+| 01  | admin   | Full CRUD      | Full access | Full admin          |
+| 02  | manager | API access     | Read-only   | -                   |
+| 03  | user    | API (giới hạn) | Không có    | Standard user       |
+| 04  | pending | Không có       | Không có    | Chờ duyệt           |
 
 ---
 
@@ -644,15 +672,15 @@ docker exec openwebui-postgres pg_isready -U openwebui_user -d openwebui
 
 ### 7.2. Dashboard Metrics (7 Cards)
 
-| Card         | Mô tả                              | Cảnh báo             |
-| ------------ | ---------------------------------- | -------------------- |
-| LLM Calls    | Tổng requests (chat+image+audio)   | -                    |
-| Admin Ops    | Thao tác admin                     | -                    |
-| Pending      | Requests chưa hoàn thành           | >10: kiểm tra        |
-| Error Rate   | % lỗi                              | >5%: điều tra        |
-| P95 Latency  | 95th percentile ms                 | >5000ms: kiểm tra    |
-| Total Tokens | Tokens đã xử lý                    | -                    |
-| Total Cost   | Chi phí USD                        | Theo budget          |
+| STT | Card         | Mô tả                            | Cảnh báo          |
+| --- | ------------ | -------------------------------- | ----------------- |
+| 01  | LLM Calls    | Tổng requests (chat+image+audio) | -                 |
+| 02  | Admin Ops    | Thao tác admin                   | -                 |
+| 03  | Pending      | Requests chưa hoàn thành         | >10: kiểm tra     |
+| 04  | Error Rate   | % lỗi                            | >5%: điều tra     |
+| 05  | P95 Latency  | 95th percentile ms               | >5000ms: kiểm tra |
+| 06  | Total Tokens | Tokens đã xử lý                  | -                 |
+| 07  | Total Cost   | Chi phí USD                      | Theo budget       |
 
 ### 7.3. SSE Real-time Stream
 
@@ -661,13 +689,13 @@ Events: audit (mỗi request mới). Auto-reconnect: 5 giây.
 
 ### 7.4. Cảnh báo
 
-| Ngưỡng        | Mức       | Hành động                    |
-| ------------- | --------- | ---------------------------- |
-| Quota 80%     | WARNING   | Log cảnh báo                 |
-| Quota 95%     | CRITICAL  | Log cảnh báo                 |
-| Quota 100%    | BLOCKED   | 403 Forbidden (tự động chặn) |
-| Error > 5%    | WARNING   | Cần điều tra                 |
-| Pending > 10  | WARNING   | Cần kiểm tra LiteLLM         |
+| STT | Ngưỡng       | Mức      | Hành động                    |
+| --- | ------------ | -------- | ---------------------------- |
+| 01  | Quota 80%    | WARNING  | Log cảnh báo                 |
+| 02  | Quota 95%    | CRITICAL | Log cảnh báo                 |
+| 03  | Quota 100%   | BLOCKED  | 403 Forbidden (tự động chặn) |
+| 04  | Error > 5%   | WARNING  | Cần điều tra                 |
+| 05  | Pending > 10 | WARNING  | Cần kiểm tra LiteLLM         |
 
 ---
 
@@ -675,32 +703,32 @@ Events: audit (mỗi request mới). Auto-reconnect: 5 giây.
 
 ### 8.1. Xác thực và Phân quyền
 
-| Thành phần      | Phương thức             | Secret                  |
-| --------------- | ----------------------- | ----------------------- |
-| Open WebUI      | Email/Password + JWT    | WEBUI_SECRET_KEY        |
-| Middleware API  | Subkey HMAC-SHA256      | MW_SECRET               |
-| Dashboard       | Admin key + JWT cookie  | ADMIN_KEY + JWT_SECRET  |
-| LiteLLM         | Master key              | LITELLM_KEY             |
+| STT | Thành phần     | Phương thức            | Secret                 |
+| --- | -------------- | ---------------------- | ---------------------- |
+| 01  | Open WebUI     | Email/Password + JWT   | WEBUI_SECRET_KEY       |
+| 02  | Middleware API | Subkey HMAC-SHA256     | MW_SECRET              |
+| 03  | Dashboard      | Admin key + JWT cookie | ADMIN_KEY + JWT_SECRET |
+| 04  | LiteLLM        | Master key             | LITELLM_KEY            |
 
 ### 8.2. Bảo mật Mạng (Docker)
 
 Docker Compose sử dụng bridge network nội bộ. Các services gọi nhau bằng container name.
 LiteLLM (4000) và PostgreSQL (5432) KHÔNG bắt buộc expose ra ngoài.
 
-Firewall rules cần thiết: Chỉ mở 2 ports ra ngoài:
-- Port 3000: Open WebUI (giao diện người dùng)
-- Port 5000: Middleware (API + Dashboard admin)
+Firewall rules cần thiết: Chỉ mở 1 port ra ngoài:
+- Port 3000: Nginx HTTPS (reverse proxy đến Open WebUI + Middleware)
+- Port 5000: **ĐÓNG** — truy cập qua Nginx tại /v1/_mw/ và /dashboard
 
 ### 8.3. Bảo mật Dữ liệu
 
-| Dữ liệu           | Bảo vệ                      | Chi tiết                         |
-| ----------------- | ---------------------------- | --------------------------------|
-| Subkey            | HMAC-SHA256 (one-way hash)   | Plaintext chỉ hiện 1 lần        |
-| JWT token         | HMAC-SHA256 signature        | 4h expiry, HttpOnly cookie      |
-| Password (WebUI)  | Bcrypt hash                  | Salt + rounds                   |
-| Database          | Docker volume                | Không cloud, on-premise         |
-| RAG embedding     | Xử lý local                  | Tài liệu KHÔNG gửi ra ngoài     |
-| Nội dung chat     | Gửi qua API                  | Gửi tới OpenAI/Google để xử lý  |
+| STT | Dữ liệu          | Bảo vệ                      | Chi tiết                                                                   |
+| --- | ---------------- | --------------------------- | -------------------------------------------------------------------------- |
+| 01  | Subkey           | HMAC-SHA256 (one-way hash)  | Plaintext chỉ hiện 1 lần                                                   |
+| 02  | JWT token        | HMAC-SHA256 signature       | 4h expiry, HttpOnly cookie                                                 |
+| 03  | Password (WebUI) | Bcrypt hash                 | Salt + rounds                                                              |
+| 04  | Database         | Docker volume               | Không cloud, on-premise                                                    |
+| 05  | RAG embedding    | Gemini API (qua Middleware) | Text chunks gửi tới Google Gemini API để embedding. Vectors lưu on-premise |
+| 06  | Nội dung chat    | Gửi qua API                 | Gửi tới OpenAI/Google/xAI/Anthropic để xử lý                               |
 
 ### 8.4. Thực hành Bảo mật Tốt nhất
 
@@ -717,18 +745,18 @@ Firewall rules cần thiết: Chỉ mở 2 ports ra ngoài:
 
 ### 9.1. Các Vấn đề Thường gặp
 
-| #   | Lỗi                      | Nguyên nhân                     | Giải pháp                              |
-| --- | ------------------------ | ------------------------------  | -------------------------------------- |
-| 1   | Container không start    | Port đã bị chiếm                | Kiểm tra port, kill process            |
-| 2   | 401 Missing sub-key      | Thiếu Authorization header      | Thêm Bearer <subkey>                   |
-| 3   | 403 Invalid sub-key      | Subkey sai hoặc user disabled   | Xoay khóa hoặc bật user                |
-| 4   | 403 Quota exceeded       | Hết quota                       | Reset quota hoặc tăng limit            |
-| 5   | 502 LiteLLM unavailable  | LiteLLM container down          | docker compose restart litellm         |
-| 6   | Dashboard trắng          | Session hết hạn                 | Reload, nhập lại admin key             |
-| 7   | RAG không tìm thấy       | File chưa index xong            | Chờ indexing, kiểm tra document_chunk  |
-| 8   | Image gen lỗi            | API key sai hoặc model sai      | Kiểm tra .env và litellm_config.yaml   |
-| 9   | Web search không hoạt động | SearXNG unhealthy / config sai | Kiểm tra docker logs openwebui-searxng |
-| 10  | Model không tự search    | FC không set Native            | Model > Advanced > Function Calling = Native |
+| #  | Lỗi                        | Nguyên nhân                    | Giải pháp                                    |
+| -- | -------------------------- | ------------------------------ | -------------------------------------------- |
+| 1  | Container không start      | Port đã bị chiếm               | Kiểm tra port, kill process                  |
+| 2  | 401 Missing sub-key        | Thiếu Authorization header     | Thêm Bearer <subkey>                         |
+| 3  | 403 Invalid sub-key        | Subkey sai hoặc user disabled  | Xoay khóa hoặc bật user                      |
+| 4  | 403 Quota exceeded         | Hết quota                      | Reset quota hoặc tăng limit                  |
+| 5  | 502 LiteLLM unavailable    | LiteLLM container down         | docker compose restart litellm               |
+| 6  | Dashboard trắng            | Session hết hạn                | Reload, nhập lại admin key                   |
+| 7  | RAG không tìm thấy         | File chưa index xong           | Chờ indexing, kiểm tra document_chunk        |
+| 8  | Image gen lỗi              | API key sai hoặc model sai     | Kiểm tra .env và litellm_config.yaml         |
+| 9  | Web search không hoạt động | SearXNG unhealthy / config sai | Kiểm tra docker logs openwebui-searxng       |
+| 10 | Model không tự search      | FC không set Native            | Model > Advanced > Function Calling = Native |
 
 ### 9.2. Lệnh Debug
 
@@ -764,32 +792,32 @@ curl http://localhost:4000/health
 
 ### 10.1. Thao tác Hàng ngày
 
-| Thao tác             | Lệnh / Hành động                  |
-| -------------------- | --------------------------------- |
-| Duyệt user pending   | Admin Panel > Users > Approve     |
-| Kiểm tra chi phí     | Dashboard > Overview tab          |
-| Kiểm tra error rate  | Dashboard > Error Rate card < 5%  |
+| STT | Thao tác            | Lệnh / Hành động                 |
+| --- | ------------------- | -------------------------------- |
+| 01  | Duyệt user pending  | Admin Panel > Users > Approve    |
+| 02  | Kiểm tra chi phí    | Dashboard > Overview tab         |
+| 03  | Kiểm tra error rate | Dashboard > Error Rate card < 5% |
 
 ### 10.2. Thao tác Hàng tuần
 
-| Thao tác                  | Lệnh / Hành động                   |
-| ------------------------- | ---------------------------------- |
-| Review chi phí per user   | Dashboard > Filter by user         |
-| Backup database           | pg_dump command (xem phần 12)      |
-| Kiểm tra dung lượng       | docker system df                   |
-| Kiểm tra container        | docker compose ps - tất cả Up      |
-| Review audit logs         | Dashboard > Logs tab               |
+| STT | Thao tác                | Lệnh / Hành động              |
+| --- | ----------------------- | ----------------------------- |
+| 01  | Review chi phí per user | Dashboard > Filter by user    |
+| 02  | Backup database         | pg_dump command (xem phần 12) |
+| 03  | Kiểm tra dung lượng     | docker system df              |
+| 04  | Kiểm tra container      | docker compose ps - tất cả Up |
+| 05  | Review audit logs       | Dashboard > Logs tab          |
 
 ### 10.3. Thao tác Hàng tháng
 
-| Thao tác               | Lệnh / Hành động                        |
-| ---------------------  | --------------------------------------- |
-| Cập nhật Docker images | docker compose pull && up -d            |
-| Vacuum database        | VACUUM ANALYZE (xem phần 4.4)           |
-| Review quotas          | Điều chỉnh theo mức sử dụng thực tế     |
-| Xoay admin key         | Đổi ADMIN_KEY trong .env > restart      |
-| Dọn log cũ             | Xóa mw_audit_log > 90 ngày              |
-| Review bảo mật         | Kiểm tra .env, firewall, user access    |
+| STT | Thao tác               | Lệnh / Hành động                     |
+| --- | ---------------------- | ------------------------------------ |
+| 01  | Cập nhật Docker images | docker compose pull && up -d         |
+| 02  | Vacuum database        | VACUUM ANALYZE (xem phần 4.4)        |
+| 03  | Review quotas          | Điều chỉnh theo mức sử dụng thực tế  |
+| 04  | Xoay admin key         | Đổi ADMIN_KEY trong .env > restart   |
+| 05  | Dọn log cũ             | Xóa mw_audit_log > 90 ngày           |
+| 06  | Review bảo mật         | Kiểm tra .env, firewall, user access |
 
 ---
 
@@ -810,14 +838,14 @@ Lưu ý: Middleware stateless (DB-backed) - mở rộng ngang dễ dàng.
 
 Tăng tài nguyên trong docker-compose.yml:
 
-| Service    | Tham số         | Giá trị khuyến nghị  |
-| ---------- | --------------- | -------------------- |
-| middleware | memory limit    | 2G                   |
-| middleware | cpus limit      | 2.0                  |
-| postgres   | memory limit    | 4G                   |
-| postgres   | cpus limit      | 4.0                  |
-| postgres   | shared_buffers  | 1GB                  |
-| postgres   | work_mem        | 16MB                 |
+| STT | Service    | Tham số        | Giá trị khuyến nghị |
+| --- | ---------- | -------------- | ------------------- |
+| 01  | middleware | memory limit   | 2G                  |
+| 02  | middleware | cpus limit     | 2.0                 |
+| 03  | postgres   | memory limit   | 4G                  |
+| 04  | postgres   | cpus limit     | 4.0                 |
+| 05  | postgres   | shared_buffers | 1GB                 |
+| 06  | postgres   | work_mem       | 16MB                |
 
 ---
 
@@ -825,10 +853,10 @@ Tăng tài nguyên trong docker-compose.yml:
 
 ### 12.1. RTO / RPO
 
-| Metric | Mục tiêu   | Giải pháp                  |
-| ------ | ---------- | -------------------------- |
-| RTO    | < 30 phút  | Docker rebuild từ backup   |
-| RPO    | < 24 giờ   | Daily database backup      |
+| STT | Metric | Mục tiêu  | Giải pháp                |
+| --- | ------ | --------- | ------------------------ |
+| 01  | RTO    | < 30 phút | Docker rebuild từ backup |
+| 02  | RPO    | < 24 giờ  | Daily database backup    |
 
 ### 12.2. Chiến lược Backup
 
@@ -943,20 +971,20 @@ git push -u origin feature/my-feature
 
 ### 14.1. Cấu hình Docker
 
-| Service    | Image                               | Healthcheck           | Restart        |
-| ---------- | ----------------------------------- | --------------------- | -------------- |
-| postgres   | pgvector/pgvector:0.8.0-pg16        | pg_isready mỗi 10s    | unless-stopped |
-| litellm    | ghcr.io/berriai/litellm:main-latest | -                     | unless-stopped |
-| middleware | ./llm-mw (custom build)             | -                     | unless-stopped |
-| open-webui | ghcr.io/open-webui/open-webui:main  | -                     | unless-stopped |
+| STT | Service    | Image                               | Healthcheck        | Restart        |
+| --- | ---------- | ----------------------------------- | ------------------ | -------------- |
+| 01  | postgres   | pgvector/pgvector:0.8.0-pg16        | pg_isready mỗi 10s | unless-stopped |
+| 02  | litellm    | ghcr.io/berriai/litellm:main-latest | -                  | unless-stopped |
+| 03  | middleware | ./llm-mw (custom build)             | -                  | unless-stopped |
+| 04  | open-webui | ghcr.io/open-webui/open-webui:main  | -                  | unless-stopped |
 
 ### 14.2. Volumes và Persistence
 
-| Volume          | Mounted to                | Dữ liệu                         |
-| --------------- | ------------------------- | ------------------------------- |
-| postgres_data   | /var/lib/postgresql/data  | Tất cả databases, tables, index |
-| litellm_logs    | /app/logs                 | LiteLLM request logs            |
-| openwebui_data  | /app/backend/data         | Files upload, user avatars      |
+| STT | Volume         | Mounted to               | Dữ liệu                         |
+| --- | -------------- | ------------------------ | ------------------------------- |
+| 01  | postgres_data  | /var/lib/postgresql/data | Tất cả databases, tables, index |
+| 02  | litellm_logs   | /app/logs                | LiteLLM request logs            |
+| 03  | openwebui_data | /app/backend/data        | Files upload, user avatars      |
 
 ```
 # Liệt kê volumes

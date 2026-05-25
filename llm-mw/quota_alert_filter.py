@@ -2,7 +2,7 @@
 title: Quota Alert Filter
 author: LLM Gateway Admin
 description: Hiển thị cảnh báo quota cho user khi sử dụng ≥80% trong mỗi response chat.
-version: 1.0.0
+version: 2.0.1
 type: filter
 """
 
@@ -16,6 +16,11 @@ class Filter:
     Filter này chạy SAU KHI nhận response từ LLM (outlet).
     Gọi Middleware API kiểm tra % quota đã dùng.
     Nếu ≥80% → thêm dòng cảnh báo vào cuối response.
+    
+    v2.0.1:
+    - Hỗ trợ Bearer user subkey auth hoặc query param user_id
+    - Logic mapping user_id cải thiện: thử name → email → id
+    - Skip nếu middleware đã inject warning (tránh trùng lặp)
     """
 
     class Valves(BaseModel):
@@ -35,6 +40,14 @@ class Filter:
             default=95,
             description="Ngưỡng cảnh báo đỏ (%) - mặc định 95%"
         )
+        use_bearer_auth: bool = Field(
+            default=False,
+            description="Sử dụng Bearer user subkey để middleware tự xác định user, thay vì query param user_id"
+        )
+        bearer_token: str = Field(
+            default="",
+            description="Bearer token nếu use_bearer_auth=True. Giá trị này phải là user subkey, không phải admin key."
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -53,6 +66,20 @@ class Filter:
         if not messages:
             return body
 
+        # Skip nếu middleware đã inject warning (tránh trùng lặp)
+        last_msg = messages[-1] if messages else None
+        if last_msg and isinstance(last_msg.get("content"), str):
+            content = last_msg["content"]
+            # Check markers that middleware injects
+            if any(marker in content for marker in [
+                "**Cảnh báo quota**",
+                "**Quota đã hết**",
+                "⚠️ Bạn đã sử dụng",
+                "🔴 **Cảnh báo quota**",
+                "🚫 **Quota đã hết**",
+            ]):
+                return body  # Middleware đã inject → skip
+
         try:
             # Lấy user_id từ Open WebUI user info
             # Thử nhiều field: name (thường match middleware user_id), email, id (UUID)
@@ -63,12 +90,21 @@ class Filter:
             # Thử từng identifier cho đến khi tìm thấy user trong middleware
             result_data = None
             for candidate_id in [user_name, user_email, user_id_uuid]:
-                if not candidate_id:
+                if not candidate_id and not self.valves.use_bearer_auth:
                     continue
                 try:
+                    req_headers = {}
+                    req_params = {}
+                    
+                    if self.valves.use_bearer_auth and self.valves.bearer_token:
+                        req_headers["Authorization"] = f"Bearer {self.valves.bearer_token}"
+                    else:
+                        req_params["user_id"] = candidate_id
+                    
                     resp = requests.get(
                         f"{self.valves.middleware_url}/v1/_mw/quota-status",
-                        params={"user_id": candidate_id},
+                        params=req_params,
+                        headers=req_headers,
                         timeout=2
                     )
                     if resp.status_code == 200:
@@ -94,7 +130,15 @@ class Filter:
             # Thêm cảnh báo vào cuối response
             alert_text = None
 
-            if percent >= self.valves.critical_threshold:
+            if percent >= 100:
+                alert_text = (
+                    f"\n\n---\n"
+                    f"🚫 **Quota đã hết**: Bạn đã sử dụng hết quota tháng này "
+                    f"(${data.get('used_cost_usd', 0):.2f}/${data.get('limit_cost_usd', 0):.2f}). "
+                    f"Các request tiếp theo sẽ bị chặn. "
+                    f"Vui lòng liên hệ admin để được nâng hạn mức."
+                )
+            elif percent >= self.valves.critical_threshold:
                 alert_text = (
                     f"\n\n---\n"
                     f"🔴 **Cảnh báo quota**: Bạn đã sử dụng "

@@ -226,15 +226,43 @@ def find_user(subkey: str) -> Optional[Dict[str, Any]]:
 def require_user(request: Request) -> Dict[str, Any]:
     """
     Require valid user authentication from Authorization header.
-    Raises HTTPException if authentication fails.
+    Raises HTTPException with differentiated error codes:
+      - 401: Missing Bearer token
+      - 401: Invalid sub-key (not found in DB)
+      - 403: User account is deactivated
     """
+    from config import logger
+
     auth = request.headers.get("Authorization", "")
+    client_ip = request.client.host if request.client else "unknown"
+    req_path = request.url.path
+
     if not auth.startswith("Bearer "):
+        logger.warning(
+            "auth_fail reason=missing_token path=%s client_ip=%s",
+            req_path, client_ip,
+        )
         raise HTTPException(401, "Missing sub-key")
+
     subkey = auth.split(" ", 1)[1].strip()
     user = find_user(subkey)
-    if not user or not user.get("active", True):
-        raise HTTPException(403, "Invalid or inactive sub-key")
+
+    if not user:
+        # Log first 8 chars of hashed subkey for debugging (safe to log)
+        hashed_prefix = hash_subkey(subkey)[:8]
+        logger.warning(
+            "auth_fail reason=invalid_subkey hash_prefix=%s path=%s client_ip=%s",
+            hashed_prefix, req_path, client_ip,
+        )
+        raise HTTPException(401, "Invalid sub-key")
+
+    if not user.get("active", True):
+        logger.warning(
+            "auth_fail reason=user_inactive user_id=%s path=%s client_ip=%s",
+            user.get("user_id"), req_path, client_ip,
+        )
+        raise HTTPException(403, "User account is deactivated")
+
     request.state.mw_user_id = user.get("user_id")
     return user
 
@@ -242,12 +270,139 @@ def require_user(request: Request) -> Dict[str, Any]:
 def assert_model_allowed(user: Dict[str, Any], model: str):
     """
     Check if user is allowed to use specified model.
+    Auto-model names (e.g. 'openai-auto') are allowed if user has wildcard
+    access or access to any model from that provider.
     """
     allowed_models = user.get("allowed_models", [])
-    if allowed_models != ["*"] and model not in allowed_models:
+    if allowed_models == ["*"]:
+        return  # Wildcard: all models allowed
+
+    # Auto-model check: allow if user has access to any model in that provider's tiers
+    from core.smart_routing import PROVIDER_TIERS
+    if model in PROVIDER_TIERS:
+        tier_models = set(PROVIDER_TIERS[model].values())
+        if any(m in allowed_models for m in tier_models):
+            return
+        raise HTTPException(403, f"Model '{model}' not allowed for {user['user_id']}")
+
+    if model not in allowed_models:
         raise HTTPException(403, f"Model '{model}' not allowed for {user['user_id']}")
 
 
 def get_lock() -> Lock:
     """Get the shared thread lock for user operations."""
     return _lock
+
+
+# ─── Single-user O(1) API ─────────────────────────────────────
+
+def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a single user by user_id. O(1) indexed query.
+    Uses DB if available, falls back to JSON file linear search.
+    """
+    if _db_available():
+        from core.db import get_user_by_id_db
+        return get_user_by_id_db(user_id)
+    # File fallback: linear search (unavoidable without index)
+    for u in _load_users_file():
+        if u.get("user_id") == user_id:
+            return u
+    return None
+
+
+def _update_user_in_file(user_id: str, updates: Dict[str, Any]):
+    """
+    Update a single user entry in the JSON backup file.
+    Reads file → modifies one entry → writes back.
+    For quota increments, use keys prefixed with '_add_' (e.g. _add_used_tokens).
+    """
+    if not os.path.exists(USERS_FILE):
+        return
+    try:
+        with open(USERS_FILE, "r", encoding="utf-8-sig") as f:
+            users = json.load(f)
+
+        for u in users:
+            if u.get("user_id") != user_id:
+                continue
+            for key, value in updates.items():
+                if key.startswith("_add_"):
+                    # Increment mode: _add_used_tokens=500 → used_tokens += 500
+                    real_key = key[5:]  # strip '_add_'
+                    if "." in real_key:
+                        # Nested: _add_quota.used_tokens → quota["used_tokens"] += value
+                        parts = real_key.split(".", 1)
+                        sub = u.setdefault(parts[0], {})
+                        sub[parts[1]] = (sub.get(parts[1]) or 0) + value
+                    else:
+                        u[real_key] = (u.get(real_key) or 0) + value
+                else:
+                    # Replace mode
+                    if "." in key:
+                        parts = key.split(".", 1)
+                        sub = u.setdefault(parts[0], {})
+                        sub[parts[1]] = value
+                    else:
+                        u[key] = value
+            break
+
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(users, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass  # File backup is best-effort
+
+
+def update_user_quota(
+    user_id: str,
+    *,
+    add_tokens: int = 0,
+    add_cost_usd: float = 0.0,
+    add_image_requests: int = 0,
+    add_stt_requests: int = 0,
+) -> bool:
+    """
+    Atomically increment quota counters for a single user. O(1).
+    Updates DB (atomic SQL) + JSON file backup.
+    Returns True if user was found and updated.
+    """
+    updated = False
+    if _db_available():
+        from core.db import update_user_quota_db
+        updated = update_user_quota_db(
+            user_id,
+            add_tokens=add_tokens,
+            add_cost_usd=add_cost_usd,
+            add_image_requests=add_image_requests,
+            add_stt_requests=add_stt_requests,
+        )
+    # Always update JSON file backup
+    file_updates = {}
+    if add_tokens:
+        file_updates["_add_used_tokens"] = add_tokens
+        file_updates["_add_quota.used_tokens"] = add_tokens
+    if add_cost_usd:
+        file_updates["_add_used_cost_usd"] = add_cost_usd
+        file_updates["_add_quota.used_cost_usd"] = add_cost_usd
+    if add_image_requests:
+        file_updates["_add_quota.used_image_requests"] = add_image_requests
+    if add_stt_requests:
+        file_updates["_add_quota.used_stt_requests"] = add_stt_requests
+    if file_updates:
+        _update_user_in_file(user_id, file_updates)
+    return updated
+
+
+def update_user_alerts(user_id: str, alerts_sent: dict) -> bool:
+    """
+    Update alerts_sent field for a single user. O(1).
+    Updates DB + JSON file backup.
+    Returns True if user was found and updated.
+    """
+    updated = False
+    if _db_available():
+        from core.db import update_user_alerts_db
+        updated = update_user_alerts_db(user_id, alerts_sent)
+    # Always update JSON file backup
+    _update_user_in_file(user_id, {"alerts_sent": alerts_sent})
+    return updated

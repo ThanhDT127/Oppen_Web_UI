@@ -201,6 +201,7 @@ export async function updateCharts(summaryData) {
         const types = [];
         const values = [];
         if (t.chat_calls > 0) { types.push('Chat'); values.push(t.chat_calls); }
+        if (t.embedding_calls > 0) { types.push('Embedding'); values.push(t.embedding_calls); }
         if (t.image_calls > 0) { types.push('Image'); values.push(t.image_calls); }
         if (t.audio_calls > 0) { types.push('Audio'); values.push(t.audio_calls); }
         if (t.video_calls > 0) { types.push('Video'); values.push(t.video_calls); }

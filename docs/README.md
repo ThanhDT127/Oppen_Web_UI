@@ -23,19 +23,19 @@ open http://localhost:3000
 ## Kiến trúc
 
 ```
-User → Open WebUI (3000) → Middleware (5000) → LiteLLM (4000) → OpenAI/Gemini
-                                                   ↓
-                                            PostgreSQL (5432)
+User ──HTTPS──▶ Nginx (:3000) ─▶ Open WebUI (:8080) ─▶ Middleware (:5000) ─▶ LiteLLM (:4000) ─▶ OpenAI/Gemini/xAI/Anthropic
+                                                             ↓
+                                                      PostgreSQL (:5432)
 ```
 
 ## Mô hình Hỗ trợ
 
-| Tiền tố | Loại                          | Ví dụ                              |
-| ------- | ----------------------------- | ---------------------------------- |
-| `mm-`   | Đa phương thức (text+vision)  | `mm-gpt-5`, `mm-gemini-2.5-flash` |
-| `img-`  | Tạo ảnh                       | `img-dalle-3`, `img-gemini-flash`  |
-| `tts-`  | Text-to-Speech                | `tts-gpt-4o-mini`                  |
-| `stt-`  | Speech-to-Text                | `stt-gpt-4o`, `stt-gpt-4o-mini`   |
+| Tiền tố | Loại                          | Ví dụ                                     |
+| ------- | ----------------------------- | ----------------------------------------- |
+| `chat-` | Chat đa phương thức (text+vision) | `chat-gpt-5.4`, `chat-gemini-2.5-flash` |
+| `img-`  | Tạo ảnh                       | `img-gpt-1.5`, `img-gemini-3.1-flash`    |
+| `tts-`  | Text-to-Speech                | `tts-gpt-4o-mini`                         |
+| `stt-`  | Speech-to-Text                | `stt-gpt-4o`, `stt-gpt-4o-mini`           |
 
 ## Tài liệu
 
@@ -77,6 +77,8 @@ curl http://localhost:5000/health
 
 - **OpenAI**: [platform.openai.com](https://platform.openai.com)
 - **Gemini**: [aistudio.google.com](https://aistudio.google.com)
+- **xAI (Grok)**: [console.x.ai](https://console.x.ai)
+- **Anthropic**: [console.anthropic.com](https://console.anthropic.com)
 
 ## Cấu trúc Dự án
 

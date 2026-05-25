@@ -230,7 +230,7 @@ def _create_tables():
 # ─── JSON → DB migration ─────────────────────────────────────
 
 def _auto_migrate_if_empty():
-    """If tables are empty, import data from JSON files (one-time migration)."""
+    """Import data from JSON files. Always syncs missing users on startup."""
     # Compute paths locally to avoid circular import with config.py
     _base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DATA_DIR = os.path.join(_base, "data")
@@ -244,17 +244,41 @@ def _auto_migrate_if_empty():
         user_count = cur.fetchone()[0]
 
         if user_count == 0:
-            logger.info("mw_users is empty — importing from JSON files...")
-            # Search in backup/ dir first, then fall back to old data/ dir
+            logger.info("mw_users is empty — full import from JSON files...")
             _import_users(conn, cur, BACKUP_DATA_DIR, DATA_DIR)
             _import_prices(conn, cur, BACKUP_DATA_DIR, DATA_DIR)
             _import_config(conn, cur, BACKUP_DATA_DIR, DATA_DIR)
             _import_pending(conn, cur, BACKUP_DATA_DIR, DATA_DIR)
             logger.info("JSON → DB migration complete")
         else:
-            logger.info("DB already has %d users — skipping auto-migration", user_count)
+            # Always sync missing users from JSON (ON CONFLICT DO NOTHING)
+            logger.info("DB has %d users — syncing missing users from JSON...", user_count)
+            _import_users(conn, cur, BACKUP_DATA_DIR, DATA_DIR)
+
+        # Backfill subkey_hash for users with plaintext subkey but no hash
+        _backfill_subkey_hashes(conn, cur)
 
         cur.close()
+
+
+def _backfill_subkey_hashes(conn, cur):
+    """Generate subkey_hash for users who have plaintext subkey but NULL hash."""
+    # Use centralized hash_subkey() to avoid duplicating MW_SECRET logic
+    from core.auth import hash_subkey
+
+    cur.execute("SELECT user_id, subkey FROM mw_users WHERE subkey IS NOT NULL AND subkey != '' AND subkey_hash IS NULL")
+    rows = cur.fetchall()
+
+    if not rows:
+        return
+
+    for user_id, subkey in rows:
+        subkey_hash = hash_subkey(subkey)
+        cur.execute("UPDATE mw_users SET subkey_hash = %s WHERE user_id = %s", (subkey_hash, user_id))
+        logger.info("Backfilled subkey_hash for user: %s", user_id)
+
+    conn.commit()
+    logger.info("Backfilled subkey_hash for %d users", len(rows))
 
 
 def _import_users(conn, cur, data_dir: str, fallback_dir: str = None):
@@ -439,3 +463,127 @@ def insert_request_log(payload: dict):
             cur.close()
     except Exception as e:
         logger.error("insert_request_log failed: %s", str(e))
+
+
+# ─── Single-user query functions (O(1) indexed) ─────────────
+
+_USER_COLUMNS = (
+    "user_id", "subkey", "subkey_hash", "active", "allowed_models",
+    "used_tokens", "used_cost_usd", "quota", "alerts_sent"
+)
+
+_USER_SELECT = """
+    SELECT user_id, subkey, subkey_hash, active, allowed_models,
+           used_tokens, used_cost_usd, quota, alerts_sent
+    FROM mw_users
+"""
+
+
+def _row_to_user_dict(row) -> Optional[Dict[str, Any]]:
+    """Convert a DB row tuple to user dict. Returns None if row is None."""
+    if not row:
+        return None
+    return {
+        "user_id": row[0],
+        "subkey": row[1],
+        "subkey_hash": row[2],
+        "active": row[3],
+        "allowed_models": row[4] if row[4] else ["*"],
+        "used_tokens": row[5] or 0,
+        "used_cost_usd": row[6] or 0.0,
+        "quota": row[7] if row[7] else {},
+        "alerts_sent": row[8] if row[8] else {},
+    }
+
+
+def get_user_by_id_db(user_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a single user by user_id using indexed PRIMARY KEY lookup.
+    Returns user dict or None. O(1) complexity.
+    """
+    try:
+        with db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(_USER_SELECT + " WHERE user_id = %s", (user_id,))
+            row = cur.fetchone()
+            cur.close()
+        return _row_to_user_dict(row)
+    except Exception as e:
+        logger.error("get_user_by_id_db failed user=%s: %s", user_id, str(e))
+        return None
+
+
+def update_user_quota_db(
+    user_id: str,
+    *,
+    add_tokens: int = 0,
+    add_cost_usd: float = 0.0,
+    add_image_requests: int = 0,
+    add_stt_requests: int = 0,
+) -> bool:
+    """
+    Atomically increment user quota counters in a single UPDATE.
+    Uses SQL arithmetic (field = field + value) — no application-level lock needed.
+    Returns True if user was found and updated.
+    """
+    try:
+        with db_conn() as conn:
+            cur = conn.cursor()
+            # Build the atomic update: increment both top-level and quota JSON fields
+            cur.execute("""
+                UPDATE mw_users SET
+                    used_tokens = COALESCE(used_tokens, 0) + %s,
+                    used_cost_usd = COALESCE(used_cost_usd, 0) + %s,
+                    quota = jsonb_set(
+                        jsonb_set(
+                            jsonb_set(
+                                jsonb_set(
+                                    COALESCE(quota, '{}'::jsonb),
+                                    '{used_tokens}',
+                                    to_jsonb(COALESCE((quota->>'used_tokens')::bigint, 0) + %s)
+                                ),
+                                '{used_cost_usd}',
+                                to_jsonb(COALESCE((quota->>'used_cost_usd')::double precision, 0) + %s)
+                            ),
+                            '{used_image_requests}',
+                            to_jsonb(COALESCE((quota->>'used_image_requests')::int, 0) + %s)
+                        ),
+                        '{used_stt_requests}',
+                        to_jsonb(COALESCE((quota->>'used_stt_requests')::int, 0) + %s)
+                    ),
+                    updated_at = now()
+                WHERE user_id = %s
+            """, (
+                add_tokens, add_cost_usd,
+                add_tokens, add_cost_usd,
+                add_image_requests, add_stt_requests,
+                user_id,
+            ))
+            updated = cur.rowcount > 0
+            cur.close()
+        return updated
+    except Exception as e:
+        logger.error("update_user_quota_db failed user=%s: %s", user_id, str(e))
+        return False
+
+
+def update_user_alerts_db(user_id: str, alerts_sent: dict) -> bool:
+    """
+    Update the alerts_sent JSON field for a single user.
+    Returns True if user was found and updated.
+    """
+    try:
+        with db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE mw_users SET
+                    alerts_sent = %s,
+                    updated_at = now()
+                WHERE user_id = %s
+            """, (json.dumps(alerts_sent), user_id))
+            updated = cur.rowcount > 0
+            cur.close()
+        return updated
+    except Exception as e:
+        logger.error("update_user_alerts_db failed user=%s: %s", user_id, str(e))
+        return False

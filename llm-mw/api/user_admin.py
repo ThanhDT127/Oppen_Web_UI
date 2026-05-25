@@ -13,7 +13,7 @@ from fastapi import Request, HTTPException
 from pydantic import BaseModel
 
 from config import USERS_FILE, MW_SECRET, LOG_DIR, BACKUP_LOG_DIR, logger
-from core.auth import load_users, save_users, hash_subkey, find_user, delete_user as auth_delete_user
+from core.auth import load_users, save_users, hash_subkey, find_user, delete_user as auth_delete_user, get_user_by_id
 from threading import Lock
 import os
 from logging.handlers import RotatingFileHandler
@@ -63,10 +63,10 @@ def _generate_subkey() -> str:
 
 
 def _scrub_user(user: Dict[str, Any]) -> Dict[str, Any]:
-    """Remove sensitive fields from user dict for API responses"""
+    """Remove sensitive fields from user dict for API responses.
+    Keeps subkey_hash (safe for admin view), removes plaintext subkey."""
     scrubbed = user.copy()
-    # Remove hash and plaintext key
-    scrubbed.pop("subkey_hash", None)
+    # Remove plaintext key only — hash is safe for admin dashboard
     scrubbed.pop("subkey", None)
     return scrubbed
 
@@ -142,10 +142,11 @@ async def create_user(request: Request):
         subkey = _generate_subkey()
         subkey_hash = hash_subkey(subkey)
         
-        # Create user object
+        # Create user object (store both subkey + hash for DB and JSON sync)
         new_user = {
             "user_id": req.user_id,
             "role": req.role,
+            "subkey": subkey,
             "subkey_hash": subkey_hash,
             "active": True,
             "allowed_models": req.allowed_models,
