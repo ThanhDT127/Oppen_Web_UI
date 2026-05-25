@@ -2,7 +2,7 @@
 title: Quota Alert Filter
 author: LLM Gateway Admin
 description: Hiển thị cảnh báo quota cho user khi sử dụng ≥80% trong mỗi response chat.
-version: 2.0.0
+version: 2.0.1
 type: filter
 """
 
@@ -17,8 +17,8 @@ class Filter:
     Gọi Middleware API kiểm tra % quota đã dùng.
     Nếu ≥80% → thêm dòng cảnh báo vào cuối response.
     
-    v2.0: 
-    - Hỗ trợ Bearer token auth (thay vì chỉ query param)
+    v2.0.1:
+    - Hỗ trợ Bearer user subkey auth hoặc query param user_id
     - Logic mapping user_id cải thiện: thử name → email → id
     - Skip nếu middleware đã inject warning (tránh trùng lặp)
     """
@@ -42,11 +42,11 @@ class Filter:
         )
         use_bearer_auth: bool = Field(
             default=False,
-            description="Sử dụng Bearer token thay vì query param user_id"
+            description="Sử dụng Bearer user subkey để middleware tự xác định user, thay vì query param user_id"
         )
         bearer_token: str = Field(
             default="",
-            description="Bearer token nếu use_bearer_auth=True (thường là admin key)"
+            description="Bearer token nếu use_bearer_auth=True. Giá trị này phải là user subkey, không phải admin key."
         )
 
     def __init__(self):
@@ -90,15 +90,16 @@ class Filter:
             # Thử từng identifier cho đến khi tìm thấy user trong middleware
             result_data = None
             for candidate_id in [user_name, user_email, user_id_uuid]:
-                if not candidate_id:
+                if not candidate_id and not self.valves.use_bearer_auth:
                     continue
                 try:
-                    # Quyết định auth method
                     req_headers = {}
-                    req_params = {"user_id": candidate_id}
+                    req_params = {}
                     
                     if self.valves.use_bearer_auth and self.valves.bearer_token:
                         req_headers["Authorization"] = f"Bearer {self.valves.bearer_token}"
+                    else:
+                        req_params["user_id"] = candidate_id
                     
                     resp = requests.get(
                         f"{self.valves.middleware_url}/v1/_mw/quota-status",
