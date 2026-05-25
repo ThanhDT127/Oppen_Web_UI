@@ -13,7 +13,7 @@ import json
 from config import logger, LITELLM_BASE, LITELLM_KEY
 
 # ── Provider tier mappings ──────────────────────────────────────
-# Each provider maps: tier → concrete model name
+# Each provider maps: tier → concrete LiteLLM model alias
 # Tiers: SIMPLE (cheapest), MEDIUM, COMPLEX, REASONING (most capable)
 
 PROVIDER_TIERS = {
@@ -25,9 +25,9 @@ PROVIDER_TIERS = {
     },
     "gemini-auto": {
         "SIMPLE": "chat-gemini-2.5-flash",
-        "MEDIUM": "chat-gemini-3.1-flash-lite-preview",
-        "COMPLEX": "chat-gemini-3.1-pro-preview",
-        "REASONING": "chat-gemini-3.1-pro-preview",
+        "MEDIUM": "chat-gemini-3.1-flash-lite",
+        "COMPLEX": "chat-gemini-3.1-pro",
+        "REASONING": "chat-gemini-3.1-pro",
     },
     "grok-auto": {
         "SIMPLE": "chat-grok-4.1-fast-lite",
@@ -250,7 +250,7 @@ async def resolve_auto_model(
     messages: list,
     quota_percent: float,
     has_vision: bool = False,
-    has_files: bool = False,
+    has_files: bool = False
 ) -> tuple[str, str, bool, dict]:
     """
     Resolve an auto-model name to a concrete model + thinking config.
