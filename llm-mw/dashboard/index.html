@@ -95,6 +95,7 @@
             <button class="tab" onclick="window.dashboardAPI.switchTab(event, 'access')">🌐 Access</button>
             <button class="tab" onclick="window.dashboardAPI.switchTab(event, 'users')">👥 Users</button>
             <button class="tab" onclick="window.dashboardAPI.switchTab(event, 'logs')">📋 Logs</button>
+            <button class="tab" onclick="window.dashboardAPI.switchTab(event, 'settings')">⚙️ Settings</button>
         </div>
 
         <!-- ═══════════════════════════════════════════════════ -->
@@ -374,7 +375,8 @@
             <div class="section">
                 <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
                     <span>👥 User Management & Quota
-                        <span id="userCountBadge" class="badge" style="margin-left:10px; background:#334155; font-size:12px; padding:3px 10px; border-radius:12px;">
+                        <span id="userCountBadge" class="badge"
+                            style="margin-left:10px; background:#334155; font-size:12px; padding:3px 10px; border-radius:12px;">
                             Active: <span id="activeUserCount">-</span> / Total: <span id="totalUserCount">-</span>
                         </span>
                     </span>
@@ -584,6 +586,147 @@
                 <div style="text-align: center; margin-top: 20px;">
                     <button id="loadMoreBtn" onclick="window.dashboardAPI.loadMoreLogs()" style="display: none;"
                         class="btn-apply">Load More</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- SETTINGS TAB                                       -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <div id="settingsTab" class="tab-content">
+            <div class="insight-banner">
+                <span class="insight-icon">⚙️</span>
+                <span class="insight-text">Cấu hình hệ thống — Thay đổi SMTP, ngưỡng Quota và ngân sách API (Dual-write
+                    enabled).</span>
+            </div>
+
+            <div class="settings-grid">
+                <!-- Section: SMTP Configuration -->
+                <div class="section">
+                    <div class="section-title">📧 SMTP Configuration</div>
+                    <form id="smtpForm" class="settings-form">
+                        <div class="form-group">
+                            <label>Enable SMTP</label>
+                            <label class="switch">
+                                <input type="checkbox" name="enabled" id="smtpEnabled">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>SMTP Host</label>
+                            <input type="text" name="host" id="smtpHost" placeholder="smtp.gmail.com">
+                        </div>
+                        <div class="form-group">
+                            <label>SMTP Port</label>
+                            <input type="number" name="port" id="smtpPort" placeholder="587">
+                        </div>
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" name="username" id="smtpUser" placeholder="email@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>From Email</label>
+                            <input type="text" name="from_email" id="smtpFrom" placeholder="noreply@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Password Env Var</label>
+                            <input type="text" name="password_env" id="smtpPassEnv" placeholder="SMTP_PASSWORD">
+                        </div>
+                        <div class="form-group">
+                            <label>Use TLS</label>
+                            <label class="switch">
+                                <input type="checkbox" name="use_tls" id="smtpTls">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" onclick="window.settingsAPI.testSMTP()" class="btn-secondary">Test
+                                Connection</button>
+                            <button type="button" onclick="window.settingsAPI.saveSMTP()" class="btn-apply">Save
+                                SMTP</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Section: Quota Thresholds -->
+                <div class="section">
+                    <div class="section-title">📊 Quota Thresholds (%)</div>
+                    <form id="quotaThresholdForm" class="settings-form">
+                        <div class="form-group">
+                            <label>Info Threshold (%)</label>
+                            <input type="number" id="thresholdInfo" value="80">
+                        </div>
+                        <div class="form-group">
+                            <label>Warning Threshold (%)</label>
+                            <input type="number" id="thresholdWarning" value="95">
+                        </div>
+                        <div class="form-group">
+                            <label>Critical Threshold (%)</label>
+                            <input type="number" id="thresholdCritical" value="100">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" onclick="window.settingsAPI.saveQuotaThresholds()"
+                                class="btn-apply">Save Thresholds</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Section: API Budgets -->
+                <div class="section">
+                    <div class="section-title">💳 API Budgets (Monthly USD)</div>
+                    <form id="apiBudgetForm" class="settings-form">
+                        <div class="form-group">
+                            <label>OpenAI Budget ($)</label>
+                            <input type="number" step="0.01" id="budgetOpenAI">
+                        </div>
+                        <div class="form-group">
+                            <label>Gemini Budget ($)</label>
+                            <input type="number" step="0.01" id="budgetGemini">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" onclick="window.settingsAPI.saveBudgets()" class="btn-apply">Save
+                                Budgets</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Section: Notification Toggles -->
+                <div class="section">
+                    <div class="section-title">🔔 Notification Channels</div>
+                    <form id="notifTogglesForm" class="settings-form">
+                        <div class="form-group">
+                            <label>User Email Alerts</label>
+                            <label class="switch">
+                                <input type="checkbox" id="toggleUserEmail">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Admin Email (Realtime)</label>
+                            <label class="switch">
+                                <input type="checkbox" id="toggleAdminEmail">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Dashboard Alerts</label>
+                            <label class="switch">
+                                <input type="checkbox" id="toggleDashboardAlerts">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Daily Digest Email</label>
+                            <label class="switch">
+                                <input type="checkbox" id="toggleDailyDigest">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" onclick="window.settingsAPI.saveNotifToggles()" class="btn-apply">Save
+                                Toggles</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>

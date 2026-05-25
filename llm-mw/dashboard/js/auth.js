@@ -45,7 +45,7 @@ export function stopDashboardLoops() {
 export function showLoginUI(message) {
     document.getElementById('authPrompt').classList.remove('hidden');
     document.getElementById('dashboard').classList.add('hidden');
-    
+
     if (message) {
         showError(message);
     }
@@ -62,7 +62,7 @@ function showError(msg) {
 export async function authenticate() {
     const input = document.getElementById('adminKeyInput');
     const key = input.value.trim();
-    
+
     if (!key) {
         showError('Please enter admin key');
         return;
@@ -75,23 +75,26 @@ export async function authenticate() {
             credentials: 'include',
             body: JSON.stringify({ admin_key: key })
         });
-        
+
         if (res.status === 403) {
             throw new Error('Invalid admin key');
         }
         if (!res.ok) {
             throw new Error('Login failed');
         }
-        
+
         await res.json();
-        
+
+        // Store key for header-based auth
+        sessionStorage.setItem('mw_admin_key', key);
+
         // Success - hide auth prompt and show dashboard
         document.getElementById('authPrompt').classList.add('hidden');
         document.getElementById('dashboard').classList.remove('hidden');
-        
+
         // Verify cookie works
         await checkAuthStatus();
-        
+
         // Start dashboard
         const { startDashboard } = await import('./main.js');
         startDashboard();
@@ -139,6 +142,9 @@ export function initAuth() {
 
     // Check if already logged in on page load
     document.addEventListener('DOMContentLoaded', async () => {
+        const adminKey = sessionStorage.getItem('mw_admin_key');
+        if (!adminKey) return; // Must have header key to proceed
+
         try {
             const res = await mwFetch('/v1/_mw/auth_check');
             if (res && res.ok) {

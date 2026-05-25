@@ -12,6 +12,9 @@ import {
 	showCreateUserModal, showEditUserModal, closeUserModal, saveUser,
 	deleteUser, rotateUserKey, toggleUserActive
 } from './users.js';
+import {
+	saveSMTP, saveQuotaThresholds, saveBudgets, saveNotifToggles, testSMTP
+} from './settings.js';
 
 // Expose a stable API for inline HTML handlers (window.dashboardAPI.*)
 export async function initAPI() {
@@ -33,6 +36,14 @@ export async function initAPI() {
 		deleteUser,
 		rotateUserKey,
 		toggleUserActive
+	};
+
+	window.settingsAPI = {
+		saveSMTP,
+		saveQuotaThresholds,
+		saveBudgets,
+		saveNotifToggles,
+		testSMTP
 	};
 
 	// One-time UI init
