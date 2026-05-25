@@ -30,7 +30,7 @@
 
 ## 5. Staging verification
 
-- [ ] 5.1 Test login/logout va session flow
+- [x] 5.1 Test login/logout va session flow
 - [ ] 5.2 Test chat completion cho tat ca providers
 - [ ] 5.3 Test streaming, usage tracking, va dashboard analytics
 - [ ] 5.4 Test RAG upload/query voi Docling + PGVector
