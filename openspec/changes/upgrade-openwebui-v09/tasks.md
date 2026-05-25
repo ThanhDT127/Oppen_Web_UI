@@ -35,9 +35,9 @@
 - [x] 5.3 Test streaming, usage tracking, va dashboard analytics
 - [ ] 5.4 Test RAG upload/query voi Docling + PGVector
 - [x] 5.5 Test web search qua SearXNG, bao gom search co nhieu ngon ngu neu can
-- [ ] 5.6 Test custom tools/functions/filters, bao gom export flow
-- [ ] 5.7 Test persisted chats, attachments, file preview, va Admin Panel
-- [ ] 5.8 Test multi-worker WebSocket behavior voi Redis manager
+- [x] 5.6 Test custom tools/functions/filters, bao gom export flow
+- [x] 5.7 Test persisted chats, attachments, file preview, va Admin Panel
+- [x] 5.8 Test multi-worker WebSocket behavior voi Redis manager
 
 ## 6. Production rollout
 
