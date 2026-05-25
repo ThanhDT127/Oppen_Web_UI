@@ -32,9 +32,9 @@
 
 - [x] 5.1 Test login/logout va session flow
 - [ ] 5.2 Test chat completion cho tat ca providers
-- [ ] 5.3 Test streaming, usage tracking, va dashboard analytics
+- [x] 5.3 Test streaming, usage tracking, va dashboard analytics
 - [ ] 5.4 Test RAG upload/query voi Docling + PGVector
-- [ ] 5.5 Test web search qua SearXNG, bao gom search co nhieu ngon ngu neu can
+- [x] 5.5 Test web search qua SearXNG, bao gom search co nhieu ngon ngu neu can
 - [ ] 5.6 Test custom tools/functions/filters, bao gom export flow
 - [ ] 5.7 Test persisted chats, attachments, file preview, va Admin Panel
 - [ ] 5.8 Test multi-worker WebSocket behavior voi Redis manager
