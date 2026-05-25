@@ -23,19 +23,19 @@ export function formatTimestamp(ts, bucket) {
 export function updateStatus(type, message) {
     const dot = document.getElementById('statusDot');
     const msg = document.getElementById('statusMessage');
-    
+
     if (!dot || !msg) return;
-    
+
     dot.className = 'status-dot';
     msg.className = 'status-message';
-    
+
     if (type === 'error') {
         dot.classList.add('error');
         msg.classList.add('error');
     } else if (type === 'warning') {
         dot.classList.add('warning');
     }
-    
+
     msg.textContent = message;
 }
 
@@ -48,18 +48,22 @@ export function set403Handler(handler) {
 }
 
 export async function mwFetch(path, opts = {}) {
+    const adminKey = sessionStorage.getItem('mw_admin_key');
+    const authHeader = adminKey ? { 'Authorization': `Bearer ${adminKey}` } : {};
+
     const defaultOpts = {
         credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
+            ...authHeader,
             ...(opts.headers || {})
         }
     };
-    const mergedOpts = { ...defaultOpts, ...opts };
-    
+    const mergedOpts = { ...defaultOpts, ...opts, headers: defaultOpts.headers };
+
     try {
         const res = await fetch(path, mergedOpts);
-        
+
         // Handle 403 - session expired or unauthorized
         if (res.status === 403) {
             console.warn('403 Forbidden - auth required');
@@ -71,7 +75,7 @@ export async function mwFetch(path, opts = {}) {
             }
             return null;
         }
-        
+
         return res;
     } catch (err) {
         console.error(`mwFetch error for ${path}:`, err);
