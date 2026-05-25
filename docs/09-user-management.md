@@ -17,7 +17,7 @@ Mỗi user trong bảng `mw_users` (PostgreSQL) có cấu trúc sau:
   "allowed_models": ["*"],
   "quota": {
     "period": "monthly",
-    "timezone": "Asia/Bangkok",
+    "timezone": "Asia/Ho_Chi_Minh",
     "limit_tokens": 0,
     "limit_cost_usd": 0,
     "limit_image_requests": 0,
@@ -86,12 +86,12 @@ Content-Type: application/json
 {
   "user_id": "new_user",
   "role": "user",
-  "allowed_models": ["gemini-2.5-flash", "gpt-4o-mini"],
+  "allowed_models": ["chat-gemini-2.5-flash", "chat-gpt-5"],
   "limit_tokens": 100000,
   "limit_cost_usd": 5.0,
   "limit_image_requests": 50,
   "period": "monthly",
-  "timezone": "Asia/Bangkok"
+  "timezone": "Asia/Ho_Chi_Minh"
 }
 ```
 
@@ -216,17 +216,17 @@ POST /v1/_mw/admin/users/{user_id}/enable
 
 ## Giao diện Quản lý trên Dashboard
 
-Quản lý người dùng đầy đủ có sẵn tại Dashboard Admin `http://<server>:5000/dashboard` > tab **Users**.
+Quản lý người dùng đầy đủ có sẵn tại Dashboard Admin `https://openwebui.example.com:51122/dashboard` > tab **Users**.
 
 ### Các Thao tác
 
-| Thao tác            | Nút         | Mô tả                                              |
-| ------------------- | ----------- | -------------------------------------------------- |
-| **Thêm user**       | Add User    | Tạo user mới với subkey tự sinh                    |
-| **Sửa user**        | Edit        | Sửa quota, models, role, period, active            |
-| **Xóa user**        | Delete      | Xóa user (xác nhận 2 lần)                          |
-| **Xoay khóa**       | Rotate Key  | Vô hiệu khóa cũ, tạo khóa mới                      |
-| **Bật/Tắt**         | Toggle      | Bật/tắt tài khoản (403 khi bị tắt)                 |
+| STT | Thao tác      | Nút        | Mô tả                                   |
+| --- | ------------- | ---------- | --------------------------------------- |
+| 01  | **Thêm user** | Add User   | Tạo user mới với subkey tự sinh         |
+| 02  | **Sửa user**  | Edit       | Sửa quota, models, role, period, active |
+| 03  | **Xóa user**  | Delete     | Xóa user (xác nhận 2 lần)               |
+| 04  | **Xoay khóa** | Rotate Key | Vô hiệu khóa cũ, tạo khóa mới           |
+| 05  | **Bật/Tắt**   | Toggle     | Bật/tắt tài khoản (403 khi bị tắt)      |
 
 ### Hiển thị Subkey
 
@@ -313,7 +313,7 @@ curl -X POST http://localhost:5000/v1/_mw/admin/users \
   -d '{
     "user_id": "alice",
     "role": "user",
-    "allowed_models": ["gemini-2.5-flash"],
+    "allowed_models": ["chat-gemini-2.5-flash"],
     "limit_cost_usd": 5.0,
     "period": "monthly"
   }'

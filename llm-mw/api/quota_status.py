@@ -10,14 +10,34 @@ from core.alerting import get_user_quota_status, load_alert_config, save_alert_c
 from config import ADMIN_KEY, logger
 
 
-async def get_quota_status(user_id: str = Query(..., description="User ID to check")):
+async def get_quota_status(request: Request, user_id: str = Query(None, description="User ID to check")):
     """
     GET /v1/_mw/quota-status?user_id=xxx
     
     Lightweight endpoint — no admin auth required.
     Returns only percentage and remaining amount (no sensitive details).
     Called by Open WebUI Filter Function on every response.
+    
+    Supports two auth modes:
+    1. Query param: ?user_id=xxx (simple, no auth)
+    2. Bearer token: Authorization header with subkey (resolves user from subkey)
     """
+    # If no user_id provided, try to extract from Bearer token
+    if not user_id:
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            subkey = auth.split(" ", 1)[1].strip()
+            try:
+                from core.auth import find_user
+                user = find_user(subkey)
+                if user:
+                    user_id = user.get("user_id")
+            except Exception:
+                pass
+    
+    if not user_id:
+        return JSONResponse(status_code=400, content={"error": "user_id query param or Bearer token required"})
+    
     return JSONResponse(content=get_user_quota_status(user_id))
 
 

@@ -7,6 +7,7 @@ __pycache__/
 .env
 llm-mw/.env
 .webui_secret_key
+vertex.json
 
 # Middleware user registry (local)
 llm-mw/users.json

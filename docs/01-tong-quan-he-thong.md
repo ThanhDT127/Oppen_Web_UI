@@ -17,25 +17,25 @@
 
 ## 1. CHỈ MỤC TÀI LIỆU
 
-| STT | Mã     | Tên tài liệu          | Mô tả                                                     | Đối tượng       |
-| --- | ------ | --------------------- | --------------------------------------------------------- | --------------- |
-| 01  | DOC-01 | Tổng quan hệ thống    | Tài liệu này - phạm vi, yêu cầu, kiến trúc, bảo mật       | Tất cả          |
-| 02  | DOC-02 | Tài liệu vận hành     | Hướng dẫn vận hành chuyên sâu, troubleshooting            | QTV hệ thống    |
-| 03  | DOC-03 | Kiến trúc Middleware  | Chi tiết middleware proxy: routing, quota, cost tracking  | Đội kỹ thuật    |
-| 04  | DOC-04 | Sơ đồ kiến trúc       | Diagrams: system context, component, data flow, ERD       | Đội kỹ thuật    |
-| 05  | DOC-05 | Kiến trúc Database    | Schema 32+ tables, Open WebUI + Middleware databases      | Đội kỹ thuật    |
-| 06  | DOC-06 | Kiến trúc RAG         | RAG pipeline: embedding, chunking, vector search, HNSW    | Đội kỹ thuật    |
-| 07  | DOC-07 | API Reference         | REST API endpoints, request/response, error codes         | Đội phát triển  |
-| 08  | DOC-08 | Dashboard Admin       | Dashboard UI, metrics, filters, charts, user CRUD         | QTV hệ thống    |
-| 09  | DOC-09 | Quản lý người dùng    | User CRUD, RBAC, subkey management, audit trail           | QTV hệ thống    |
-| 10  | DOC-10 | Hướng dẫn sử dụng     | Hướng dẫn end-user: chat, RAG, image gen, export          | Người dùng      |
-| 11  | DOC-11 | Báo cáo tổng quan     | Báo cáo trình bày cho lãnh đạo, so sánh giải pháp         | Ban lãnh đạo    |
-| 12  | DOC-12 | Checklist tính năng   | 103+ tính năng, trạng thái, kết quả test                  | QTV và Kỹ thuật |
-| 13  | DOC-13 | Cảnh báo Quota        | Hệ thống cảnh báo quota, email notification, SSE          | QTV hệ thống    |
-| 14  | DOC-14 | Kế hoạch mở rộng      | Phase 1-3: tối ưu server, scale ngang, multi-server       | Đội kỹ thuật    |
-| 15  | DOC-15 | Nginx HTTPS           | Reverse proxy, SSL, routing, rate limiting, vận hành      | QTV hệ thống    |
-| 16  | DOC-16 | Web Search            | SearXNG, Redis cache, filter function, thời gian/địa điểm | Đội kỹ thuật    |
-| 17  | DOC-17 | Cân bằng tải          | Phân bổ tài nguyên, rate limit, LiteLLM routing, RPM      | Đội kỹ thuật    |
+| STT | Mã     | Tên tài liệu         | Mô tả                                                     | Đối tượng       |
+| --- | ------ | -------------------- | --------------------------------------------------------- | --------------- |
+| 01  | DOC-01 | Tổng quan hệ thống   | Tài liệu này - phạm vi, yêu cầu, kiến trúc, bảo mật       | Tất cả          |
+| 02  | DOC-02 | Tài liệu vận hành    | Hướng dẫn vận hành chuyên sâu, troubleshooting            | QTV hệ thống    |
+| 03  | DOC-03 | Kiến trúc Middleware | Chi tiết middleware proxy: routing, quota, cost tracking  | Đội kỹ thuật    |
+| 04  | DOC-04 | Sơ đồ kiến trúc      | Diagrams: system context, component, data flow, ERD       | Đội kỹ thuật    |
+| 05  | DOC-05 | Kiến trúc Database   | Schema 32+ tables, Open WebUI + Middleware databases      | Đội kỹ thuật    |
+| 06  | DOC-06 | Kiến trúc RAG        | RAG pipeline: embedding, chunking, vector search, HNSW    | Đội kỹ thuật    |
+| 07  | DOC-07 | API Reference        | REST API endpoints, request/response, error codes         | Đội phát triển  |
+| 08  | DOC-08 | Dashboard Admin      | Dashboard UI, metrics, filters, charts, user CRUD         | QTV hệ thống    |
+| 09  | DOC-09 | Quản lý người dùng   | User CRUD, RBAC, subkey management, audit trail           | QTV hệ thống    |
+| 10  | DOC-10 | Hướng dẫn sử dụng    | Hướng dẫn end-user: chat, RAG, image gen, export          | Người dùng      |
+| 11  | DOC-11 | Báo cáo tổng quan    | Báo cáo trình bày cho lãnh đạo, so sánh giải pháp         | Ban lãnh đạo    |
+| 12  | DOC-12 | Checklist tính năng  | 103+ tính năng, trạng thái, kết quả test                  | QTV và Kỹ thuật |
+| 13  | DOC-13 | Cảnh báo Quota       | Hệ thống cảnh báo quota, email notification, SSE          | QTV hệ thống    |
+| 14  | DOC-14 | Kế hoạch mở rộng     | Phase 1-3: tối ưu server, scale ngang, multi-server       | Đội kỹ thuật    |
+| 15  | DOC-15 | Nginx HTTPS          | Reverse proxy, SSL, routing, rate limiting, vận hành      | QTV hệ thống    |
+| 16  | DOC-16 | Web Search           | SearXNG, Redis cache, filter function, thời gian/địa điểm | Đội kỹ thuật    |
+| 17  | DOC-17 | Cân bằng tải         | Phân bổ tài nguyên, rate limit, LiteLLM routing, RPM      | Đội kỹ thuật    |
 
 Thứ tự đọc khuyến nghị: DOC-01 > DOC-11 > DOC-10 > DOC-02 > DOC-08 > DOC-03 > DOC-05
 
@@ -48,32 +48,32 @@ Thứ tự đọc khuyến nghị: DOC-01 > DOC-11 > DOC-10 > DOC-02 > DOC-08 > 
 Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tập trung cho toàn tổ chức. Hệ thống hoạt động như một "ChatGPT nội bộ" nhưng bổ sung các khả năng:
 
 - Kiểm soát chi phí chủ động (quota / user / tháng)
-- Bảo mật dữ liệu (embedding chạy local, tài liệu không rời server)
+- Bảo mật dữ liệu (vectors lưu on-premise, embedding qua Gemini API)
 - Quản trị tập trung (dashboard real-time, audit trail)
-- Đa nhà cung cấp (OpenAI + Google Gemini qua 1 gateway duy nhất)
+- Đa nhà cung cấp (OpenAI + Gemini + xAI + Anthropic qua 1 gateway duy nhất)
 
 ### 2.2. Phạm vi
 
-| Tiêu chí            | Chi tiết                                                              |
-| ------------------- | --------------------------------------------------------------------- |
-| Quy mô tổ chức      | Doanh nghiệp từ 200+ nhân viên, nhiều phòng ban                       |
-| Phòng ban mục tiêu  | Tất cả: Kỹ thuật, Kinh doanh, Nhân sự, Tài chính, Marketing, R&D      |
-| Địa lý              | HTTPS qua domain nội bộ + NAT firewall (truy cập LAN và WAN)          |
-| Ngôn ngữ            | Hỗ trợ 50+ ngôn ngữ (tối ưu tiếng Việt và tiếng Anh)                  |
-| Nền tảng            | Web-based - truy cập qua trình duyệt (Chrome, Firefox, Edge, Safari ) |
-| Hạ tầng             | On-premise (Docker trên Windows Server, 20 CPU / 32GB RAM)            |
-| Mô hình triển khai  | Docker Compose 8 services + Nginx HTTPS reverse proxy                 |
+| STT | Tiêu chí           | Chi tiết                                                              |
+| --- | ------------------ | --------------------------------------------------------------------- |
+| 01  | Quy mô tổ chức     | Doanh nghiệp từ 200+ nhân viên, nhiều phòng ban                       |
+| 02  | Phòng ban mục tiêu | Tất cả: Kỹ thuật, Kinh doanh, Nhân sự, Tài chính, Marketing, R&D      |
+| 03  | Địa lý             | HTTPS qua domain nội bộ + NAT firewall (truy cập LAN và WAN)          |
+| 04  | Ngôn ngữ           | Hỗ trợ 50+ ngôn ngữ (tối ưu tiếng Việt và tiếng Anh)                  |
+| 05  | Nền tảng           | Web-based - truy cập qua trình duyệt (Chrome, Firefox, Edge, Safari ) |
+| 06  | Hạ tầng            | On-premise (Docker trên Windows Server, 20 CPU / 32GB RAM)            |
+| 07  | Mô hình triển khai | Docker Compose 9 services + Nginx HTTPS reverse proxy                 |
 
 ### 2.3. Mục đích
 
 #### A. Thay thế dịch vụ SaaS phân tán
 
-| Trước                                               | Sau                                               |
-| --------------------------------------------------- | ------------------------------------------------- |
-| Mỗi nhân viên tự đăng ký ChatGPT/Gemini riêng lẻ    | Một cổng truy cập duy nhất cho tất cả dịch vụ AI  |
-| Không kiểm soát chi phí - phát sinh ngoài kế hoạch  | Quota chặt chẽ theo user/phòng ban/tháng          |
-| Rủi ro rò rỉ dữ liệu qua tài khoản cá nhân          | Tài liệu nội bộ xử lý 100% trên server riêng      |
-| Không có audit trail - không biết ai dùng gì        | Log chi tiết mọi request: cost, model, user       |
+| STT | Trước                                              | Sau                                              |
+| --- | -------------------------------------------------- | ------------------------------------------------ |
+| 01  | Mỗi nhân viên tự đăng ký ChatGPT/Gemini riêng lẻ   | Một cổng truy cập duy nhất cho tất cả dịch vụ AI |
+| 02  | Không kiểm soát chi phí - phát sinh ngoài kế hoạch | Quota chặt chẽ theo user/phòng ban/tháng         |
+| 03  | Rủi ro rò rỉ dữ liệu qua tài khoản cá nhân         | Tài liệu nội bộ xử lý 100% trên server riêng     |
+| 04  | Không có audit trail - không biết ai dùng gì       | Log chi tiết mọi request: cost, model, user      |
 
 #### B. Nền tảng tập trung và Quản trị chủ động
 
@@ -86,20 +86,20 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
 #### C. Tối ưu chi phí sử dụng AI
 
 - Multi-provider routing: Tự động chọn provider rẻ nhất cho cùng chất lượng
-- Bảng giá model: Cập nhật giá input/output token cho 20 models trong DB
+- Bảng giá model: Cập nhật giá input/output token cho 21 models trong DB
 - Quota enforcement: Vượt quota - tự động từ chối, không phát sinh chi phí ngoài kế hoạch
 - Cost dashboard: Real-time tracking chi phí theo user, model, thời gian
 - Ước tính: 10 users x 20 requests/ngày ~ $50-150/tháng (so với $300/tháng cho ChatGPT Enterprise)
 
 ### 2.4. Đối tượng sử dụng
 
-| Vai trò               | Truy cập                                          | Chức năng chính                                   |
-| --------------------- | ------------------------------------------------- | ------------------------------------------------- |
-| Ban lãnh đạo          | Báo cáo tổng quan                                 | Xem chi phí, ROI, tình trạng hệ thống             |
-| Quản trị viên (Admin) | `https://domain:51122/dashboard`                  | Quản lý user, quota, model, knowledge, monitoring |
-| Trưởng bộ phận        | `https://domain:51122/`                           | Quản lý knowledge phòng ban, xem chi phí nhóm     |
-| Nhân viên (User)      | `https://openwebui.example.com:51122/`        | Chat AI, RAG, tạo ảnh, xuất file, TTS/STT         |
-| Kỹ thuật viên         | SSH + Docker CLI                                  | Vận hành, bảo trì, cập nhật hệ thống              |
+| STT | Vai trò               | Truy cập                                   | Chức năng chính                                   |
+| --- | --------------------- | ------------------------------------------ | ------------------------------------------------- |
+| 01  | Ban lãnh đạo          | Báo cáo tổng quan                          | Xem chi phí, ROI, tình trạng hệ thống             |
+| 02  | Quản trị viên (Admin) | `https://domain:51122/dashboard`           | Quản lý user, quota, model, knowledge, monitoring |
+| 03  | Trưởng bộ phận        | `https://domain:51122/`                    | Quản lý knowledge phòng ban, xem chi phí nhóm     |
+| 04  | Nhân viên (User)      | `https://openwebui.example.com:51122/` | Chat AI, RAG, tạo ảnh, xuất file, TTS/STT         |
+| 05  | Kỹ thuật viên         | SSH + Docker CLI                           | Vận hành, bảo trì, cập nhật hệ thống              |
 
 ---
 
@@ -107,59 +107,59 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
 
 ### 3.1. Chat AI đa phương thức
 
-| ID    | Yêu cầu          | Mô tả                                                        | Ưu tiên    |
-| ----- | ----------------- | ------------------------------------------------------------| ---------- |
-| BR-01 | Chat text         | Hỏi đáp, soạn thảo, phân tích, dịch thuật qua AI            | Cao        |
-| BR-02 | Đa model          | Chọn từ 14 model chat (GPT-5, GPT-4o, Gemini 2.5, Gemini 3) | Cao        |
-| BR-03 | Vision input      | Gửi ảnh/screenshot để AI phân tích (multimodal)             | Trung bình |
-| BR-04 | Context 1M token  | Đọc hiểu tài liệu hàng trăm trang trong 1 session           | Trung bình |
-| BR-05 | Lịch sử chat      | Lưu trữ và tìm kiếm lịch sử hội thoại                       | Cao        |
+| STT | ID    | Yêu cầu          | Mô tả                                                       | Ưu tiên    |
+| --- | ----- | ---------------- | ----------------------------------------------------------- | ---------- |
+| 01  | BR-01 | Chat text        | Hỏi đáp, soạn thảo, phân tích, dịch thuật qua AI            | Cao        |
+| 02  | BR-02 | Đa model         | Chọn từ 14 model chat (GPT-5, GPT-4o, Gemini 2.5, Gemini 3) | Cao        |
+| 03  | BR-03 | Vision input     | Gửi ảnh/screenshot để AI phân tích (multimodal)             | Trung bình |
+| 04  | BR-04 | Context 1M token | Đọc hiểu tài liệu hàng trăm trang trong 1 session           | Trung bình |
+| 05  | BR-05 | Lịch sử chat     | Lưu trữ và tìm kiếm lịch sử hội thoại                       | Cao        |
 
 ### 3.2. Tạo ảnh AI
 
-| ID    | Yêu cầu                | Mô tả                                           | Ưu tiên    |
-| ----- | ---------------------- | ----------------------------------------------- | ---------- |
-| BR-06 | Text-to-Image          | Tạo ảnh từ mô tả text: banner, poster, mockup   | Trung bình |
-| BR-07 | Đa provider            | DALL-E 3 (OpenAI) + Gemini Image (Google)       | Trung bình |
-| BR-08 | Kiểm soát chi phí ảnh  | Quota riêng cho image requests                  | Trung bình |
+| STT | ID    | Yêu cầu               | Mô tả                                         | Ưu tiên    |
+| --- | ----- | --------------------- | --------------------------------------------- | ---------- |
+| 01  | BR-06 | Text-to-Image         | Tạo ảnh từ mô tả text: banner, poster, mockup | Trung bình |
+| 02  | BR-07 | Đa provider           | DALL-E 3 (OpenAI) + Gemini Image (Google)     | Trung bình |
+| 03  | BR-08 | Kiểm soát chi phí ảnh | Quota riêng cho image requests                | Trung bình |
 
 ### 3.3. RAG / Knowledge Base
 
-| ID    | Yêu cầu               | Mô tả                                             | Ưu tiên |
-| ----- | ----------------------| ------------------------------------------------- | ------- |
-| BR-09 | Upload tài liệu       | PDF, Word, Excel, CSV, TXT, HTML - max 50MB/file  | Cao     |
-| BR-10 | Tìm kiếm ngữ nghĩa    | Hybrid search (BM25 + vector cosine similarity)   | Cao     |
-| BR-11 | Trích dẫn nguồn       | AI trả lời kèm citation (tên file, trang, đoạn)   | Cao     |
-| BR-12 | Phân quyền Knowledge  | Chỉ user/nhóm được grant mới truy cập Knowledge   | Cao     |
-| BR-13 | Embedding local       | Dữ liệu nội bộ KHÔNG gửi ra bên ngoài             | Cao     |
+| STT | ID    | Yêu cầu              | Mô tả                                                  | Ưu tiên |
+| --- | ----- | -------------------- | ------------------------------------------------------ | ------- |
+| 01  | BR-09 | Upload tài liệu      | PDF, Word, Excel, CSV, TXT, HTML - max 50MB/file       | Cao     |
+| 02  | BR-10 | Tìm kiếm ngữ nghĩa   | Hybrid search (BM25 + vector cosine similarity)        | Cao     |
+| 03  | BR-11 | Trích dẫn nguồn      | AI trả lời kèm citation (tên file, trang, đoạn)        | Cao     |
+| 04  | BR-12 | Phân quyền Knowledge | Chỉ user/nhóm được grant mới truy cập Knowledge        | Cao     |
+| 05  | BR-13 | Embedding qua API    | Text chunks gửi tới Gemini API, vectors lưu on-premise | Cao     |
 
 ### 3.4. Quản lý chi phí và Quota
 
-| ID    | Yêu cầu            | Mô tả                                                        | Ưu tiên    |
-| ----- | ------------------ | -------------------------------------------------------------| ---------- |
-| BR-14 | Quota per user     | Giới hạn cost_usd, tokens, image_requests/tháng              | Cao        |
-| BR-15 | Auto-enforce       | Vượt quota - 403 tự động, không cần admin can thiệp          | Cao        |
-| BR-16 | Dashboard chi phí  | Real-time: tổng cost, top users, top models, xu hướng        | Cao        |
-| BR-17 | Audit trail        | Ghi lại EVERY request: user, model, tokens, cost, timestamp  | Cao        |
-| BR-18 | Bảng giá model     | Mỗi model có giá input/output riêng, cập nhật trong DB       | Trung bình |
+| STT | ID    | Yêu cầu           | Mô tả                                                       | Ưu tiên    |
+| --- | ----- | ----------------- | ----------------------------------------------------------- | ---------- |
+| 01  | BR-14 | Quota per user    | Giới hạn cost_usd, tokens, image_requests/tháng             | Cao        |
+| 02  | BR-15 | Auto-enforce      | Vượt quota - 403 tự động, không cần admin can thiệp         | Cao        |
+| 03  | BR-16 | Dashboard chi phí | Real-time: tổng cost, top users, top models, xu hướng       | Cao        |
+| 04  | BR-17 | Audit trail       | Ghi lại EVERY request: user, model, tokens, cost, timestamp | Cao        |
+| 05  | BR-18 | Bảng giá model    | Mỗi model có giá input/output riêng, cập nhật trong DB      | Trung bình |
 
 ### 3.5. Xuất dữ liệu và Tools
 
-| ID    | Yêu cầu       | Mô tả                                            | Ưu tiên    |
-| ----- | ------------- | ------------------------------------------------ | ---------- |
-| BR-19 | Export Excel  | Trích xuất bảng biểu - .xlsx có format, filter   | Trung bình |
-| BR-20 | Export PDF    | Xuất hội thoại - PDF hỗ trợ tiếng Việt           | Trung bình |
-| BR-21 | Export Word   | Xuất hội thoại - .docx                           | Trung bình |
-| BR-22 | TTS/STT       | Text-to-Speech + Speech-to-Text                  | Thấp       |
+| STT | ID    | Yêu cầu      | Mô tả                                          | Ưu tiên    |
+| --- | ----- | ------------ | ---------------------------------------------- | ---------- |
+| 01  | BR-19 | Export Excel | Trích xuất bảng biểu - .xlsx có format, filter | Trung bình |
+| 02  | BR-20 | Export PDF   | Xuất hội thoại - PDF hỗ trợ tiếng Việt         | Trung bình |
+| 03  | BR-21 | Export Word  | Xuất hội thoại - .docx                         | Trung bình |
+| 04  | BR-22 | TTS/STT      | Text-to-Speech + Speech-to-Text                | Thấp       |
 
 ### 3.6. Quản trị người dùng
 
-| ID    | Yêu cầu            | Mô tả                                               | Ưu tiên |
-| ----- | ------------------ | --------------------------------------------------- | ------- |
-| BR-23 | User CRUD          | Tạo, sửa, xóa user từ Dashboard hoặc API            | Cao     |
-| BR-24 | Subkey management  | Mã hóa HMAC-SHA256, rotate key, plaintext 1 lần     | Cao     |
-| BR-25 | Role-based access  | Admin / Manager / User / Pending                    | Cao     |
-| BR-26 | Active/Disable     | Toggle enable/disable per user - 403 khi disabled   | Cao     |
+| STT | ID    | Yêu cầu           | Mô tả                                             | Ưu tiên |
+| --- | ----- | ----------------- | ------------------------------------------------- | ------- |
+| 01  | BR-23 | User CRUD         | Tạo, sửa, xóa user từ Dashboard hoặc API          | Cao     |
+| 02  | BR-24 | Subkey management | Mã hóa HMAC-SHA256, rotate key, plaintext 1 lần   | Cao     |
+| 03  | BR-25 | Role-based access | Admin / Manager / User / Pending                  | Cao     |
+| 04  | BR-26 | Active/Disable    | Toggle enable/disable per user - 403 khi disabled | Cao     |
 
 ---
 
@@ -167,50 +167,50 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
 
 ### 4.1. Hiệu năng (Performance)
 
-| Chỉ số               | Yêu cầu                   | Ghi chú                          |
-| -------------------- | ------------------------- | -------------------------------- |
-| Latency P95          | < 2000ms (text chat)      | Không tính LLM generation time   |
-| Throughput           | 50+ concurrent users      | Docker resource-dependent        |
-| RAG indexing         | < 60s cho file 100 trang  | ~313 chunks x embedding          |
-| Dashboard response   | < 500ms (summary API)     | 5s polling interval              |
-| SSE stream           | Real-time < 100ms delay   | Server-Sent Events               |
+| STT | Chỉ số             | Yêu cầu                  | Ghi chú                        |
+| --- | ------------------ | ------------------------ | ------------------------------ |
+| 01  | Latency P95        | < 2000ms (text chat)     | Không tính LLM generation time |
+| 02  | Throughput         | 50+ concurrent users     | Docker resource-dependent      |
+| 03  | RAG indexing       | < 60s cho file 100 trang | ~313 chunks x embedding        |
+| 04  | Dashboard response | < 500ms (summary API)    | 5s polling interval            |
+| 05  | SSE stream         | Real-time < 100ms delay  | Server-Sent Events             |
 
 ### 4.2. Khả dụng (Availability)
 
-| Chỉ số                 | Yêu cầu                                | Ghi chú                            |
-| ---------------------- | -------------------------------------- | -----------------------------------|
-| Uptime                 | 99.5% (giờ hành chính)                 | ~4h downtime/tháng cho bảo trì     |
-| Auto-restart           | restart: unless-stopped                | Docker tự khởi động lại khi crash  |
-| Health check           | Mỗi 10s (PostgreSQL), 5s (Dashboard)   | Tự động detect failure             |
-| Graceful degradation   | LiteLLM down - lỗi nhưng MW vẫn OK     | Isolation giữa các service         |
+| STT | Chỉ số               | Yêu cầu                              | Ghi chú                           |
+| --- | -------------------- | ------------------------------------ | --------------------------------- |
+| 01  | Uptime               | 99.5% (giờ hành chính)               | ~4h downtime/tháng cho bảo trì    |
+| 02  | Auto-restart         | restart: unless-stopped              | Docker tự khởi động lại khi crash |
+| 03  | Health check         | Mỗi 10s (PostgreSQL), 5s (Dashboard) | Tự động detect failure            |
+| 04  | Graceful degradation | LiteLLM down - lỗi nhưng MW vẫn OK   | Isolation giữa các service        |
 
 ### 4.3. Bảo mật (Security)
  
-| Chỉ số           |  Yêu cầu                             | Ghi chú                          |
-| ---------------- | ------------------------------------ | -------------------------------- |
-| Authentication   | JWT + HMAC-SHA256 subkey             | Multi-layer auth                 |
-| Session          | HttpOnly cookie, 4h expiry           | Chống XSS                        |
-| Network          | Docker internal network              | Internal services không expose   |
-| Data at rest     | PostgreSQL trong Docker volume       | Không cloud DB                   |
-| Embedding        | 100% local (sentence-transformers)   | Tài liệu nội bộ KHÔNG ra ngoài   |
+| STT | Chỉ số         | Yêu cầu                        | Ghi chú                                    |
+| --- | -------------- | ------------------------------ | ------------------------------------------ |
+| 01  | Authentication | JWT + HMAC-SHA256 subkey       | Multi-layer auth                           |
+| 02  | Session        | HttpOnly cookie, 4h expiry     | Chống XSS                                  |
+| 03  | Network        | Docker internal network        | Internal services không expose             |
+| 04  | Data at rest   | PostgreSQL trong Docker volume | Không cloud DB                             |
+| 05  | Embedding      | Gemini API (qua Middleware)    | Text chunks gửi Google, vectors on-premise |
 
 ### 4.4. Khả năng mở rộng (Scalability)
 
-| Chiều       | Phương pháp                     | Ghi chú                |
-| ----------- | ------------------------------- | ---------------------- |
-| Horizontal  | Docker replicas cho middleware  | Scale read throughput  |
-| Vertical    | Tăng RAM/CPU container          | Cho embedding, DB      |
-| Storage     | PostgreSQL + Docker volumes     | Expandable             |
-| Models      | Thêm vào litellm_config.yaml   | Hot-plug models         |
+| STT | Chiều      | Phương pháp                    | Ghi chú               |
+| --- | ---------- | ------------------------------ | --------------------- |
+| 01  | Horizontal | Docker replicas cho middleware | Scale read throughput |
+| 02  | Vertical   | Tăng RAM/CPU container         | Cho embedding, DB     |
+| 03  | Storage    | PostgreSQL + Docker volumes    | Expandable            |
+| 04  | Models     | Thêm vào litellm_config.yaml   | Hot-plug models       |
 
 ### 4.5. Tương thích (Compatibility)
 
-| Thành phần   | Yêu cầu                                          |
-| ------------ | ------------------------------------------------ |
-| Trình duyệt  | Chrome 90+, Firefox 88+, Edge 90+, Safari 14+    |
-| Server OS    | Windows Server 2019+, Ubuntu 20.04+, CentOS 8+   |
-| Docker       | Docker Engine 24.0+, Docker Compose v2.20+       |
-| Database     | PostgreSQL 16 + PGVector 0.8.0                   |
+| STT | Thành phần  | Yêu cầu                                        |
+| --- | ----------- | ---------------------------------------------- |
+| 01  | Trình duyệt | Chrome 90+, Firefox 88+, Edge 90+, Safari 14+  |
+| 02  | Server OS   | Windows Server 2019+, Ubuntu 20.04+, CentOS 8+ |
+| 03  | Docker      | Docker Engine 24.0+, Docker Compose v2.20+     |
+| 04  | Database    | PostgreSQL 16 + PGVector 0.8.0                 |
 
 ---
 
@@ -218,19 +218,19 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
 
 ### 5.1. Tổng quan chức năng
 
-| Module                       | Số tính năng | Trạng thái | Mô tả                                         |
-| ---------------------------- | ------------ | ---------- | --------------------------------------------- |
-| Phân quyền và Quản lý user   | 12           | Hoạt động  | Đăng ký, phân quyền, RBAC, Admin Panel        |
-| Chat AI                      | 18           | Hoạt động  | 14 models, streaming, markdown, code          |
-| Knowledge Base và RAG        | 15           | Hoạt động  | Upload, embedding, hybrid search, citations   |
-| **Web Search (SearXNG)**     | **6**        | **Hoạt động**| **SearXNG tự host, Native FC, multi-engine** |
-| Tạo ảnh (Image Gen)          | 6            | Hoạt động  | DALL-E 3, Gemini Image, cost tracking         |
-| Giọng nói (TTS/STT)          | 4            | Hoạt động  | Text-to-Speech, Speech-to-Text                |
-| Custom Tools                 | 3            | Hoạt động  | Export Excel/PDF/Word                         |
-| Middleware Proxy             | 20           | Hoạt động  | Auth, quota, cost, routing, audit             |
-| Dashboard Admin              | 15           | Hoạt động  | 7 KPIs, charts, filters, user CRUD            |
-| Cấu hình và Tùy chỉnh        | 10           | Hoạt động  | Model settings, RAG config, UI themes         |
-| TỔNG CỘNG                    | 109          |            |                                               |
+| STT | Module                     | Số tính năng | Trạng thái    | Mô tả                                        |
+| --- | -------------------------- | ------------ | ------------- | -------------------------------------------- |
+| 01  | Phân quyền và Quản lý user | 12           | Hoạt động     | Đăng ký, phân quyền, RBAC, Admin Panel       |
+| 02  | Chat AI                    | 18           | Hoạt động     | 14 models, streaming, markdown, code         |
+| 03  | Knowledge Base và RAG      | 15           | Hoạt động     | Upload, embedding, hybrid search, citations  |
+| 04  | **Web Search (SearXNG)**   | **6**        | **Hoạt động** | **SearXNG tự host, Native FC, multi-engine** |
+| 05  | Tạo ảnh (Image Gen)        | 6            | Hoạt động     | DALL-E 3, Gemini Image, cost tracking        |
+| 06  | Giọng nói (TTS/STT)        | 4            | Hoạt động     | Text-to-Speech, Speech-to-Text               |
+| 07  | Custom Tools               | 3            | Hoạt động     | Export Excel/PDF/Word                        |
+| 08  | Middleware Proxy           | 20           | Hoạt động     | Auth, quota, cost, routing, audit            |
+| 09  | Dashboard Admin            | 15           | Hoạt động     | 7 KPIs, charts, filters, user CRUD           |
+| 10  | Cấu hình và Tùy chỉnh      | 10           | Hoạt động     | Model settings, RAG config, UI themes        |
+| 11  | TỔNG CỘNG                  | 109          |               |                                              |
 
 ### 5.2. Sơ đồ System Context
 
@@ -245,7 +245,7 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
                                 │
     ╔═══════════════════════════╪════════════════════════════════════╗
     ║  Windows Server (20 CPU / 32GB RAM)                            ║
-    ║  Docker Compose · 8 containers · openwebui-network             ║
+    ║  Docker Compose · 9 containers · openwebui-network             ║
     ║                               │                                ║
     ║  ┌────────────────────────────▼────────────────────────────┐   ║
     ║  │       NGINX (openwebui-nginx) :3000 HTTPS               │   ║
@@ -288,7 +288,7 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
     ║     │  │  DuckDuckGo  │          │  Model routing      │       ║
     ║     │  │  Brave       │          │  Retry / Fallback   │       ║
     ║     │  │  Bing        │          │  SSE streaming      │       ║
-    ║     │  │  Google (tắt)│          │  20 models config   │       ║
+    ║     │  │  Google (tắt)│          │  21 models config   │       ║
     ║     │  └───────┬──────┘          └──────────┬──────────┘       ║
     ║     │          │ cache                      │                  ║
     ║     │          ▼                            │                  ║
@@ -313,8 +313,10 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
     ║  │  max_conn=300        │                                      ║
     ║  └──────────────────────┘                                      ║
     ║                                                                ║
+    ║  DOCLING (:5001) — OCR/Document extraction (PDF, DOCX, scan)    ║
+    ║                                                                ║
     ║  Port mở: CHỈ Nginx :3000/tcp                                  ║
-    ║  Port ĐÓNG: 8080, 5000, 4000, 5432, 6379                       ║
+    ║  Port ĐÓNG: 8080, 5000, 5001, 4000, 5432, 6379                  ║
     ╚══════════════════════════════════════════════╪═════════════════╝
                                                    │
                                     LiteLLM gọi API ra ngoài
@@ -334,28 +336,28 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
 
 ```
 +-------------------------------------------------------------+
-|                  HỆ THỐNG AI NỘI BỘ                         |
-|-------------------------------------------------------------|
-|                                                             |
-|  [End User]  ---- Chat AI (text, vision, streaming)         |
-|              ---- Hỏi đáp Knowledge Base (#KB)              |
-|              ---- Upload tài liệu vào Knowledge             |
-|              ---- Tạo ảnh (/image)                          |
-|              ---- Xuất file (Excel, PDF, Word)              |
-|              ---- Nhập giọng nói (STT) / Nghe (TTS)        |
-|                                                             |
-|  [Admin]     ---- Quản lý user (CRUD, quota, subkey)        |
-|              ---- Xem Dashboard chi phí real-time           |
-|              ---- Duyệt user pending                        |
-|              ---- Cấu hình model, knowledge                 |
-|              ---- Xem audit logs, access logs               |
-|              ---- Backup database                           |
-|                                                             |
-|  [Sys Admin] ---- Vận hành Docker (start/stop/restart)      |
-|              ---- Monitoring health check                   |
-|              ---- Cập nhật code, thêm model                 |
-|              ---- Troubleshooting và recovery               |
-|                                                             |
+| STT | HỆ THỐNG AI NỘI BỘ                                    |
+| --- | ----------------------------------------------------- |
+| 01  |                                                       |
+| 02  | [End User]  ---- Chat AI (text, vision, streaming)    |
+| 03  | ---- Hỏi đáp Knowledge Base (#KB)                     |
+| 04  | ---- Upload tài liệu vào Knowledge                    |
+| 05  | ---- Tạo ảnh (/image)                                 |
+| 06  | ---- Xuất file (Excel, PDF, Word)                     |
+| 07  | ---- Nhập giọng nói (STT) / Nghe (TTS)                |
+| 08  |                                                       |
+| 09  | [Admin]     ---- Quản lý user (CRUD, quota, subkey)   |
+| 10  | ---- Xem Dashboard chi phí real-time                  |
+| 11  | ---- Duyệt user pending                               |
+| 12  | ---- Cấu hình model, knowledge                        |
+| 13  | ---- Xem audit logs, access logs                      |
+| 14  | ---- Backup database                                  |
+| 15  |                                                       |
+| 16  | [Sys Admin] ---- Vận hành Docker (start/stop/restart) |
+| 17  | ---- Monitoring health check                          |
+| 18  | ---- Cập nhật code, thêm model                        |
+| 19  | ---- Troubleshooting và recovery                      |
+| 20  |                                                       |
 +-------------------------------------------------------------+
 ```
 
@@ -365,68 +367,68 @@ Hệ thống AI nội bộ (Open WebUI Stack) là nền tảng trợ lý AI tậ
 
 ### 6.1. Tổng quan 7 tầng (Tier Architecture)
 
-| Tier    | Service    | Port (nội bộ) | Workers | CPU | RAM   | Mục đích                                      |
-| ------- | ---------- | :-----------: | :-----: | :-: | :---: | --------------------------------------------- |
-| Tier 0  | **Nginx**  | **3000** (HTTPS, cửa duy nhất) | auto | 1 | 512MB | Reverse proxy, SSL, rate limiting, gzip |
-| Tier 1  | Open WebUI | 8080          | 6       | 6   | 10GB  | Giao diện người dùng, chat, RAG, knowledge    |
-| Tier 2  | Middleware | 5000          | 4       | 4   | 2GB   | Auth, quota, cost tracking, dashboard, audit  |
-| Tier 3a | LiteLLM    | 4000          | 4       | 4   | 4GB   | LLM proxy: routing, retry, model mapping      |
-| Tier 3b | PostgreSQL | 5432          | —       | 2   | 8GB   | Database + vector search, tuning 32GB RAM     |
-| Tier 4a | SearXNG    | 8080          | —       | 1   | 1GB   | Web search: DuckDuckGo, Brave, Bing           |
-| Tier 4b | Redis      | 6379          | —       | 0.5 | 256MB | Cache search results + SearXNG rate limiter   |
-| **Tổng**|            |               | **14**  |**18.5**|**25.8GB**| Còn dư 1.5 CPU + 6GB cho OS            |
+| STT | Tier     | Service    | Port (nội bộ)                  | Workers | CPU      | RAM        | Mục đích                                     |
+| --- | -------- | ---------- | ------------------------------ | ------- | -------- | ---------- | -------------------------------------------- |
+| 01  | Tier 0   | **Nginx**  | **3000** (HTTPS, cửa duy nhất) | auto    | 1        | 512MB      | Reverse proxy, SSL, rate limiting, gzip      |
+| 02  | Tier 1   | Open WebUI | 8080                           | 6       | 6        | 10GB       | Giao diện người dùng, chat, RAG, knowledge   |
+| 03  | Tier 2   | Middleware | 5000                           | 4       | 4        | 2GB        | Auth, quota, cost tracking, dashboard, audit |
+| 04  | Tier 3a  | LiteLLM    | 4000                           | 4       | 4        | 4GB        | LLM proxy: routing, retry, model mapping     |
+| 05  | Tier 3b  | PostgreSQL | 5432                           | —       | 2        | 8GB        | Database + vector search, tuning 32GB RAM    |
+| 06  | Tier 4a  | SearXNG    | 8080                           | —       | 1        | 1GB        | Web search: DuckDuckGo, Brave, Bing          |
+| 07  | Tier 4b  | Redis      | 6379                           | —       | 0.5      | 256MB      | Cache search results + SearXNG rate limiter  |
+| 08  | **Tổng** |            |                                | **14**  | **18.5** | **25.8GB** | Còn dư 1.5 CPU + 6GB cho OS                  |
 
 ### 6.2. Open WebUI (Tier 1) - Giao diện người dùng
 
 Container: openwebui-app
 
-| Module            | Chức năng                                          |
-| ----------------- | -------------------------------------------------- |
-| Chat Engine       | Đa model, streaming, markdown rendering            |
-| Knowledge Manager | Upload file, tạo collections, phân quyền           |
-| RAG Pipeline      | Text extraction > chunking > embedding > PGVector  |
-| User Auth         | Email/password + JWT, role-based                   |
-| Admin Panel       | Quản lý users, models, knowledge, settings         |
-| Custom Tools      | Export Excel/PDF/Word qua Action buttons           |
+| STT | Module            | Chức năng                                         |
+| --- | ----------------- | ------------------------------------------------- |
+| 01  | Chat Engine       | Đa model, streaming, markdown rendering           |
+| 02  | Knowledge Manager | Upload file, tạo collections, phân quyền          |
+| 03  | RAG Pipeline      | Text extraction > chunking > embedding > PGVector |
+| 04  | User Auth         | Email/password + JWT, role-based                  |
+| 05  | Admin Panel       | Quản lý users, models, knowledge, settings        |
+| 06  | Custom Tools      | Export Excel/PDF/Word qua Action buttons          |
 
 ### 6.3. Middleware (Tier 2) - Xác thực và Quản trị
 
 Container: openwebui-middleware
 
-| Module         | File               | Chức năng                                    |
-| -------------- | ------------------ | -------------------------------------------- |
-| API Gateway    | main.py            | FastAPI app, route registration, CORS        |
-| Auth Core      | core/auth.py       | Subkey validation, user lookup, HMAC-SHA256  |
-| Cost Engine    | core/cost.py       | Price lookup, cost calculation, quota check  |
-| Database       | core/db.py         | PostgreSQL connection pool, schema, CRUD     |
-| Alerting       | core/alerting.py   | Quota alerts, webhook notifications          |
-| User Admin API | api/user_admin.py  | CRUD users, rotate key, delete               |
-| Summary API    | api/summary.py     | Metrics aggregation, time-window filtering   |
-| Stream API     | api/stream.py      | SSE real-time events                         |
-| Access Logs    | api/access_logs.py | Paginated access log queries                 |
-| Audit API      | api/audit_query.py | Admin audit trail query                      |
-| Dashboard      | dashboard/         | HTML/CSS/JS SPA: charts, filters, user CRUD  |
+| STT | Module         | File               | Chức năng                                   |
+| --- | -------------- | ------------------ | ------------------------------------------- |
+| 01  | API Gateway    | main.py            | FastAPI app, route registration, CORS       |
+| 02  | Auth Core      | core/auth.py       | Subkey validation, user lookup, HMAC-SHA256 |
+| 03  | Cost Engine    | core/cost.py       | Price lookup, cost calculation, quota check |
+| 04  | Database       | core/db.py         | PostgreSQL connection pool, schema, CRUD    |
+| 05  | Alerting       | core/alerting.py   | Quota alerts, webhook notifications         |
+| 06  | User Admin API | api/user_admin.py  | CRUD users, rotate key, delete              |
+| 07  | Summary API    | api/summary.py     | Metrics aggregation, time-window filtering  |
+| 08  | Stream API     | api/stream.py      | SSE real-time events                        |
+| 09  | Access Logs    | api/access_logs.py | Paginated access log queries                |
+| 10  | Audit API      | api/audit_query.py | Admin audit trail query                     |
+| 11  | Dashboard      | dashboard/         | HTML/CSS/JS SPA: charts, filters, user CRUD |
 
 ### 6.4. LiteLLM (Tier 3a) - LLM Proxy
 
 Container: openwebui-litellm
 
-| Chức năng       | Mô tả                                                    |
-| --------------- | ---------------------------------------------------------|
-| Model Routing   | Map chat-gpt-5 > openai/gpt-5, chat-gemini > gemini/...  |
-| Multi-provider  | OpenAI + Google Gemini qua 1 gateway                     |
-| Retry/Fallback  | Tự động retry khi lỗi, fallback sang provider khác       |
-| Streaming       | Forward SSE stream từ LLM > middleware > client          |
-| Config          | litellm/litellm_config.yaml - 20 models định nghĩa sẵn   |
+| STT | Chức năng      | Mô tả                                                   |
+| --- | -------------- | ------------------------------------------------------- |
+| 01  | Model Routing  | Map chat-gpt-5 > openai/gpt-5, chat-gemini > gemini/... |
+| 02  | Multi-provider | OpenAI + Gemini + xAI + Anthropic qua 1 gateway         |
+| 03  | Retry/Fallback | Tự động retry khi lỗi, fallback sang provider khác      |
+| 04  | Streaming      | Forward SSE stream từ LLM > middleware > client         |
+| 05  | Config         | litellm/litellm_config.yaml - 21 models định nghĩa sẵn  |
 
 ### 6.5. PostgreSQL + PGVector (Tier 3b)
 
 Container: openwebui-postgres
 
-| Database   | Số bảng | Mục đích                                              |
-| ---------- | ------- | ----------------------------------------------------- |
-| openwebui  | 26      | User, chat, file, knowledge, document_chunk (vector)  |
-| middleware | 6       | mw_users, mw_prices, mw_config, mw_pending, mw_audit  |
+| STT | Database   | Số bảng | Mục đích                                             |
+| --- | ---------- | ------- | ---------------------------------------------------- |
+| 01  | openwebui  | 26      | User, chat, file, knowledge, document_chunk (vector) |
+| 02  | middleware | 6       | mw_users, mw_prices, mw_config, mw_pending, mw_audit |
 
 ### 6.6. Docker Infrastructure
 
@@ -437,7 +439,7 @@ docker-compose.yml:
     nginx           # nginx:alpine                       3000     1     512MB  ← CỬA DUY NHẤT
     postgres        # pgvector/pgvector:0.8.0-pg16       —        2     8GB
     redis           # redis:7-alpine                     —        0.5   256MB
-    litellm         # ghcr.io/berriai/litellm             —        4     4GB
+    litellm         # ghcr.io/berriai/litellm:v1.83.14     —        4     4GB
     middleware      # Custom build (./llm-mw/Dockerfile)  —        4     2GB
     open-webui      # Custom build (Dockerfile.openwebui) —        6     10GB
     searxng          # searxng/searxng:latest              —        1     1GB
@@ -464,25 +466,25 @@ docker-compose.yml:
 
 #### Database openwebui - 26 bảng chính
 
-| Nhóm      | Bảng                             | Mục đích                         |
-| --------- | -------------------------------- | -------------------------------- |
-| User      | user, auth                       | Thông tin user, credentials      |
-| Chat      | chat, channel, message           | Hội thoại, kênh, tin nhắn        |
-| Knowledge | knowledge, file, knowledge_file  | Collections, files, liên kết     |
-| RAG       | document, document_chunk         | Text chunks + vector(1536) HNSW  |
-| Admin     | config, feedback, tag            | Cấu hình, đánh giá, gắn thẻ      |
-| Groups    | group                            | Nhóm người dùng, phân quyền      |
+| STT | Nhóm      | Bảng                            | Mục đích                        |
+| --- | --------- | ------------------------------- | ------------------------------- |
+| 01  | User      | user, auth                      | Thông tin user, credentials     |
+| 02  | Chat      | chat, channel, message          | Hội thoại, kênh, tin nhắn       |
+| 03  | Knowledge | knowledge, file, knowledge_file | Collections, files, liên kết    |
+| 04  | RAG       | document, document_chunk        | Text chunks + vector(1536) HNSW |
+| 05  | Admin     | config, feedback, tag           | Cấu hình, đánh giá, gắn thẻ     |
+| 06  | Groups    | group                           | Nhóm người dùng, phân quyền     |
 
 #### Database middleware - 6 bảng
 
-| Bảng           | Columns chính                                       | Mục đích              |
-| -------------- | --------------------------------------------------- | --------------------- |
-| mw_users       | user_id, subkey_hash, role, active, allowed_models  | Quản lý user API      |
-| mw_prices      | model, input_per_1m, output_per_1m, image_cost      | Bảng giá model        |
-| mw_config      | key, value                                          | Cấu hình runtime      |
-| mw_pending     | rid, user_id, model, created_at                     | Requests đang stream  |
-| mw_audit_log   | ts, user_id, model, status, tokens, cost_usd        | Log tất cả requests   |
-| mw_request_log | ts, method, path, status_code, latency_ms           | Log HTTP access       |
+| STT | Bảng           | Columns chính                                      | Mục đích             |
+| --- | -------------- | -------------------------------------------------- | -------------------- |
+| 01  | mw_users       | user_id, subkey_hash, role, active, allowed_models | Quản lý user API     |
+| 02  | mw_prices      | model, input_per_1m, output_per_1m, image_cost     | Bảng giá model       |
+| 03  | mw_config      | key, value                                         | Cấu hình runtime     |
+| 04  | mw_pending     | rid, user_id, model, created_at                    | Requests đang stream |
+| 05  | mw_audit_log   | ts, user_id, model, status, tokens, cost_usd       | Log tất cả requests  |
+| 06  | mw_request_log | ts, method, path, status_code, latency_ms          | Log HTTP access      |
 
 Lưu ý: Không có Foreign Key giữa 2 databases (by design - cross-database FK không khả thi trong PostgreSQL). user_id lưu dạng TEXT.
 
@@ -490,12 +492,12 @@ Lưu ý: Không có Foreign Key giữa 2 databases (by design - cross-database F
 
 ```
 +----------------+     +--------------------+     +----------------+
-|  mw_users      |     |  mw_audit_log      |     |  mw_pending    |
-|----------------|     |--------------------|     |----------------|
-| user_id (PK)   |     | id (PK, SERIAL)    |     | rid (PK)       |
-| subkey_hash    |     | ts                 |     | user_id        |
-| role           |     | user_id (TEXT)     |     | model          |
-| active         |     | model              |     | created_at     |
+| STT | mw_users     |  | mw_audit_log    |  | mw_pending |
+| --- | ------------ |  | --------------- |  | ---------- |
+| 01  | user_id (PK) |  | id (PK, SERIAL) |  | rid (PK)   |
+| 02  | subkey_hash  |  | ts              |  | user_id    |
+| 03  | role         |  | user_id (TEXT)  |  | model      |
+| 04  | active       |  | model           |  | created_at |
 | allowed_models |     | endpoint           |     +----------------+
 | quota (JSONB)  |     | status             |
 | used_tokens    |     | tokens_total       |     +----------------+
@@ -508,22 +510,21 @@ Lưu ý: Không có Foreign Key giữa 2 databases (by design - cross-database F
                        |  mw_request_log    |     +----------------+
                        |--------------------|
                        | id (PK, SERIAL)    |     +----------------+
-                       | ts                 |     |  mw_config     |
-                       | method             |     |----------------|
-                       | path               |     | key (PK)       |
-                       | status_code        |     | value (JSONB)  |
-                       | latency_ms         |     | updated_at     |
+| STT | ts          |  | mw_config     |
+| --- | ----------- |  | ------------- |
+| 01  | path        |  | key (PK)      |
+| 02  | status_code |  | value (JSONB) |
+| 03  | latency_ms  |  | updated_at    |
                        | payload (JSONB)    |     +----------------+
                        +--------------------+
 ```
 
 ### 7.3. Tích hợp - API Providers
 
-20 models được cấu hình trong litellm/litellm_config.yaml:
-- 14 chat models (8 OpenAI + 6 Google)
-- 3 image models (1 OpenAI + 2 Google)
-- 1 TTS model (OpenAI)
-- 2 STT models (OpenAI)
+21 models được cấu hình trong litellm/litellm_config.yaml:
+- 12 chat models (3 OpenAI + 3 Google + 3 xAI + 3 Anthropic)
+- 6 image models (2 OpenAI + 2 Google + 2 xAI)
+- 1 embedding model (Google Gemini)
 
 ### 7.4. Luồng xử lý chính
 
@@ -553,13 +554,13 @@ Lưu ý: Không có Foreign Key giữa 2 databases (by design - cross-database F
 INDEXING:
 1. User upload file > Open WebUI
 2. Extract text (PyPDF2, python-docx, openpyxl)
-3. Split > chunks (1000 chars, 200 overlap)
-4. Embedding (sentence-transformers/all-MiniLM-L6-v2) > vector(384)
+3. Split > chunks (1500 chars, 100 overlap)
+4. Embedding (gemini-embedding-001 qua Middleware→LiteLLM→Google API) > vector(1536)
 5. Store > PostgreSQL document_chunk table (HNSW indexed)
 
 RETRIEVAL:
 1. User hỏi #KB "Chính sách nghỉ phép?"
-2. Embed query > vector(384)
+2. Embed query > vector(1536)
 3. Hybrid search: BM25 (keyword) + cosine similarity (vector)
 4. Top-K=4 chunks > inject vào system prompt
 5. LLM trả lời kèm citations
@@ -623,7 +624,7 @@ RETRIEVAL:
 | Knowledge access control (per collection)                        |
 +------------------------------------------------------------------+
 | LAYER 4: DATA SECURITY                                           |
-| Embedding chạy 100% local - tài liệu KHÔNG gửi ra ngoài         |
+| Text chunks gửi tới Gemini API để embedding - vectors lưu on-premise  |
 | Database trong Docker volume - không cloud DB                    |
 | Subkey hashing: HMAC-SHA256 (one-way, không decrypt được)        |
 | Audit trail: mọi request đều được ghi log                        |
@@ -632,12 +633,12 @@ RETRIEVAL:
 
 ### 8.2. Chi tiết Authentication
 
-| Thành phần      | Phương thức            | Chi tiết                         |
-| --------------- | ---------------------- | -------------------------------- |
-| Open WebUI      | Email + Password       | Bcrypt hash, JWT token           |
-| Middleware API  | Subkey (Bearer token)  | HMAC-SHA256 with MW_SECRET salt  |
-| Dashboard       | Admin key              | JWT cookie, HttpOnly, 4h expiry  |
-| LiteLLM         | Master key             | LITELLM_MASTER_KEY (env var)     |
+| STT | Thành phần     | Phương thức           | Chi tiết                        |
+| --- | -------------- | --------------------- | ------------------------------- |
+| 01  | Open WebUI     | Email + Password      | Bcrypt hash, JWT token          |
+| 02  | Middleware API | Subkey (Bearer token) | HMAC-SHA256 with MW_SECRET salt |
+| 03  | Dashboard      | Admin key             | JWT cookie, HttpOnly, 4h expiry |
+| 04  | LiteLLM        | Master key            | LITELLM_MASTER_KEY (env var)    |
 
 ### 8.3. Subkey Security
 
@@ -658,23 +659,23 @@ Khi authenticate:
 
 ### 8.4. Network và Data Security
 
-| Mối đe dọa           | Biện pháp                                           |
-| -------------------- | --------------------------------------------------- |
-| Truy cập trái phép   | Nginx: chỉ 1 port mở (3000 HTTPS)                   |
-| XSS                  | HttpOnly cookie, CSP headers                        |
-| CSRF                 | SameSite=Lax cookie, secure=True                    |
-| Man-in-the-middle    | HTTPS TLS 1.2/1.3 + Docker internal network         |
-| Rò rỉ dữ liệu RAG    | Embedding chạy local, vector lưu on-premise         |
-| Brute-force login    | Nginx rate limit 5 req/phút cho /api/v1/auths/      |
-| Brute-force subkey   | HMAC-SHA256 + constant-time comparison              |
-| DDoS / Spam          | Nginx rate limit 10 req/s + burst=50 per IP         |
-| Lạm dụng API         | Quota enforcement + Nginx rate limiting             |
+| STT | Mối đe dọa         | Biện pháp                                          |
+| --- | ------------------ | -------------------------------------------------- |
+| 01  | Truy cập trái phép | Nginx: chỉ 1 port mở (3000 HTTPS)                  |
+| 02  | XSS                | HttpOnly cookie, CSP headers                       |
+| 03  | CSRF               | SameSite=Lax cookie, secure=True                   |
+| 04  | Man-in-the-middle  | HTTPS TLS 1.2/1.3 + Docker internal network        |
+| 05  | Rò rỉ dữ liệu RAG  | Text chunks gửi Gemini API, vectors lưu on-premise |
+| 06  | Brute-force login  | Nginx rate limit 5 req/phút cho /api/v1/auths/     |
+| 07  | Brute-force subkey | HMAC-SHA256 + constant-time comparison             |
+| 08  | DDoS / Spam        | Nginx rate limit 10 req/s + burst=50 per IP        |
+| 09  | Lạm dụng API       | Quota enforcement + Nginx rate limiting            |
 
 ### 8.5. Lưu ý quan trọng
 
-- Nội dung chat ĐƯỢC GỬI tới OpenAI/Google qua API - đây là bản chất của dịch vụ LLM cloud.
-- Tài liệu Knowledge (RAG) KHÔNG GỬI - embedding chạy 100% local trên server.
-- Database lưu trên server riêng - không sử dụng cloud database.
+- Nội dung chat ĐƯỢC GỬI tới OpenAI/Google/xAI/Anthropic qua API - đây là bản chất của dịch vụ LLM cloud.
+- Text chunks từ tài liệu Knowledge (RAG) ĐƯỢC GỬI tới Google Gemini API để tạo embedding vectors.
+- Vectors embedding và tài liệu gốc lưu on-premise trong PGVector - không cloud DB.
 
 ---
 
@@ -682,29 +683,29 @@ Khi authenticate:
 
 ### 9.1. Khởi động / Dừng hệ thống
 
-| Thao tác            | Lệnh                                          | Ghi chú                 |
-| ------------------- | ---------------------------------------------- | ------------------------|
-| Start all           | `docker compose up -d`                         | Khởi động 8 services    |
-| Stop all            | `docker compose down`                          | Dừng, giữ data          |
-| Restart             | `docker compose restart`                       | Restart tất cả          |
-| Restart 1 service   | `docker compose restart middleware`            | Chỉ restart middleware  |
-| Nginx reload        | `docker exec openwebui-nginx nginx -s reload`  | Reload config, 0 downtime |
-| View logs           | `docker compose logs -f middleware`            | Follow logs real-time   |
-| Check status        | `docker compose ps`                            | Xem trạng thái          |
-| Nginx test config   | `docker exec openwebui-nginx nginx -t`         | Validate config trước reload |
+| STT | Thao tác          | Lệnh                                          | Ghi chú                      |
+| --- | ----------------- | --------------------------------------------- | ---------------------------- |
+| 01  | Start all         | `docker compose up -d`                        | Khởi động 9 services         |
+| 02  | Stop all          | `docker compose down`                         | Dừng, giữ data               |
+| 03  | Restart           | `docker compose restart`                      | Restart tất cả               |
+| 04  | Restart 1 service | `docker compose restart middleware`           | Chỉ restart middleware       |
+| 05  | Nginx reload      | `docker exec openwebui-nginx nginx -s reload` | Reload config, 0 downtime    |
+| 06  | View logs         | `docker compose logs -f middleware`           | Follow logs real-time        |
+| 07  | Check status      | `docker compose ps`                           | Xem trạng thái               |
+| 08  | Nginx test config | `docker exec openwebui-nginx nginx -t`        | Validate config trước reload |
 
 ### 9.2. Thao tác định kỳ
 
-| Chu kỳ      | Thao tác                 | Chi tiết                                                   |
-| ----------- | ------------------------ | ---------------------------------------------------------- |
-| Hàng ngày   | Duyệt user pending       | Admin Panel > Users > Approve                              |
-| Hàng ngày   | Kiểm tra chi phí         | `https://openwebui.example.com:51122/dashboard`        |
-| Hàng tuần   | Review chi phí per user  | Dashboard > Filter by user, xem trends                     |
-| Hàng tuần   | Health check             | `docker compose ps` - tất cả 8 container running           |
-| Hàng tuần   | Backup database          | pg_dump command                                            |
-| Hàng tháng  | Review quota             | Điều chỉnh quota theo mức sử dụng thực tế                  |
-| Hàng tháng  | Update hệ thống          | `docker compose pull; docker compose up -d`                |
-| Hàng năm    | Gia hạn SSL cert         | Copy cert mới vào nginx/ssl/ → nginx reload               |
+| STT | Chu kỳ     | Thao tác                | Chi tiết                                            |
+| --- | ---------- | ----------------------- | --------------------------------------------------- |
+| 01  | Hàng ngày  | Duyệt user pending      | Admin Panel > Users > Approve                       |
+| 02  | Hàng ngày  | Kiểm tra chi phí        | `https://openwebui.example.com:51122/dashboard` |
+| 03  | Hàng tuần  | Review chi phí per user | Dashboard > Filter by user, xem trends              |
+| 04  | Hàng tuần  | Health check            | `docker compose ps` - tất cả 8 container running    |
+| 05  | Hàng tuần  | Backup database         | pg_dump command                                     |
+| 06  | Hàng tháng | Review quota            | Điều chỉnh quota theo mức sử dụng thực tế           |
+| 07  | Hàng tháng | Update hệ thống         | `docker compose pull; docker compose up -d`         |
+| 08  | Hàng năm   | Gia hạn SSL cert        | Copy cert mới vào nginx/ssl/ → nginx reload         |
 
 ### 9.3. Backup và Recovery
 
@@ -725,15 +726,15 @@ Truy cập: `https://openwebui.example.com:51122/dashboard`
 
 7 Metrics Cards:
 
-| Card         | Ý nghĩa                             | Ngưỡng cảnh báo         |
-| ------------ | ----------------------------------- | ------------------------ |
-| LLM Calls    | Tổng requests (chat/image/audio)    | -                        |
-| Admin Ops    | Thao tác admin (reconcile, reset)   | -                        |
-| Pending      | Requests đang xử lý                 | > 10: kiểm tra LiteLLM  |
-| Error Rate   | % lỗi                               | > 5%: điều tra           |
-| P95 Latency  | 95th percentile latency             | > 5000ms: kiểm tra      |
-| Total Tokens | Tokens đã xử lý                     | -                        |
-| Total Cost   | Chi phí USD                         | Theo budget              |
+| STT | Card         | Ý nghĩa                           | Ngưỡng cảnh báo        |
+| --- | ------------ | --------------------------------- | ---------------------- |
+| 01  | LLM Calls    | Tổng requests (chat/image/audio)  | -                      |
+| 02  | Admin Ops    | Thao tác admin (reconcile, reset) | -                      |
+| 03  | Pending      | Requests đang xử lý               | > 10: kiểm tra LiteLLM |
+| 04  | Error Rate   | % lỗi                             | > 5%: điều tra         |
+| 05  | P95 Latency  | 95th percentile latency           | > 5000ms: kiểm tra     |
+| 06  | Total Tokens | Tokens đã xử lý                   | -                      |
+| 07  | Total Cost   | Chi phí USD                       | Theo budget            |
 
 Tabs: Overview / Logs / Access / Users
 
@@ -743,43 +744,43 @@ Tabs: Overview / Logs / Access / Users
 
 ### A. Thông tin truy cập
 
-| Dịch vụ       | URL                                                  | Đối tượng           |
-| ------------- | ---------------------------------------------------- | ------------------- |
-| Open WebUI    | `https://openwebui.example.com:51122/`           | Tất cả users        |
-| Dashboard     | `https://openwebui.example.com:51122/dashboard`  | Admin only          |
-| API Endpoint  | `https://openwebui.example.com:51122/v1/`        | Tích hợp ứng dụng   |
-| Nội bộ (LAN)  | `https://10.0.0.1:3000/`                        | Truy cập nội bộ     |
+| STT | Dịch vụ      | URL                                                 | Đối tượng         |
+| --- | ------------ | --------------------------------------------------- | ----------------- |
+| 01  | Open WebUI   | `https://openwebui.example.com:51122/`          | Tất cả users      |
+| 02  | Dashboard    | `https://openwebui.example.com:51122/dashboard` | Admin only        |
+| 03  | API Endpoint | `https://openwebui.example.com:51122/v1/`       | Tích hợp ứng dụng |
+| 04  | Nội bộ (LAN) | `https://10.0.0.1:3000/`                       | Truy cập nội bộ   |
 
 ### B. File cấu hình
 
-| File                        | Mục đích                    | Khi nào sửa               |
-| --------------------------- | --------------------------- | --------------------------|
-| docker-compose.yml          | Cấu hình 8 services         | Đổi port, tăng resource   |
-| .env                        | API keys, mật khẩu          | Đổi API key, mật khẩu DB  |
-| nginx/nginx.conf            | Reverse proxy + SSL config  | Thêm route, đổi rate limit|
-| nginx/ssl/fullchain.pem     | SSL certificate             | Gia hạn cert hàng năm     |
-| nginx/ssl/privkey.pem       | SSL private key             | Gia hạn cert hàng năm     |
-| litellm/litellm_config.yaml | Danh sách 20 models         | Thêm/bớt model AI         |
-| searxng/settings.yml        | Cấu hình SearXNG search     | Thêm/bớt search engine    |
-| llm-mw/data/users.json      | User backup (source: DB)    | Không sửa trực tiếp       |
-| llm-mw/data/prices.json     | Price backup (source: DB)   | Không sửa trực tiếp       |
+| STT | File                        | Mục đích                   | Khi nào sửa                |
+| --- | --------------------------- | -------------------------- | -------------------------- |
+| 01  | docker-compose.yml          | Cấu hình 9 services        | Đổi port, tăng resource    |
+| 02  | .env                        | API keys, mật khẩu         | Đổi API key, mật khẩu DB   |
+| 03  | nginx/nginx.conf            | Reverse proxy + SSL config | Thêm route, đổi rate limit |
+| 04  | nginx/ssl/fullchain.pem     | SSL certificate            | Gia hạn cert hàng năm      |
+| 05  | nginx/ssl/privkey.pem       | SSL private key            | Gia hạn cert hàng năm      |
+| 06  | litellm/litellm_config.yaml | Danh sách 21 models        | Thêm/bớt model AI          |
+| 07  | searxng/settings.yml        | Cấu hình SearXNG search    | Thêm/bớt search engine     |
+| 08  | llm-mw/data/users.json      | User backup (source: DB)   | Không sửa trực tiếp        |
+| 09  | llm-mw/data/prices.json     | Price backup (source: DB)  | Không sửa trực tiếp        |
 
 ### C. Thuật ngữ
 
-| Thuật ngữ  | Giải thích                                                   |
-| ---------- | ------------------------------------------------------------ |
-| LLM        | Large Language Model - mô hình ngôn ngữ lớn                  |
-| RAG        | Retrieval-Augmented Generation - sinh kết hợp truy xuất      |
-| Embedding  | Chuyển text thành vector số để so sánh ngữ nghĩa             |
-| PGVector   | Extension PostgreSQL cho vector similarity search            |
-| HNSW       | Hierarchical Navigable Small World - thuật toán tìm vector   |
-| Subkey     | Mã xác thực API cho middleware (dạng sk_...)                 |
-| Quota      | Hạn mức sử dụng (tokens, USD, image requests)                |
-| SSE        | Server-Sent Events - stream dữ liệu real-time                |
-| JWT        | JSON Web Token - token xác thực phiên                        |
-| RBAC       | Role-Based Access Control - phân quyền theo vai trò          |
-| SearXNG    | Metasearch engine tự host - tổng hợp kết quả từ nhiều nguồn  |
-| Native FC  | Native Function Calling - model tự quyết định gọi tool       |
+| STT | Thuật ngữ | Giải thích                                                  |
+| --- | --------- | ----------------------------------------------------------- |
+| 01  | LLM       | Large Language Model - mô hình ngôn ngữ lớn                 |
+| 02  | RAG       | Retrieval-Augmented Generation - sinh kết hợp truy xuất     |
+| 03  | Embedding | Chuyển text thành vector số để so sánh ngữ nghĩa            |
+| 04  | PGVector  | Extension PostgreSQL cho vector similarity search           |
+| 05  | HNSW      | Hierarchical Navigable Small World - thuật toán tìm vector  |
+| 06  | Subkey    | Mã xác thực API cho middleware (dạng sk_...)                |
+| 07  | Quota     | Hạn mức sử dụng (tokens, USD, image requests)               |
+| 08  | SSE       | Server-Sent Events - stream dữ liệu real-time               |
+| 09  | JWT       | JSON Web Token - token xác thực phiên                       |
+| 10  | RBAC      | Role-Based Access Control - phân quyền theo vai trò         |
+| 11  | SearXNG   | Metasearch engine tự host - tổng hợp kết quả từ nhiều nguồn |
+| 12  | Native FC | Native Function Calling - model tự quyết định gọi tool      |
 
 ---
 

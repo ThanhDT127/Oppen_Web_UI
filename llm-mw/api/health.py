@@ -8,7 +8,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 import httpx
 
-from config import LITELLM_BASE, LITELLM_KEY, LOG_DIR
+from config import LITELLM_BASE, LITELLM_KEY, LOG_DIR, logger
 from core.auth import load_users
 
 
@@ -30,12 +30,19 @@ async def health_check(request: Request):
         resp = await client.get(
             f"{LITELLM_BASE}/health",
             headers={"Authorization": f"Bearer {LITELLM_KEY}"},
-            timeout=5.0
+            timeout=15.0
         )
-        status["litellm"] = "ok" if resp.status_code == 200 else "degraded"
+        if resp.status_code == 200:
+            status["litellm"] = "ok"
+        else:
+            status["litellm"] = f"degraded: {resp.status_code}"
+            status["ok"] = False
+            logger.warning("health_check_failed component=litellm status=%d", resp.status_code)
     except Exception as e:
-        status["litellm"] = f"error: {str(e)[:100]}"
+        err_msg = str(e)[:100] or repr(e)
+        status["litellm"] = f"error: {err_msg}"
         status["ok"] = False
+        logger.error("health_check_failed component=litellm error=%s", err_msg)
     
     # Disk space check (logs directory)
     try:

@@ -12,12 +12,16 @@
 ![System Context Diagram](diagrams/system_context_diagram_1772533507192.png)
 
 **Giải thích:**
-| Thành phần     | Port | Vai trò                                             |
-| -------------- | ---- | --------------------------------------------------- |
-| Open WebUI     | 3000 | Giao diện chat cho end user                         |
-| LLM Middleware | 5000 | Trung tâm: Auth → Quota → Proxy → Audit → Dashboard |
-| PostgreSQL     | 5432 | Lưu trữ dữ liệu (2 DB: `openwebui` + `middleware`)  |
-| LiteLLM Proxy  | 4000 | Router multi-provider (OpenAI, Gemini, Anthropic)   |
+| STT | Thành phần     | Port | Vai trò                                                |
+| --- | -------------- | ---- | ------------------------------------------------------ |
+| 01  | Nginx          | 3000 | Reverse proxy HTTPS — cửa duy nhất ra ngoài            |
+| 02  | Open WebUI     | 8080 | Giao diện chat cho end user (qua Nginx)                |
+| 03  | LLM Middleware | 5000 | Trung tâm: Auth → Quota → Proxy → Audit → Dashboard    |
+| 04  | LiteLLM Proxy  | 4000 | Router multi-provider (OpenAI, Gemini, xAI, Anthropic) |
+| 05  | PostgreSQL     | 5432 | Lưu trữ dữ liệu (2 DB: `openwebui` + `middleware`)     |
+| 06  | Docling        | 5001 | OCR/Document extraction (PDF, DOCX, scan)              |
+| 07  | SearXNG        | 8080 | Metasearch engine (DDG, Brave, Bing)                   |
+| 08  | Redis          | 6379 | Search result cache cho SearXNG                        |
 
 ---
 
@@ -28,13 +32,13 @@
 ![Component Diagram](diagrams/component_diagram_1772533518596.png)
 
 **5 layers:**
-| Layer         | Files                                        | Vai trò                                              |
-| ------------- | -------------------------------------------- | ---------------------------------------------------- |
-| Dashboard SPA | `index.html` + 11 JS modules                 | UI chạy trên browser, gọi API qua `fetch()`          |
-| API Layer     | 12 route handlers (FastAPI)                  | Nhận HTTP request, gọi core logic, trả JSON          |
-| Core Logic    | `auth.py`, `cost.py`, `quota.py`, `db.py`    | Business logic: xác thực, tính cost, kiểm tra quota  |
-| Utilities     | `jwt_auth.py`, `auth_guard.py`, `logging.py` | Hỗ trợ: JWT tokens, route protection, dual-write log |
-| Data Layer    | PostgreSQL + backup files                    | Lưu trữ primary (DB) + secondary (JSON/CSV)          |
+| STT | Layer         | Files                                        | Vai trò                                              |
+| --- | ------------- | -------------------------------------------- | ---------------------------------------------------- |
+| 01  | Dashboard SPA | `index.html` + 11 JS modules                 | UI chạy trên browser, gọi API qua `fetch()`          |
+| 02  | API Layer     | 12 route handlers (FastAPI)                  | Nhận HTTP request, gọi core logic, trả JSON          |
+| 03  | Core Logic    | `auth.py`, `cost.py`, `quota.py`, `db.py`    | Business logic: xác thực, tính cost, kiểm tra quota  |
+| 04  | Utilities     | `jwt_auth.py`, `auth_guard.py`, `logging.py` | Hỗ trợ: JWT tokens, route protection, dual-write log |
+| 05  | Data Layer    | PostgreSQL + backup files                    | Lưu trữ primary (DB) + secondary (JSON/CSV)          |
 
 ---
 
@@ -62,14 +66,14 @@
 ![ERD Diagram](diagrams/erd_diagram_1772533564850.png)
 
 **6 bảng PostgreSQL:**
-| Bảng             | PK            | Rows ước tính | Chức năng                                  |
-| ---------------- | ------------- | ------------- | ------------------------------------------ |
-| `mw_users`       | `user_id`     | ~10           | User accounts, subkeys, quotas             |
-| `mw_prices`      | `model_name`  | ~20           | Model pricing (input/output per token)     |
-| `mw_config`      | `config_key`  | ~5            | Alert config, system settings              |
-| `mw_pending`     | `request_id`  | 0-10          | Requests đang xử lý (tạm thời)             |
-| `mw_audit_log`   | `id` (serial) | 1000+/month   | **Bảng lớn nhất** — mỗi AI request = 1 row |
-| `mw_request_log` | `id` (serial) | 5000+/month   | HTTP request/response detail logs          |
+| STT | Bảng             | PK            | Rows ước tính | Chức năng                                  |
+| --- | ---------------- | ------------- | ------------- | ------------------------------------------ |
+| 01  | `mw_users`       | `user_id`     | ~10           | User accounts, subkeys, quotas             |
+| 02  | `mw_prices`      | `model_name`  | ~20           | Model pricing (input/output per token)     |
+| 03  | `mw_config`      | `config_key`  | ~5            | Alert config, system settings              |
+| 04  | `mw_pending`     | `request_id`  | 0-10          | Requests đang xử lý (tạm thời)             |
+| 05  | `mw_audit_log`   | `id` (serial) | 1000+/month   | **Bảng lớn nhất** — mỗi AI request = 1 row |
+| 06  | `mw_request_log` | `id` (serial) | 5000+/month   | HTTP request/response detail logs          |
 
 **Quan hệ:**
 - `mw_users.user_id` → `mw_audit_log.user_id` (1:N — mỗi user có nhiều audit logs)
@@ -86,11 +90,11 @@
 
 **3 Actors × 12 Use Cases:**
 
-| Actor        | Use Cases                                                                                         | Endpoints                                                                                                                              |
-| ------------ | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **End User** | Chat with AI, Generate Images, Transcribe Audio, View Models                                      | `POST /v1/chat/completions`, `POST /v1/images/generations`, `POST /v1/audio/transcriptions`, `GET /v1/models`                          |
-| **Admin**    | View Dashboard, Manage Users, Configure Quotas, Search Audit Logs, Configure Alerts, Reset Quotas | `/v1/_mw/summary`, `/v1/_mw/admin/users`, `/v1/_mw/quota-status`, `/v1/_mw/audit/query`, `/v1/_mw/admin/alerts/config`, `/admin/reset` |
-| **System**   | Auto Write Audit, Auto Reset Quota                                                                | Middleware middleware (mỗi request tự ghi), `quota.py` (auto-reset khi hết period)                                                     |
+| STT | Actor        | Use Cases                                                                                         | Endpoints                                                                                                                              |
+| --- | ------------ | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 01  | **End User** | Chat with AI, Generate Images, Transcribe Audio, View Models                                      | `POST /v1/chat/completions`, `POST /v1/images/generations`, `POST /v1/audio/transcriptions`, `GET /v1/models`                          |
+| 02  | **Admin**    | View Dashboard, Manage Users, Configure Quotas, Search Audit Logs, Configure Alerts, Reset Quotas | `/v1/_mw/summary`, `/v1/_mw/admin/users`, `/v1/_mw/quota-status`, `/v1/_mw/audit/query`, `/v1/_mw/admin/alerts/config`, `/admin/reset` |
+| 03  | **System**   | Auto Write Audit, Auto Reset Quota                                                                | Middleware middleware (mỗi request tự ghi), `quota.py` (auto-reset khi hết period)                                                     |
 
 ---
 
@@ -102,11 +106,11 @@
 
 **3 phase:**
 
-| Phase                  | Duration | Operations                                         |
-| ---------------------- | -------- | -------------------------------------------------- |
-| 🔵 **Authentication**  | ~10ms    | Hash subkey → DB lookup → quota check              |
-| 🟢 **Proxy & Stream**  | 1-30s    | Forward to LiteLLM → SSE chunks → realtime display |
-| 🔴 **Post-Processing** | ~10ms    | DELETE pending → UPDATE quota → INSERT audit       |
+| STT | Phase                  | Duration | Operations                                         |
+| --- | ---------------------- | -------- | -------------------------------------------------- |
+| 01  | 🔵 **Authentication**  | ~10ms    | Hash subkey → DB lookup → quota check              |
+| 02  | 🟢 **Proxy & Stream**  | 1-30s    | Forward to LiteLLM → SSE chunks → realtime display |
+| 03  | 🔴 **Post-Processing** | ~10ms    | DELETE pending → UPDATE quota → INSERT audit       |
 
 **Timeline chi tiết:**
 ```
@@ -129,23 +133,27 @@ User → Open WebUI → Middleware:  POST /v1/chat/completions
 ![Deployment Diagram](diagrams/deployment_diagram_1772533601032.png)
 
 **Containers & Ports:**
-| Container              | Port | Exposed     | Image                                |
-| ---------------------- | ---- | ----------- | ------------------------------------ |
-| `openwebui-postgres`   | 5432 | ❌ Internal | `postgres:17`                        |
-| `openwebui-litellm`    | 4000 | ❌ Internal | Custom build                         |
-| `openwebui-middleware` | 5000 | ✅ External | Custom build (Python 3.11 + FastAPI) |
-| `open-webui`           | 3000 | ✅ External | `ghcr.io/open-webui`                 |
+| STT | Container              | Port | Exposed     | Image                                            |
+| --- | ---------------------- | ---- | ----------- | ------------------------------------------------ |
+| 01  | `openwebui-nginx`      | 3000 | ✅ External | `nginx:alpine`                                   |
+| 02  | `openwebui-postgres`   | 5432 | ❌ Internal | `pgvector/pgvector:0.8.0-pg16`                   |
+| 03  | `openwebui-litellm`    | 4000 | ❌ Internal | Custom build                                     |
+| 04  | `openwebui-middleware` | 5000 | ✅ External | Custom build (Python 3.11 + FastAPI)             |
+| 05  | `open-webui`           | 8080 | ❌ Internal | `ghcr.io/open-webui`                             |
+| 06  | `openwebui-docling`    | 5001 | ❌ Internal | `quay.io/docling-project/docling-serve-cpu`      |
+| 07  | `openwebui-searxng`    | 8080 | ❌ Internal | `searxng/searxng:latest`                         |
+| 08  | `openwebui-redis`      | 6379 | ❌ Internal | `redis:7-alpine`                                 |
 
 **Volumes:**
-| Volume       | Type       | Container  | Size ước tính     |
-| ------------ | ---------- | ---------- | ----------------- |
-| `pgdata`     | Named      | PostgreSQL | 100MB-1GB         |
-| `open-webui` | Named      | Open WebUI | ~50MB             |
-| `./logs`     | Bind mount | Middleware | ~100MB (rotation) |
-| `./llm-mw`   | Bind mount | Middleware | ~5MB (source)     |
+| STT | Volume       | Type       | Container  | Size ước tính     |
+| --- | ------------ | ---------- | ---------- | ----------------- |
+| 01  | `pgdata`     | Named      | PostgreSQL | 100MB-1GB         |
+| 02  | `open-webui` | Named      | Open WebUI | ~50MB             |
+| 03  | `./logs`     | Bind mount | Middleware | ~100MB (rotation) |
+| 04  | `./llm-mw`   | Bind mount | Middleware | ~5MB (source)     |
 
-**Startup order:** PostgreSQL → LiteLLM → Middleware → Open WebUI
+**Startup order:** PostgreSQL → Redis → LiteLLM → Middleware → Docling → SearXNG → OpenWebUI → Nginx
 
 ---
 
-**Last Updated:** March 3, 2026 | **Version:** 3.0 (Image-based diagrams)
+**Last Updated:** April 9, 2026 | **Version:** 4.0 (9 containers, Docling migration)

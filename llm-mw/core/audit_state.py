@@ -15,6 +15,7 @@ from fastapi import Request
 # This prevents background polling requests (chats, tasks, etc.) from being counted as LLM usage
 LLM_ENDPOINT_ALLOWLIST = {
     "/v1/chat/completions",
+    "/v1/embeddings",
     "/v1/images/generations",
     "/v1/audio/transcriptions",
     "/v1/audio/speech",

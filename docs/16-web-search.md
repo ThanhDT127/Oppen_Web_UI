@@ -49,11 +49,11 @@ LLM trả lời có thông tin mới nhất từ internet
 
 ### Các thành phần
 
-| Thành phần | Vai trò | Container |
-|-----------|---------|-----------|
-| **Open WebUI** | Trigger web search, inject kết quả | `openwebui-app` |
-| **SearXNG** | Meta search engine, truy vấn nhiều nguồn | `openwebui-searxng` |
-| **Redis** | Cache kết quả, rate limiter cho SearXNG | `openwebui-redis` |
+| STT | Thành phần     | Vai trò                                  | Container           |
+| --- | -------------- | ---------------------------------------- | ------------------- |
+| 01  | **Open WebUI** | Trigger web search, inject kết quả       | `openwebui-app`     |
+| 02  | **SearXNG**    | Meta search engine, truy vấn nhiều nguồn | `openwebui-searxng` |
+| 03  | **Redis**      | Cache kết quả, rate limiter cho SearXNG  | `openwebui-redis`   |
 
 ### Cấu hình trong docker-compose.yml
 
@@ -106,13 +106,13 @@ valkey:
 
 ### Tại sao tắt Google?
 
-| Engine | Ưu điểm | Nhược điểm | Trạng thái |
-|--------|---------|------------|:----------:|
-| Google | Kết quả tốt nhất | **Hay block/ban** scraper | ❌ Tắt |
-| DuckDuckGo | Ổn định, không track | Kết quả trung bình | ✅ Bật |
-| Bing | Kết quả tốt | Ổn định | ✅ Bật |
-| Brave | Nhanh, riêng tư | Ít phổ biến | ✅ Bật |
-| Wikipedia | Thông tin chính xác | Chỉ bách khoa | ✅ Bật |
+| STT | Engine     | Ưu điểm              | Nhược điểm                | Trạng thái |
+| --- | ---------- | -------------------- | ------------------------- | ---------- |
+| 01  | Google     | Kết quả tốt nhất     | **Hay block/ban** scraper | ❌ Tắt      |
+| 02  | DuckDuckGo | Ổn định, không track | Kết quả trung bình        | ✅ Bật      |
+| 03  | Bing       | Kết quả tốt          | Ổn định                   | ✅ Bật      |
+| 04  | Brave      | Nhanh, riêng tư      | Ít phổ biến               | ✅ Bật      |
+| 05  | Wikipedia  | Thông tin chính xác  | Chỉ bách khoa             | ✅ Bật      |
 
 ### Redis — Cache và Rate Limiter
 
@@ -154,19 +154,19 @@ Default location: Việt Nam
 
 ### Kết quả
 
-| Trước | Sau |
-|-------|-----|
-| LLM không biết ngày hiện tại | ✅ Biết: "25/03/2026 08:30" |
-| LLM không biết timezone | ✅ Biết: UTC+7 |
-| Web search không kèm ngày | ✅ Search query có thêm ngày |
+| STT | Trước                        | Sau                         |
+| --- | ---------------------------- | --------------------------- |
+| 01  | LLM không biết ngày hiện tại | ✅ Biết: "25/03/2026 08:30"  |
+| 02  | LLM không biết timezone      | ✅ Biết: UTC+7               |
+| 03  | Web search không kèm ngày    | ✅ Search query có thêm ngày |
 
 ### Tính năng mở rộng (chưa triển khai)
 
-| Tính năng | Yêu cầu | Trạng thái |
-|-----------|---------|:----------:|
-| `{{USER_LOCATION}}` (GPS) | HTTPS | ✅ Có HTTPS, chưa bật |
-| Geolocation chính xác | JavaScript API | 📋 Có kế hoạch |
-| IP-based location | GeoIP database | 📋 Có kế hoạch |
+| STT | Tính năng                 | Yêu cầu        | Trạng thái           |
+| --- | ------------------------- | -------------- | -------------------- |
+| 01  | `{{USER_LOCATION}}` (GPS) | HTTPS          | ✅ Có HTTPS, chưa bật |
+| 02  | Geolocation chính xác     | JavaScript API | 📋 Có kế hoạch        |
+| 03  | IP-based location         | GeoIP database | 📋 Có kế hoạch        |
 
 ---
 
@@ -174,16 +174,16 @@ Default location: Việt Nam
 
 ### Hạn chế hiện tại
 
-| # | Hạn chế | Mức độ | Giải pháp |
-|:-:|---------|:------:|-----------|
-| 1 | SearXNG limiter TẮT | 🟡 | Bật khi Nginx proxy X-Forwarded-For |
-| 2 | Google engine TẮT | 🟡 | Dùng Brave API (có kế hoạch) |
-| 3 | Giới hạn ~60 search/giờ | 🟡 | Đủ cho 200 users (ít ai search liên tục) |
-| 4 | Không có fallback khi SearXNG down | 🟡 | Thêm Brave API làm backup |
+| # | Hạn chế                            | Mức độ | Giải pháp                                |
+| - | ---------------------------------- | ------ | ---------------------------------------- |
+| 1 | SearXNG limiter TẮT                | 🟡      | Bật khi Nginx proxy X-Forwarded-For      |
+| 2 | Google engine TẮT                  | 🟡      | Dùng Brave API (có kế hoạch)             |
+| 3 | Giới hạn ~60 search/giờ            | 🟡      | Đủ cho 200 users (ít ai search liên tục) |
+| 4 | Không có fallback khi SearXNG down | 🟡      | Thêm Brave API làm backup                |
 
 ### Kế hoạch nâng cấp
 
-| Kế hoạch | Mô tả | File |
-|----------|-------|------|
-| **Search Proxy** | Thêm Brave API làm fallback cho SearXNG | `search_proxy_plan.md` |
-| **Geolocation** | GPS chính xác qua HTTPS | `geolocation_plan.md` |
+| STT | Kế hoạch         | Mô tả                                   | File                   |
+| --- | ---------------- | --------------------------------------- | ---------------------- |
+| 01  | **Search Proxy** | Thêm Brave API làm fallback cho SearXNG | `search_proxy_plan.md` |
+| 02  | **Geolocation**  | GPS chính xác qua HTTPS                 | `geolocation_plan.md`  |

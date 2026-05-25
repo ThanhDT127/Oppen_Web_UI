@@ -45,7 +45,7 @@ export function stopDashboardLoops() {
 export function showLoginUI(message) {
     document.getElementById('authPrompt').classList.remove('hidden');
     document.getElementById('dashboard').classList.add('hidden');
-    
+
     if (message) {
         showError(message);
     }
@@ -62,7 +62,7 @@ function showError(msg) {
 export async function authenticate() {
     const input = document.getElementById('adminKeyInput');
     const key = input.value.trim();
-    
+
     if (!key) {
         showError('Please enter admin key');
         return;
@@ -75,23 +75,25 @@ export async function authenticate() {
             credentials: 'include',
             body: JSON.stringify({ admin_key: key })
         });
-        
+
         if (res.status === 403) {
             throw new Error('Invalid admin key');
         }
         if (!res.ok) {
             throw new Error('Login failed');
         }
-        
+
         await res.json();
-        
-        // Success - hide auth prompt and show dashboard
+        input.value = '';
+
+        // Success - hide auth prompt and show dashboard. The server sets an
+        // HttpOnly cookie; do not store the raw admin key in browser storage.
         document.getElementById('authPrompt').classList.add('hidden');
         document.getElementById('dashboard').classList.remove('hidden');
-        
+
         // Verify cookie works
         await checkAuthStatus();
-        
+
         // Start dashboard
         const { startDashboard } = await import('./main.js');
         startDashboard();
@@ -106,17 +108,18 @@ async function checkAuthStatus() {
         const res = await mwFetch('/v1/_mw/auth_check');
         if (!res || !res.ok) {
             updateStatus('warning', 'Auth check failed - cookie may not work across different hosts');
-            return;
+            return false;
         }
         const data = await res.json();
         if (data.ok) {
             updateStatus('ok', 'Authenticated ✓');
-        } else {
-            updateStatus('warning', 'Cookie not present - use same host (localhost OR 127.0.0.1, not mixed)');
+            return true;
         }
+        updateStatus('warning', 'Cookie not present - use same host (localhost OR 127.0.0.1, not mixed)');
+        return false;
     } catch (err) {
-        // auth_check endpoint might not exist yet
-        updateStatus('ok', 'Authenticated ✓');
+        updateStatus('warning', 'Auth check failed');
+        return false;
     }
 }
 
@@ -137,19 +140,16 @@ export function initAuth() {
         }
     });
 
-    // Check if already logged in on page load
+    // Check cookie-backed session on page load. Do not require sessionStorage;
+    // a valid HttpOnly cookie should be enough to restore the dashboard.
     document.addEventListener('DOMContentLoaded', async () => {
         try {
-            const res = await mwFetch('/v1/_mw/auth_check');
-            if (res && res.ok) {
-                const data = await res.json();
-                if (data.ok) {
-                    // Already authenticated, go straight to dashboard
-                    document.getElementById('authPrompt').classList.add('hidden');
-                    document.getElementById('dashboard').classList.remove('hidden');
-                    const { startDashboard } = await import('./main.js');
-                    startDashboard();
-                }
+            const authenticated = await checkAuthStatus();
+            if (authenticated) {
+                document.getElementById('authPrompt').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                const { startDashboard } = await import('./main.js');
+                startDashboard();
             }
         } catch (err) {
             // Not logged in, stay on login screen

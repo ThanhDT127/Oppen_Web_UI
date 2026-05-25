@@ -22,7 +22,7 @@ model_list:
       api_key: os.environ/OPENAI_API_KEY
 
   # ============================================================
-  # GOOGLE GEMINI CHAT MODELS (3)
+  # GOOGLE GEMINI CHAT MODELS (3) — API key + Vertex AI fallback
   # ============================================================
 
   # Gemini 3.1 Pro (Flagship — Feb 2026, 1M context)
@@ -32,7 +32,7 @@ model_list:
       api_key: os.environ/GEMINI_API_KEY
 
   # Gemini 3.1 Flash-Lite (Budget — Mar 2026, 1M context)
-  - model_name: chat-gemini-3.1-flash
+  - model_name: chat-gemini-3.1-flash-lite
     litellm_params:
       model: gemini/gemini-3.1-flash-lite-preview
       api_key: os.environ/GEMINI_API_KEY
@@ -42,6 +42,12 @@ model_list:
     litellm_params:
       model: gemini/gemini-2.5-flash
       api_key: os.environ/GEMINI_API_KEY
+  - model_name: chat-gemini-2.5-flash
+    litellm_params:
+      model: vertex_ai/gemini-2.5-flash
+      vertex_project: os.environ/VERTEX_PROJECT
+      vertex_location: os.environ/VERTEX_LOCATION
+      vertex_credentials: /app/vertex.json
 
   # ============================================================
   # XAI GROK CHAT MODELS (3)
@@ -127,12 +133,44 @@ model_list:
       model: xai/grok-imagine-image-pro
       api_key: os.environ/XAI_API_KEY
 
+  # ============================================================
+  # DEEPSEEK CHAT MODELS via OpenRouter (2)
+  # ============================================================
+
+  # DeepSeek V4 Pro (1.6T/49B active, 1M context, advanced reasoning)
+  - model_name: chat-deepseek-v4-pro
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-pro
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # DeepSeek V4 Flash (284B/13B active, 1M context, fast & cheap)
+  - model_name: chat-deepseek-v4-flash
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+
+# ============================================================
+# EMBEDDING MODELS
+# ============================================================
+
+  # Gemini Embedding — API key only (Vertex embedding API differs)
+  - model_name: gemini-embedding-001
+    litellm_params:
+      model: gemini/gemini-embedding-001
+      api_key: os.environ/GEMINI_API_KEY
+
 # ============================================================
 # LITELLM SETTINGS
 # ============================================================
 
 litellm_settings:
   drop_params: true
+  # Auto-inject cache_control into system messages for Anthropic models
+  # Reduces input token cost by ~90% for repeated system prompts
+  # Safe for non-Anthropic models: drop_params=true strips unsupported params
+  cache_control_injection_points:
+    - location: "message"
+      role: "system"
   host: "0.0.0.0"
   port: 4000
   telemetry: false

@@ -39,6 +39,24 @@
                     "chat-gemini",
                     "img-gemini"
                 ]
+            },
+            "xai": {
+                "enabled": true,
+                "budget_usd": 50.00,
+                "thresholds": [80, 100],
+                "model_prefixes": ["chat-grok", "img-grok"]
+            },
+            "anthropic": {
+                "enabled": true,
+                "budget_usd": 50.00,
+                "thresholds": [80, 100],
+                "model_prefixes": ["chat-claude"]
+            },
+            "deepseek": {
+                "enabled": true,
+                "budget_usd": 30.00,
+                "thresholds": [80, 100],
+                "model_prefixes": ["chat-deepseek"]
             }
         },
         "per_user_quota": {

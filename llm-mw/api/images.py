@@ -27,12 +27,17 @@ _IMAGE_MODEL_MAP = {
     # Gemini image models
     "img-gemini-flash": "gemini/gemini-2.5-flash-image",
     "img-gemini-pro": "gemini/gemini-3-pro-image-preview",
+    "img-gemini-3.1-flash": "gemini/gemini-3.1-flash-image-preview",
+    "img-gemini-3-pro": "gemini/gemini-3-pro-image-preview",
     # OpenAI GPT Image models
     "img-gpt-1.5": "openai/gpt-image-1.5",
     "img-gpt-1": "openai/gpt-image-1",
     "img-gpt-1-mini": "openai/gpt-image-1-mini",
     # OpenAI DALL-E models
     "img-gpt-dalle-3": "openai/dall-e-3",
+    # xAI Grok Imagine models
+    "img-grok-imagine": "xai/grok-imagine-image",
+    "img-grok-imagine-pro": "xai/grok-imagine-image-pro",
 }
 
 
@@ -258,14 +263,16 @@ def _extract_provider(model: str) -> str:
     Extract provider from model name.
     
     Args:
-        model: Model name (e.g., "img-gemini-flash", "img-gpt-dalle-3")
+        model: Model name (e.g., "img-gemini-flash", "img-gpt-dalle-3", "img-grok-imagine")
         
     Returns:
-        Provider name ("gemini", "openai", "unknown")
+        Provider name ("gemini", "openai", "xai", "unknown")
     """
     model_lower = (model or "").lower()
     if "gemini" in model_lower:
         return "gemini"
+    elif "grok" in model_lower or "xai" in model_lower:
+        return "xai"
     elif "dalle" in model_lower or "gpt" in model_lower:
         return "openai"
     return "unknown"
@@ -390,9 +397,13 @@ async def generate_images(request: Request):
         t = (text or "").lower()
         return "organization must be verified" in t or "verify organization" in t
 
+    def _is_xai_provider(m: str) -> bool:
+        ml = (m or "").lower()
+        return "grok" in ml or "xai" in ml
+
     client: httpx.AsyncClient = request.app.state.http_client
     
-    # Route based on provider - Gemini uses chat/completions, OpenAI uses images/generations
+    # Route based on provider - Gemini uses chat/completions, others use images/generations
     provider = _extract_provider(model)
     
     try:
@@ -411,7 +422,11 @@ async def generate_images(request: Request):
             data = await _generate_via_gemini_chat(client, headers, body.get("prompt", ""), model)
             resp = None  # No direct response object for Gemini path
         else:
-            # OpenAI DALL-E uses standard images/generations endpoint
+            # OpenAI DALL-E / xAI Grok uses standard images/generations endpoint
+            # xAI Grok Imagine does NOT support 'size' param
+            if _is_xai_provider(model):
+                forward_body.pop("size", None)
+            
             detail_log(
                 "upstream.request",
                 request=request,
@@ -491,12 +506,12 @@ async def generate_images(request: Request):
         detail_log("image.materialize_error", request=request, error=str(e))
     
     litellm_cost = get_cost_from_headers(resp.headers) if resp else 0
-    enforce_and_bump_quota(user["user_id"], add_image_requests=1)
 
     prices = load_prices()
     cost_usd = litellm_cost if litellm_cost > 0 else calc_image_cost_from_body(model, body, prices)
-    if cost_usd > 0:
-        enforce_and_bump_quota(user["user_id"], add_cost_usd=cost_usd)
+
+    # Single call to bump both image_requests and cost_usd — reduces lock contention 3x → 1x
+    enforce_and_bump_quota(user["user_id"], add_image_requests=1, add_cost_usd=cost_usd)
     
     # Set usage state for audit
     image_count = body.get("n", 1)
