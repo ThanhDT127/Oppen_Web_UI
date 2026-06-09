@@ -185,11 +185,33 @@ def save_users(users: List[Dict[str, Any]]):
     _save_users_file(users)
 
 
+def snapshot_users_to_json() -> int:
+    """Write an explicit JSON snapshot from the committed runtime source."""
+    users = _load_users_db() if _db_available() else _load_users_file()
+    _save_users_file(users)
+    return len(users)
+
+
+def create_user_record(user: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Create exactly one user without replacing concurrent user state."""
+    if _db_available():
+        from core.db import create_user_db
+        return create_user_db(user)
+    with _lock:
+        if get_user_by_id(user.get("user_id")):
+            return None
+        users = _load_users_file()
+        users.append(user)
+        _save_users_file(users)
+        return get_user_by_id(user.get("user_id"))
+
+
 def _delete_user_db(user_id: str) -> bool:
     """Delete a user from mw_users table. Returns True if deleted."""
     from core.db import db_conn
     with db_conn() as conn:
         cur = conn.cursor()
+        cur.execute("DELETE FROM mw_quota_alert_claims WHERE user_id = %s", (user_id,))
         cur.execute("DELETE FROM mw_users WHERE user_id = %s", (user_id,))
         deleted = cur.rowcount > 0
         cur.close()
@@ -363,9 +385,19 @@ def update_user_quota(
 ) -> bool:
     """
     Atomically increment quota counters for a single user. O(1).
-    Updates DB (atomic SQL) + JSON file backup.
+    Updates DB (atomic SQL) + JSON file backup only when DB is not available.
     Returns True if user was found and updated.
     """
+    current = get_user_by_id(user_id)
+    if not current:
+        return False
+    quota = current.get("quota", {})
+    from core.quota import period_anchor_ms
+    reset_user_quota_period(
+        user_id,
+        period_anchor_ms(quota.get("period", "monthly"), quota.get("timezone", "UTC")),
+    )
+
     updated = False
     if _db_available():
         from core.db import update_user_quota_db
@@ -376,33 +408,147 @@ def update_user_quota(
             add_image_requests=add_image_requests,
             add_stt_requests=add_stt_requests,
         )
-    # Always update JSON file backup
-    file_updates = {}
-    if add_tokens:
-        file_updates["_add_used_tokens"] = add_tokens
-        file_updates["_add_quota.used_tokens"] = add_tokens
-    if add_cost_usd:
-        file_updates["_add_used_cost_usd"] = add_cost_usd
-        file_updates["_add_quota.used_cost_usd"] = add_cost_usd
-    if add_image_requests:
-        file_updates["_add_quota.used_image_requests"] = add_image_requests
-    if add_stt_requests:
-        file_updates["_add_quota.used_stt_requests"] = add_stt_requests
-    if file_updates:
-        _update_user_in_file(user_id, file_updates)
+    else:
+        # Only update JSON file backup when DB is not available
+        file_updates = {}
+        if add_tokens:
+            file_updates["_add_used_tokens"] = add_tokens
+            file_updates["_add_quota.used_tokens"] = add_tokens
+        if add_cost_usd:
+            file_updates["_add_used_cost_usd"] = add_cost_usd
+            file_updates["_add_quota.used_cost_usd"] = add_cost_usd
+        if add_image_requests:
+            file_updates["_add_quota.used_image_requests"] = add_image_requests
+        if add_stt_requests:
+            file_updates["_add_quota.used_stt_requests"] = add_stt_requests
+        if file_updates:
+            _update_user_in_file(user_id, file_updates)
+        updated = True
     return updated
 
 
 def update_user_alerts(user_id: str, alerts_sent: dict) -> bool:
     """
     Update alerts_sent field for a single user. O(1).
-    Updates DB + JSON file backup.
+    Updates DB + JSON file backup only when DB is not available.
     Returns True if user was found and updated.
     """
     updated = False
     if _db_available():
         from core.db import update_user_alerts_db
         updated = update_user_alerts_db(user_id, alerts_sent)
-    # Always update JSON file backup
-    _update_user_in_file(user_id, {"alerts_sent": alerts_sent})
+    else:
+        # Only update JSON file backup when DB is not available
+        _update_user_in_file(user_id, {"alerts_sent": alerts_sent})
+        updated = True
     return updated
+
+
+def reset_user_quota_period(user_id: str, period_start: int) -> Optional[Dict[str, Any]]:
+    """Persist a period reset for one user, returning the committed record."""
+    if _db_available():
+        from core.db import reset_user_quota_period_db
+        return reset_user_quota_period_db(user_id, period_start)
+
+    with _lock:
+        user = get_user_by_id(user_id)
+        if not user:
+            return None
+        quota = user.setdefault("quota", {})
+        if int(quota.get("period_start", 0) or 0) < period_start:
+            quota.update({
+                "period_start": period_start,
+                "used_tokens": 0,
+                "used_cost_usd": 0.0,
+                "used_image_requests": 0,
+                "used_stt_requests": 0,
+            })
+            user["alerts_sent"] = {}
+            _update_user_in_file(user_id, {"quota": quota, "alerts_sent": {}})
+        return get_user_by_id(user_id)
+
+
+def clear_user_quota_usage(user_id: str) -> Optional[Dict[str, Any]]:
+    """Explicit admin reset for one user's period counters."""
+    if _db_available():
+        from core.db import clear_user_quota_usage_db
+        return clear_user_quota_usage_db(user_id)
+    with _lock:
+        user = get_user_by_id(user_id)
+        if not user:
+            return None
+        quota = user.setdefault("quota", {})
+        quota.update({
+            "used_tokens": 0,
+            "used_cost_usd": 0.0,
+            "used_image_requests": 0,
+            "used_stt_requests": 0,
+        })
+        _update_user_in_file(user_id, {"quota": quota})
+        return get_user_by_id(user_id)
+
+
+def update_user_admin_fields(
+    user_id: str,
+    *,
+    active=None,
+    allowed_models=None,
+    quota_limits: Optional[Dict[str, Any]] = None,
+    subkey_hash=None,
+    clear_subkey: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """Update mutable admin fields without replacing concurrent usage."""
+    if _db_available():
+        from core.db import update_user_admin_fields_db
+        return update_user_admin_fields_db(
+            user_id,
+            active=active,
+            allowed_models=allowed_models,
+            quota_limits=quota_limits,
+            subkey_hash=subkey_hash,
+            clear_subkey=clear_subkey,
+        )
+
+    with _lock:
+        user = get_user_by_id(user_id)
+        if not user:
+            return None
+        updates = {}
+        if active is not None:
+            updates["active"] = active
+        if allowed_models is not None:
+            updates["allowed_models"] = allowed_models
+        if subkey_hash is not None:
+            updates["subkey_hash"] = subkey_hash
+        if clear_subkey:
+            updates["subkey"] = None
+        for key, value in (quota_limits or {}).items():
+            updates[f"quota.{key}"] = value
+        _update_user_in_file(user_id, updates)
+        return get_user_by_id(user_id)
+
+
+def claim_quota_alert(
+    user_id: str,
+    period_start: int,
+    threshold: int,
+    alert_type: str,
+    snapshot: Dict[str, Any],
+) -> bool:
+    """Claim one alert threshold so concurrent requests cannot duplicate it."""
+    if _db_available():
+        from core.db import claim_quota_alert_db
+        return claim_quota_alert_db(user_id, period_start, threshold, alert_type, snapshot)
+
+    with _lock:
+        user = get_user_by_id(user_id)
+        if not user:
+            return False
+        alerts = user.setdefault("alerts_sent", {})
+        key = f"alert_{threshold}"
+        if key in alerts:
+            return False
+        from datetime import datetime, timezone
+        alerts[key] = datetime.now(timezone.utc).isoformat()
+        _update_user_in_file(user_id, {"alerts_sent": alerts})
+        return True

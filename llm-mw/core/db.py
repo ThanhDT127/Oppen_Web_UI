@@ -215,6 +215,17 @@ CREATE TABLE IF NOT EXISTS mw_notifications (
 CREATE INDEX IF NOT EXISTS idx_notif_user ON mw_notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notif_read ON mw_notifications(read);
 CREATE INDEX IF NOT EXISTS idx_notif_ts   ON mw_notifications(ts);
+
+-- Atomic claims prevent duplicate quota alerts from concurrent requests.
+CREATE TABLE IF NOT EXISTS mw_quota_alert_claims (
+    user_id      TEXT NOT NULL,
+    period_start BIGINT NOT NULL,
+    threshold    INTEGER NOT NULL,
+    alert_type   TEXT NOT NULL,
+    snapshot     JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at   TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (user_id, period_start, threshold, alert_type)
+);
 """
 
 
@@ -586,4 +597,189 @@ def update_user_alerts_db(user_id: str, alerts_sent: dict) -> bool:
         return updated
     except Exception as e:
         logger.error("update_user_alerts_db failed user=%s: %s", user_id, str(e))
+        return False
+
+
+def reset_user_quota_period_db(user_id: str, period_start: int) -> Optional[Dict[str, Any]]:
+    """Reset one user's period counters and alert state if its anchor is stale."""
+    try:
+        with db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE mw_users SET
+                    quota = jsonb_set(
+                        jsonb_set(
+                            jsonb_set(
+                                jsonb_set(
+                                    jsonb_set(
+                                        COALESCE(quota, '{}'::jsonb),
+                                        '{period_start}', to_jsonb(%s::bigint)
+                                    ),
+                                    '{used_tokens}', '0'::jsonb
+                                ),
+                                '{used_cost_usd}', '0'::jsonb
+                            ),
+                            '{used_image_requests}', '0'::jsonb
+                        ),
+                        '{used_stt_requests}', '0'::jsonb
+                    ),
+                    alerts_sent = '{}'::jsonb,
+                    updated_at = now()
+                WHERE user_id = %s
+                  AND COALESCE((quota->>'period_start')::bigint, 0) < %s
+                RETURNING user_id, subkey, subkey_hash, active, allowed_models,
+                          used_tokens, used_cost_usd, quota, alerts_sent
+            """, (period_start, user_id, period_start))
+            row = cur.fetchone()
+            if not row:
+                cur.execute(_USER_SELECT + " WHERE user_id = %s", (user_id,))
+                row = cur.fetchone()
+            cur.close()
+        return _row_to_user_dict(row)
+    except Exception as e:
+        logger.error("reset_user_quota_period_db failed user=%s: %s", user_id, str(e))
+        return None
+
+
+def clear_user_quota_usage_db(user_id: str) -> Optional[Dict[str, Any]]:
+    """Explicitly clear one user's period usage without changing period alert claims."""
+    try:
+        with db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE mw_users SET
+                    quota = jsonb_set(
+                        jsonb_set(
+                            jsonb_set(
+                                jsonb_set(COALESCE(quota, '{}'::jsonb), '{used_tokens}', '0'::jsonb),
+                                '{used_cost_usd}', '0'::jsonb
+                            ),
+                            '{used_image_requests}', '0'::jsonb
+                        ),
+                        '{used_stt_requests}', '0'::jsonb
+                    ),
+                    updated_at = now()
+                WHERE user_id = %s
+                RETURNING user_id, subkey, subkey_hash, active, allowed_models,
+                          used_tokens, used_cost_usd, quota, alerts_sent
+            """, (user_id,))
+            row = cur.fetchone()
+            cur.close()
+        return _row_to_user_dict(row)
+    except Exception as e:
+        logger.error("clear_user_quota_usage_db failed user=%s: %s", user_id, str(e))
+        return None
+
+
+def update_user_admin_fields_db(
+    user_id: str,
+    *,
+    active=None,
+    allowed_models=None,
+    quota_limits: Optional[Dict[str, Any]] = None,
+    subkey_hash=None,
+    clear_subkey: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """Targeted admin update that never replaces quota usage counters."""
+    sets = []
+    params = []
+    if active is not None:
+        sets.append("active = %s")
+        params.append(active)
+    if allowed_models is not None:
+        sets.append("allowed_models = %s")
+        params.append(json.dumps(allowed_models))
+    if subkey_hash is not None:
+        sets.append("subkey_hash = %s")
+        params.append(subkey_hash)
+    if clear_subkey:
+        sets.append("subkey = NULL")
+    quota_expr = "COALESCE(quota, '{}'::jsonb)"
+    quota_params = []
+    for key, value in (quota_limits or {}).items():
+        quota_expr = f"jsonb_set({quota_expr}, %s, %s::jsonb, true)"
+        quota_params.extend([[key], json.dumps(value)])
+    if quota_limits:
+        sets.append(f"quota = {quota_expr}")
+        params.extend(quota_params)
+    if not sets:
+        return get_user_by_id_db(user_id)
+    sets.append("updated_at = now()")
+    try:
+        with db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE mw_users SET {', '.join(sets)} WHERE user_id = %s "
+                "RETURNING user_id, subkey, subkey_hash, active, allowed_models, "
+                "used_tokens, used_cost_usd, quota, alerts_sent",
+                (*params, user_id),
+            )
+            row = cur.fetchone()
+            cur.close()
+        return _row_to_user_dict(row)
+    except Exception as e:
+        logger.error("update_user_admin_fields_db failed user=%s: %s", user_id, str(e))
+        return None
+
+
+def create_user_db(user: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Insert one user without reading or rewriting other user records."""
+    try:
+        with db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO mw_users
+                    (user_id, subkey, subkey_hash, active, allowed_models,
+                     used_tokens, used_cost_usd, quota, alerts_sent)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (user_id) DO NOTHING
+                RETURNING user_id, subkey, subkey_hash, active, allowed_models,
+                          used_tokens, used_cost_usd, quota, alerts_sent
+            """, (
+                user.get("user_id"), user.get("subkey"), user.get("subkey_hash"),
+                user.get("active", True), json.dumps(user.get("allowed_models", ["*"])),
+                user.get("used_tokens", 0), user.get("used_cost_usd", 0.0),
+                json.dumps(user.get("quota", {})), json.dumps(user.get("alerts_sent", {})),
+            ))
+            row = cur.fetchone()
+            cur.close()
+        return _row_to_user_dict(row)
+    except Exception as e:
+        logger.error("create_user_db failed user=%s: %s", user.get("user_id"), str(e))
+        return None
+
+
+def claim_quota_alert_db(
+    user_id: str,
+    period_start: int,
+    threshold: int,
+    alert_type: str,
+    snapshot: Dict[str, Any],
+) -> bool:
+    """Atomically claim a quota alert. True means this caller owns delivery."""
+    try:
+        with db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO mw_quota_alert_claims
+                    (user_id, period_start, threshold, alert_type, snapshot)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING
+            """, (user_id, period_start, threshold, alert_type, json.dumps(snapshot)))
+            claimed = cur.rowcount == 1
+            if claimed:
+                key = f"alert_{threshold}"
+                cur.execute("""
+                    UPDATE mw_users SET
+                        alerts_sent = jsonb_set(
+                            COALESCE(alerts_sent, '{}'::jsonb),
+                            %s, to_jsonb(now()::text), true
+                        ),
+                        updated_at = now()
+                    WHERE user_id = %s
+                """, ([key], user_id))
+            cur.close()
+        return claimed
+    except Exception as e:
+        logger.error("claim_quota_alert_db failed user=%s threshold=%s: %s", user_id, threshold, str(e))
         return False
