@@ -274,6 +274,20 @@ services:
     networks:
       - openwebui-network
 
+  # MCP-to-OpenAPI Proxy (MCPO)
+  mcpo:
+    image: ghcr.io/open-webui/mcpo:latest
+    container_name: openwebui-mcpo
+    volumes:
+      - ./mcp_config.json:/app/config.json:ro
+    command: mcpo --config /app/config.json --port 8015
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - openwebui-network
+
   # Nginx Reverse Proxy + HTTPS
   nginx:
     image: nginx:alpine
