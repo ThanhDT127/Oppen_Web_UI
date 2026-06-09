@@ -15,6 +15,7 @@ llm-mw/users.local.json
 
 # Runtime data
 openwebui_data/
+backups/
 *.db
 *.db-*
 *.sqlite
