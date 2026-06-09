@@ -13,7 +13,11 @@ from fastapi import Request, HTTPException
 from pydantic import BaseModel
 
 from config import USERS_FILE, MW_SECRET, LOG_DIR, BACKUP_LOG_DIR, logger
-from core.auth import load_users, save_users, hash_subkey, find_user, delete_user as auth_delete_user, get_user_by_id
+from core.auth import (
+    load_users, save_users, hash_subkey, find_user,
+    delete_user as auth_delete_user, get_user_by_id, update_user_admin_fields,
+    create_user_record,
+)
 from threading import Lock
 import os
 from logging.handlers import RotatingFileHandler
@@ -132,12 +136,6 @@ async def create_user(request: Request):
         raise HTTPException(400, "Invalid role. Must be: admin, manager, or user")
     
     with _user_lock:
-        users = load_users()
-        
-        # Check if user_id already exists
-        if any(u["user_id"] == req.user_id for u in users):
-            raise HTTPException(409, f"User {req.user_id} already exists")
-        
         # Generate subkey
         subkey = _generate_subkey()
         subkey_hash = hash_subkey(subkey)
@@ -165,8 +163,9 @@ async def create_user(request: Request):
             }
         }
         
-        users.append(new_user)
-        save_users(users)
+        committed_user = create_user_record(new_user)
+        if not committed_user:
+            raise HTTPException(409, f"User {req.user_id} already exists")
         
         # Audit trail
         _write_admin_audit(
@@ -182,7 +181,7 @@ async def create_user(request: Request):
         
         return {
             "message": "User created successfully",
-            "user": _scrub_user(new_user),
+            "user": _scrub_user(committed_user),
             "subkey": subkey,  # ⚠️ Only returned once!
             "warning": "Save this subkey securely. It will not be shown again."
         }
@@ -201,6 +200,51 @@ async def update_user(request: Request, user_id: str):
         req = UpdateUserRequest(**body)
     except Exception as e:
         raise HTTPException(400, f"Invalid request: {e}")
+
+    if req.role is not None and req.role not in ["admin", "manager", "user"]:
+        raise HTTPException(400, "Invalid role")
+
+    quota_limits = {
+        key: value for key, value in {
+            "limit_tokens": req.limit_tokens,
+            "limit_cost_usd": req.limit_cost_usd,
+            "limit_image_requests": req.limit_image_requests,
+        }.items() if value is not None
+    }
+    changes = {}
+    if req.role is not None:
+        changes["role"] = req.role
+    if req.active is not None:
+        changes["active"] = req.active
+    if req.allowed_models is not None:
+        changes["allowed_models"] = req.allowed_models
+    changes.update(quota_limits)
+
+    if not changes:
+        return {"message": "No changes provided"}
+
+    committed_user = update_user_admin_fields(
+        user_id,
+        active=req.active,
+        allowed_models=req.allowed_models,
+        quota_limits=quota_limits,
+    )
+    if not committed_user:
+        raise HTTPException(404, f"User {user_id} not found")
+    if req.role is not None:
+        # Role persistence is handled by the separate unified-user change.
+        committed_user["role"] = req.role
+
+    _write_admin_audit(
+        actor="admin_session", action="update_user", target_user=user_id,
+        changes=changes, status="ok", request=request,
+    )
+    logger.info("Updated user with targeted write: %s - %s", user_id, changes)
+    return {
+        "message": "User updated successfully",
+        "user": _scrub_user(committed_user),
+        "changes": changes,
+    }
     
     with _user_lock:
         users = load_users()
@@ -273,6 +317,23 @@ async def rotate_user_key(request: Request, user_id: str):
     """
     from utils.auth_guard import require_admin_or_session
     require_admin_or_session(request)
+
+    new_subkey = _generate_subkey()
+    committed_user = update_user_admin_fields(
+        user_id, subkey_hash=hash_subkey(new_subkey), clear_subkey=True,
+    )
+    if not committed_user:
+        raise HTTPException(404, f"User {user_id} not found")
+    _write_admin_audit(
+        actor="admin_session", action="rotate_key", target_user=user_id,
+        changes={"key_rotated": True}, status="ok", request=request,
+    )
+    return {
+        "message": "Key rotated successfully",
+        "user_id": user_id,
+        "subkey": new_subkey,
+        "warning": "Save this subkey securely. The old key is now invalid.",
+    }
     
     with _user_lock:
         users = load_users()
@@ -319,6 +380,15 @@ async def disable_user(request: Request, user_id: str):
     """
     from utils.auth_guard import require_admin_or_session
     require_admin_or_session(request)
+
+    user = update_user_admin_fields(user_id, active=False)
+    if not user:
+        raise HTTPException(404, f"User {user_id} not found")
+    _write_admin_audit(
+        actor="admin_session", action="disable_user", target_user=user_id,
+        changes={"active": False}, status="ok", request=request,
+    )
+    return {"message": f"User {user_id} disabled successfully", "user": _scrub_user(user)}
     
     with _user_lock:
         users = load_users()
@@ -355,6 +425,15 @@ async def enable_user(request: Request, user_id: str):
     """
     from utils.auth_guard import require_admin_or_session
     require_admin_or_session(request)
+
+    user = update_user_admin_fields(user_id, active=True)
+    if not user:
+        raise HTTPException(404, f"User {user_id} not found")
+    _write_admin_audit(
+        actor="admin_session", action="enable_user", target_user=user_id,
+        changes={"active": True}, status="ok", request=request,
+    )
+    return {"message": f"User {user_id} enabled successfully", "user": _scrub_user(user)}
     
     with _user_lock:
         users = load_users()

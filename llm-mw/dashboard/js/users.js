@@ -5,6 +5,12 @@ import { mwFetch, updateStatus } from './utils.js';
 let _editingUserId = null; // null = create mode, string = edit mode
 let _usersCache = [];
 
+function formatUsd(value) {
+    const amount = Math.max(0, Number(value) || 0);
+    if (amount >= 1) return `$${amount.toFixed(2)}`;
+    return `$${amount.toFixed(6).replace(/0+$/, '').replace(/\.$/, '')}`;
+}
+
 export async function loadUsers() {
     const tbody = document.getElementById('usersTable');
     try {
@@ -53,7 +59,7 @@ export async function loadUsers() {
                         <div class="quota-gauge-fill" style="width: ${quotaPct}%; background: ${color}"></div>
                     </div>
                     <span class="quota-text" style="color: ${color}">${quotaPct.toFixed(0)}%</span>
-                    <span class="quota-detail">$${costUsed.toFixed(4)} / $${costLimit.toFixed(2)}</span>
+                    <span class="quota-detail">${formatUsd(costUsed)} / ${formatUsd(costLimit)}</span>
                 `;
             } else {
                 quotaBar = '<span class="quota-unlimited">∞ Unlimited</span>';
@@ -75,8 +81,8 @@ export async function loadUsers() {
                 <td>${statusBadge}</td>
                 <td class="models-cell" title="${models}">${models.length > 25 ? models.slice(0, 25) + '...' : models}</td>
                 <td>${period}</td>
-                <td class="cost">$${costUsed.toFixed(4)}</td>
-                <td>$${costLimit > 0 ? costLimit.toFixed(2) : '∞'}</td>
+                <td class="cost">${formatUsd(costUsed)}</td>
+                <td>${costLimit > 0 ? formatUsd(costLimit) : '∞'}</td>
                 <td class="quota-cell">${quotaBar}</td>
                 <td class="hash-cell" title="${hash}"><code>${maskedHash}</code></td>
                 <td class="actions-cell">

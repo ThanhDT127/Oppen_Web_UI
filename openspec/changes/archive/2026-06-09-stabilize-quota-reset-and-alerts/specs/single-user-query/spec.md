@@ -1,22 +1,4 @@
-## Purpose
-Define safe, targeted middleware user reads and mutations that preserve concurrent quota usage.
-
-## Requirements
-
-### Requirement: Get user by ID
-The system SHALL provide a function `get_user_by_id(user_id: str)` that retrieves a single user from the database using an indexed query (`SELECT ... WHERE user_id = %s`). The function SHALL return the user dict (same format as `load_users()` entries) or `None` if not found. When the database is unavailable, the function SHALL fallback to loading from JSON file and filtering.
-
-#### Scenario: User exists in database
-- **WHEN** `get_user_by_id("alice")` is called and user "alice" exists in `mw_users`
-- **THEN** the function returns a dict populated from the single DB row
-
-#### Scenario: User does not exist
-- **WHEN** `get_user_by_id("nonexistent")` is called and no such user exists
-- **THEN** the function returns `None`
-
-#### Scenario: Database unavailable - file fallback
-- **WHEN** the DB pool is not initialized and `get_user_by_id("alice")` is called
-- **THEN** the function loads users from JSON file, filters by `user_id`, and returns the matching user or `None`
+## MODIFIED Requirements
 
 ### Requirement: Atomic quota increment
 The system SHALL provide a function `update_user_quota(user_id: str, add_tokens: int = 0, add_cost_usd: float = 0.0, add_image_requests: int = 0, add_stt_requests: int = 0)` that atomically increments usage counters in the database using a targeted `UPDATE ... WHERE user_id = %s`. The function MUST NOT load or save the full user list. JSON backup snapshots SHALL be generated outside the request hot path from committed database state.
