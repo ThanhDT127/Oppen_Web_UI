@@ -13,7 +13,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD;
-const TEST_MODEL = 'chat-deepseek-v4-flash';
+const TEST_MODEL = 'chat-gemini-2.5-flash';
 
 // Load Benchmark Config
 const benchmark = loadBenchmark(path.resolve(__dirname, 'fixtures/rag_benchmark.yaml'));
@@ -24,18 +24,19 @@ const results: any[] = [];
 // Helper function to login
 async function loginAsAdmin(page: any) {
     console.log('Checking login status...');
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/', { waitUntil: 'networkidle' });
 
-    // If we see the user menu or chat input, we are likely already logged in
-    const userMenu = page.locator('#user-menu-button');
-    const chatInput = page.locator('#chat-input');
-    if (await userMenu.isVisible() || await chatInput.isVisible()) {
+    // Stronger check for login status
+    const isLoggedIn = await page.evaluate(() => {
+        return !!localStorage.getItem('token') || !!document.querySelector('#user-menu-button');
+    });
+
+    if (isLoggedIn) {
         console.log('Already logged in.');
         return;
     }
 
-    console.log('Navigating to login page...');
+    console.log('Not logged in. Navigating to login page...');
     await page.goto('/auth');
     await page.waitForLoadState('networkidle');
 
@@ -43,7 +44,9 @@ async function loginAsAdmin(page: any) {
     await page.getByPlaceholder(/password/i).fill(ADMIN_PASSWORD!);
     await page.getByRole('button', { name: /sign in/i }).click();
 
+    // Wait for the URL to change and the main UI to load
     await page.waitForURL(url => !url.pathname.includes('/auth'), { timeout: 30000 });
+    await page.locator('#user-menu-button, #chat-input').first().waitFor({ state: 'visible' });
     console.log('Login confirmed.');
 }
 
@@ -77,7 +80,7 @@ async function uploadFilesToKB(page: any, kbName: string, files: {path: string, 
     if (!page.url().match(/\/workspace\/knowledge\/[a-zA-Z0-9-]+/)) {
         await page.goto('/workspace/knowledge');
         await page.waitForLoadState('networkidle');
-        const kbItem = page.getByRole('button').filter({ hasText: kbName }).first();
+        const kbItem = page.locator('div, tr').filter({ hasText: kbName }).first();
         await kbItem.click();
     }
 
@@ -91,45 +94,76 @@ async function uploadFilesToKB(page: any, kbName: string, files: {path: string, 
 
         const fileInput = page.locator('input[type="file"]');
         await fileInput.waitFor({ state: 'attached', timeout: 15000 });
-        await fileInput.setInputFiles(absolutePath);
 
-        // Wait for the document to appear in the list
+        // Wait for specific network response after upload
+        const uploadPromise = page.waitForResponse(resp => 
+            resp.url().includes('/api/v1/files/') && resp.status() === 200, 
+            { timeout: 60000 }
+        );
+
+        await fileInput.setInputFiles(absolutePath);
+        await uploadPromise;
+        console.log(`Upload request finished for ${fileName}`);
+
+        // Wait for the document to appear in the list and BE VISIBLE
         await page.getByText(fileName).first().waitFor({ state: 'visible', timeout: 60000 });
+        console.log(`File ${fileName} is now visible in the list.`);
     }
 }
 
 // Helper to wait for indexing
 async function waitForIndexing(page: any) {
-    console.log('Waiting for indexing to complete...');
-    await page.waitForTimeout(3000);
+    console.log('Waiting for indexing to start...');
+    // Initial wait to allow UI to react and show indexing indicators
+    await page.waitForTimeout(5000);
     
-    const timeout = 180000; 
+    const timeout = 300000; // Increased to 5 mins for larger files
     const start = Date.now();
     let isIndexing = true;
+    let foundIndexingIndicator = false;
 
+    console.log('Polling for indexing status...');
     while (Date.now() - start < timeout && isIndexing) {
+        // 1. Check for errors
         const errorToast = page.locator('.toast, .notification, [role="alert"]').filter({ hasText: /error|failed|could not|limit/i }).first();
         if (await errorToast.isVisible()) {
             const errorMsg = await errorToast.innerText();
             throw new Error(`Indexing process failed with UI error: ${errorMsg}`);
         }
 
+        // 2. Count indicators
         const processingText = await page.locator('text=/pending|processing|uploading|indexing/i').count();
         const spinners = await page.locator('.animate-spin, svg.animate-spin').count();
         
-        if (processingText === 0 && spinners === 0) {
+        if (processingText > 0 || spinners > 0) {
+            if (!foundIndexingIndicator) {
+                console.log('Detected indexing activity.');
+                foundIndexingIndicator = true;
+            }
+            await page.waitForTimeout(5000);
+            continue;
+        }
+
+        // 3. If no indicators found, verify if we just haven't started or if we are done
+        if (foundIndexingIndicator) {
+            // We were indexing and now we are not. Let's double check after a short delay.
             await page.waitForTimeout(3000);
-            const checkAgainText = await page.locator('text=/pending|processing|uploading|indexing/i').count();
-            if (checkAgainText === 0) {
+            const finalCheck = await page.locator('text=/pending|processing|uploading|indexing/i').count();
+            if (finalCheck === 0) {
                 console.log('Indexing complete.');
                 isIndexing = false;
             }
         } else {
-            await page.waitForTimeout(5000);
+            // Haven't seen an indicator yet, wait more or consider done if long enough
+            if (Date.now() - start > 15000) {
+                console.log('No indexing activity detected for 15s. Assuming done or small file.');
+                isIndexing = false;
+            }
+            await page.waitForTimeout(2000);
         }
     }
 
-    if (isIndexing) throw new Error('Indexing timed out after 3 minutes');
+    if (isIndexing) throw new Error('Indexing timed out');
 }
 
 // Helper to delete KB

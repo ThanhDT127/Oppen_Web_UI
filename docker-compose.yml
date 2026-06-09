@@ -170,6 +170,12 @@ services:
     container_name: openwebui-docling
     environment:
       - UVICORN_WORKERS=1
+      - DOCLING_SERVE_MAX_SYNC_WAIT=600
+      - DOCLING_SERVE_DEFAULT_OCR_ENGINE=paddleocr
+      - DOCLING_SERVE_DEFAULT_OCR_LANGS=vi,en
+      - DOCLING_SERVE_OCR_LANGS=vi,en
+      - OCR_LANGS=vi,en
+      - PADDLE_LANG=vi
     healthcheck:
       test: [ "CMD-SHELL", "curl --fail http://localhost:5001/health || exit 1" ]
       interval: 30s
@@ -179,7 +185,7 @@ services:
     restart: unless-stopped
     deploy:
       resources:
-        limits: { memory: 2G, cpus: '2' }
+        limits: { memory: 4G, cpus: '6' }
     networks:
       - openwebui-network
 
@@ -201,10 +207,16 @@ services:
 
       # Embeddings using Gemini via LiteLLM (openai-compatible)
       - RAG_EMBEDDING_ENGINE=openai
-      - RAG_EMBEDDING_MODEL=gemini-embedding-001
+      - RAG_EMBEDDING_MODEL=gemini-embedding-2
       # Embedding connects through middleware for cost tracking & quota control
       - RAG_EMBEDDING_OPENAI_API_BASE_URL=http://middleware:5000/v1
       - RAG_EMBEDDING_OPENAI_API_KEY=${SUBKEY_ADMIN}
+
+      # Reranking using Cohere via LiteLLM
+      - RAG_RERANKING_ENGINE=external
+      - RAG_EXTERNAL_RERANKER_URL=http://middleware:5000/v1/rerank
+      - RAG_RERANKING_MODEL=cohere/rerank-v3.5
+      - RAG_RERANKING_OPENAI_API_KEY=${SUBKEY_ADMIN}
 
       # RAG Configuration
       - ENABLE_RAG=true
