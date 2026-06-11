@@ -750,6 +750,78 @@ async def chat_completions(request: Request):
     if is_image_model:
         return await _handle_image_as_chat(request, user, model, body)
     
+    # --- RAG Context Cleaning: Materialize Base64 images in messages ---
+    messages = body.get("messages")
+    logger.info("rag_debug: processing %d messages", len(messages) if isinstance(messages, list) else 0)
+    
+    if isinstance(messages, list):
+        from utils.media import maybe_materialize_data_url, maybe_materialize_image_items
+        import re
+        
+        for i, msg in enumerate(messages):
+            if not isinstance(msg, dict):
+                continue
+            role = msg.get("role")
+            content = msg.get("content")
+            
+            if isinstance(content, str):
+                # Debug: log first 100 chars of message
+                logger.info("rag_debug: msg[%d] role=%s len=%d preview='%s...'", i, role, len(content), content[:100].replace("\n", " "))
+                
+                # Check for "data:image/" anywhere
+                if "data:image/" in content:
+                    logger.info("rag_debug: found 'data:image/' in msg[%d]", i)
+                    found = False
+                    start_search = 0
+                    while True:
+                        idx = content.find("data:image/", start_search)
+                        if idx == -1:
+                            break
+                        
+                        # Find the end of the base64 string
+                        end_idx = len(content)
+                        # Terminate at typical non-base64 chars or markdown/json structures
+                        for char in [" ", "'", "\"", ")", "]", "}", "\n", "\t", "\\", ">"]:
+                            term_idx = content.find(char, idx)
+                            if term_idx != -1 and term_idx < end_idx:
+                                end_idx = term_idx
+                        
+                        data_url = content[idx:end_idx].strip()
+                        data_url = data_url.rstrip(".,;)]}>\\")
+                        
+                        if ";base64," in data_url and len(data_url) > 50:
+                            try:
+                                logger.info("rag_debug: materializing base64 (len=%d)", len(data_url))
+                                public_url = maybe_materialize_data_url(request, url=data_url)
+                                if public_url != data_url:
+                                    # Replace THIS SPECIFIC instance
+                                    content = content[:idx] + public_url + content[end_idx:]
+                                    logger.info("rag_materialize: replaced base64 with %s", public_url)
+                                    found = True
+                                    # Move search pointer past the NEW public_url
+                                    start_search = idx + len(public_url)
+                                else:
+                                    start_search = idx + len(data_url)
+                            except Exception as e:
+                                logger.error("rag_materialize_error: %s", e)
+                                start_search = idx + len(data_url)
+                        else:
+                            start_search = idx + len(data_url)
+                    
+                    if found:
+                        msg["content"] = content
+                
+                # FALLBACK: Detect raw Base64 blocks if they are very long and look like images
+                # (Some parsers might strip the data: prefix)
+                elif len(content) > 10000 and role == "user":
+                    # Simple heuristic: if a message has a massive block of alphanumeric chars
+                    # that isn't normal text, it might be a raw base64 image.
+                    pass 
+
+            elif isinstance(content, list):
+                logger.info("rag_debug: msg[%d] is multimodal list", i)
+                maybe_materialize_image_items(request, content)
+
     # Initialize audit state early
     rid = init_audit_state(request, user["user_id"], "/v1/chat/completions", model)
 

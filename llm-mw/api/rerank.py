@@ -131,17 +131,21 @@ async def rerank(request: Request):
         cost_usd=cost_usd,
     )
     
-    write_audit_line({
-        "ts": datetime.now(timezone.utc).isoformat(),
-        "user": user_id,
-        "model": model,
-        "endpoint": "rerank",
-        "rid": rid,
-        "prompt_tokens": total_tokens,
-        "completion_tokens": 0,
-        "cost_usd": cost_usd,
-        "status": "ok",
-    })
+    try:
+        write_audit_line({
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "user_id": user_id,
+            "model": model,
+            "endpoint": "rerank",
+            "rid": rid,
+            "tokens_in": total_tokens,
+            "tokens_out": 0,
+            "tokens_total": total_tokens,
+            "cost_usd": cost_usd,
+            "status": "ok",
+        })
+    except Exception as e:
+        logger.error("rerank_audit_fail: %s", e)
     
     logger.info(
         "rerank_done rid=%s user=%s model=%s tokens=%d cost=%.6f",

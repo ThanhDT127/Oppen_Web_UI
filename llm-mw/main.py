@@ -22,6 +22,7 @@ from api.audio import transcribe_audio
 from api.embeddings import create_embeddings
 from api.rerank import rerank
 from api.media import serve_media
+from api.docling import docling_proxy
 from api.admin import get_usage, reset_quota, reconcile_usage
 from api.summary import get_summary
 from api.summary_v2 import get_summary_v2
@@ -166,6 +167,10 @@ app.add_api_route("/v1/audio/transcriptions", transcribe_audio, methods=["POST"]
 
 # Media serving
 app.add_api_route("/v1/_mw/media/{name}", serve_media, methods=["GET"])
+
+# Docling Proxy (catch-all)
+app.add_api_route("/docling-proxy/{path:path}", docling_proxy, methods=["GET", "POST", "PUT", "DELETE"])
+app.add_api_route("/docling-proxy", docling_proxy, methods=["GET", "POST", "PUT", "DELETE"])
 
 # Admin endpoints
 app.add_api_route("/admin/usage", get_usage, methods=["GET"])
