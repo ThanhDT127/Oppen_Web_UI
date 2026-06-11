@@ -218,7 +218,7 @@ services:
       # Reranking using Cohere via LiteLLM
       - RAG_RERANKING_ENGINE=external
       - RAG_EXTERNAL_RERANKER_URL=http://middleware:5000/v1/rerank
-      - RAG_RERANKING_MODEL=cohere/rerank-4-fast
+      - RAG_RERANKING_MODEL=cohere/rerank-v3.5
       - RAG_RERANKING_OPENAI_API_KEY=${SUBKEY_ADMIN}
 
       # RAG Configuration
