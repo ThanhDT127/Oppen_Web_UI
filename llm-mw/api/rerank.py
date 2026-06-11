@@ -41,7 +41,8 @@ def _calc_rerank_cost(model: str, total_tokens: int, prices: dict) -> float:
 async def rerank(request: Request):
     """
     POST /v1/rerank
-    Proxies rerank requests to LiteLLM with auth, quota enforcement, and cost tracking.
+    Proxies rerank requests with auth, quota enforcement, and cost tracking.
+    Supports LiteLLM (default) and direct OpenRouter calls.
     """
     # ── Auth ──
     user = require_user(request)
@@ -68,24 +69,46 @@ async def rerank(request: Request):
         rid, user_id, model
     )
     
-    # ── Forward to LiteLLM ──
-    # LiteLLM handles /rerank endpoint which is Cohere-compatible
-    url = f"{LITELLM_BASE}/rerank"
-    headers = {
-        "Authorization": f"Bearer {LITELLM_KEY}",
-        "Content-Type": "application/json",
-        "X-Request-ID": rid,
-    }
+    # ── Decide routing ──
+    # If model starts with 'openrouter/' or is a known openrouter model, proxy directly
+    is_openrouter = (
+        model.startswith("openrouter/") or 
+        ":free" in model or 
+        "llama-nemotron-rerank" in model
+    )
+    
+    if is_openrouter:
+        # Direct OpenRouter Proxy
+        import os
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        if not openrouter_key:
+            raise HTTPException(500, "OPENROUTER_API_KEY not configured in middleware")
+            
+        url = "https://openrouter.ai/api/v1/rerank"
+        headers = {
+            "Authorization": f"Bearer {openrouter_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://openwebui.rangdong.com.vn", # Required by OpenRouter
+            "X-Title": "Oppen WebUI Middleware",
+        }
+    else:
+        # Standard LiteLLM Forwarding
+        url = f"{LITELLM_BASE}/rerank"
+        headers = {
+            "Authorization": f"Bearer {LITELLM_KEY}",
+            "Content-Type": "application/json",
+            "X-Request-ID": rid,
+        }
     
     try:
         client: httpx.AsyncClient = request.app.state.http_client
         resp = await client.post(url, json=body, headers=headers, timeout=60.0)
     except httpx.TimeoutException:
-        set_error_state(request, "timeout", "LiteLLM rerank timeout")
+        set_error_state(request, "timeout", "Rerank upstream timeout")
         raise HTTPException(504, "Rerank request timeout")
     except Exception as e:
         set_error_state(request, "connection", str(e))
-        raise HTTPException(502, f"LiteLLM connection error: {e}")
+        raise HTTPException(502, f"Upstream connection error: {e}")
     
     if resp.status_code != 200:
         error_text = resp.text[:500]
@@ -94,16 +117,24 @@ async def rerank(request: Request):
             rid, resp.status_code, error_text
         )
         set_error_state(request, "upstream", error_text)
-        return JSONResponse(content=resp.json(), status_code=resp.status_code)
+        # Try to return the JSON error if possible
+        try:
+            return JSONResponse(content=resp.json(), status_code=resp.status_code)
+        except Exception:
+            return Response(content=resp.content, status_code=resp.status_code)
     
     # ── Parse response ──
     result = resp.json()
     
-    # LiteLLM usage in rerank response might differ or be in headers
+    # Calculate usage (tokens/units)
     usage = result.get("meta", {}).get("billed_units", {})
-    # For rerank, sometimes tokens are used, sometimes units (documents * search)
-    # We'll use billed_units if available, or estimate
+    if not usage:
+        usage = result.get("usage", {})
+        
     total_tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+    if total_tokens == 0:
+        total_tokens = usage.get("total_tokens", 0)
+        
     if total_tokens == 0:
         # Fallback: estimate based on documents
         num_docs = len(body.get("documents", []))
