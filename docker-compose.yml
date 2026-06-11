@@ -177,6 +177,7 @@ services:
       - DOCLING_SERVE_OCR_LANGS=vi,en
       - OCR_LANGS=vi,en
       - PADDLE_LANG=vi
+      - DOCLING_SERVE_IMAGE_EXPORT=true
     healthcheck:
       test: [ "CMD-SHELL", "curl --fail http://localhost:5001/health || exit 1" ]
       interval: 30s
@@ -244,7 +245,8 @@ services:
 
       # Document Extraction Engine — Docling (replaces Tika)
       - CONTENT_EXTRACTION_ENGINE=docling
-      - DOCLING_API_BASE_URL=http://docling:5001
+      - DOCLING_SERVER_URL=http://middleware:5000/docling-proxy
+      - DOCLING_PARAMS={"image_export_mode":"embedded"}
 
       # Timezone
       - TZ=Asia/Ho_Chi_Minh
