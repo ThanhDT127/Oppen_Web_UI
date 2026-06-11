@@ -70,12 +70,18 @@ async def rerank(request: Request):
     )
     
     # ── Decide routing ──
-    # If model starts with 'openrouter/' or is a known openrouter model, proxy directly
+    # If model is from OpenRouter or is a Cohere rerank model, proxy directly
+    # (LiteLLM current version has issues with OpenRouter Rerank)
     is_openrouter = (
         model.startswith("openrouter/") or 
+        "cohere/rerank" in model or
         ":free" in model or 
         "llama-nemotron-rerank" in model
     )
+    
+    # Strip openrouter/ prefix for the upstream request if present
+    upstream_model = model.replace("openrouter/", "")
+    body["model"] = upstream_model
     
     if is_openrouter:
         # Direct OpenRouter Proxy

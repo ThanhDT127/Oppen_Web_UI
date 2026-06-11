@@ -91,6 +91,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - MW_SECRET=${MW_SECRET}
       - MW_PUBLIC_URL=https://openwebui.example.com:51122
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - DATABASE_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:-YOUR_DB_PASSWORD}@postgres:5432/middleware
       - TZ=Asia/Ho_Chi_Minh
@@ -217,7 +218,7 @@ services:
       # Reranking using Cohere via LiteLLM
       - RAG_RERANKING_ENGINE=external
       - RAG_EXTERNAL_RERANKER_URL=http://middleware:5000/v1/rerank
-      - RAG_RERANKING_MODEL=openrouter/cohere/rerank-v3.5
+      - RAG_RERANKING_MODEL=cohere/rerank-4-fast
       - RAG_RERANKING_OPENAI_API_KEY=${SUBKEY_ADMIN}
 
       # RAG Configuration
@@ -230,7 +231,7 @@ services:
       - RAG_FILE_MAX_COUNT=20
 
       # Embedding batch size (reduced for Gemini API rate limits)
-      - RAG_EMBEDDING_BATCH_SIZE=50
+      - RAG_EMBEDDING_BATCH_SIZE=1
 
       # LLM Connection via Middleware
       - OPENAI_API_BASE_URL=http://middleware:5000/v1
