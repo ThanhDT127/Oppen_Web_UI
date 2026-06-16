@@ -131,6 +131,8 @@ _SCHEMA_SQL = """
 -- Users table (replaces users.json)
 CREATE TABLE IF NOT EXISTS mw_users (
     user_id        TEXT PRIMARY KEY,
+    role           TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+    openwebui_user_id TEXT UNIQUE,
     subkey         TEXT,
     subkey_hash    TEXT,
     active         BOOLEAN DEFAULT true,
@@ -191,6 +193,9 @@ CREATE INDEX IF NOT EXISTS idx_audit_ts ON mw_audit_log(ts);
 CREATE INDEX IF NOT EXISTS idx_audit_user ON mw_audit_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_rid ON mw_audit_log(rid);
 
+ALTER TABLE mw_audit_log ADD COLUMN IF NOT EXISTS auth_source TEXT;
+ALTER TABLE mw_audit_log ADD COLUMN IF NOT EXISTS openwebui_user_id TEXT;
+
 -- Request detail log (replaces middleware.requests.log)
 CREATE TABLE IF NOT EXISTS mw_request_log (
     id      BIGSERIAL PRIMARY KEY,
@@ -226,6 +231,23 @@ CREATE TABLE IF NOT EXISTS mw_quota_alert_claims (
     created_at   TIMESTAMPTZ DEFAULT now(),
     PRIMARY KEY (user_id, period_start, threshold, alert_type)
 );
+
+CREATE TABLE IF NOT EXISTS mw_migrations (
+    migration_key TEXT PRIMARY KEY,
+    details       JSONB NOT NULL DEFAULT '{}'::jsonb,
+    applied_at    TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE mw_users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user';
+ALTER TABLE mw_users ADD COLUMN IF NOT EXISTS openwebui_user_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mw_users_openwebui_user_id
+    ON mw_users(openwebui_user_id) WHERE openwebui_user_id IS NOT NULL;
+UPDATE mw_users SET role = 'user' WHERE role = 'manager' OR role IS NULL;
+ALTER TABLE mw_users DROP CONSTRAINT IF EXISTS mw_users_role_check;
+ALTER TABLE mw_users ADD CONSTRAINT mw_users_role_check CHECK (role IN ('admin', 'user'));
+INSERT INTO mw_migrations (migration_key, details)
+VALUES ('2026-06-10-manager-role-to-user', '{"manager_role_migrated_to":"user"}'::jsonb)
+ON CONFLICT (migration_key) DO NOTHING;
 """
 
 
@@ -306,12 +328,14 @@ def _import_users(conn, cur, data_dir: str, fallback_dir: str = None):
 
     for u in users:
         cur.execute("""
-            INSERT INTO mw_users (user_id, subkey, subkey_hash, active, allowed_models,
-                                  used_tokens, used_cost_usd, quota, alerts_sent)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO mw_users (user_id, role, openwebui_user_id, subkey, subkey_hash,
+                                  active, allowed_models, used_tokens, used_cost_usd, quota, alerts_sent)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (user_id) DO NOTHING
         """, (
             u.get("user_id"),
+            "user" if u.get("role") == "manager" else u.get("role", "user"),
+            u.get("openwebui_user_id"),
             u.get("subkey"),
             u.get("subkey_hash"),
             u.get("active", True),
@@ -431,10 +455,10 @@ def insert_audit_log(data: dict):
                     (ts, rid, user_id, endpoint, model, purpose, status,
                      status_code, latency_ms, tokens_in, tokens_out, tokens_total,
                      cost_usd, image_count, tts_chars, stt_seconds, video_count,
-                     error_type, error_message)
+                     error_type, error_message, auth_source, openwebui_user_id)
                 VALUES (
                     COALESCE(%s::timestamptz, now()), %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
             """, (
                 data.get("ts"),
@@ -456,6 +480,8 @@ def insert_audit_log(data: dict):
                 data.get("video_count"),
                 data.get("error_type"),
                 data.get("error_message"),
+                data.get("auth_source"),
+                data.get("openwebui_user_id"),
             ))
             cur.close()
     except Exception as e:
@@ -479,13 +505,13 @@ def insert_request_log(payload: dict):
 # ─── Single-user query functions (O(1) indexed) ─────────────
 
 _USER_COLUMNS = (
-    "user_id", "subkey", "subkey_hash", "active", "allowed_models",
-    "used_tokens", "used_cost_usd", "quota", "alerts_sent"
+    "user_id", "role", "openwebui_user_id", "subkey", "subkey_hash", "active",
+    "allowed_models", "used_tokens", "used_cost_usd", "quota", "alerts_sent"
 )
 
 _USER_SELECT = """
-    SELECT user_id, subkey, subkey_hash, active, allowed_models,
-           used_tokens, used_cost_usd, quota, alerts_sent
+    SELECT user_id, role, openwebui_user_id, subkey, subkey_hash, active,
+           allowed_models, used_tokens, used_cost_usd, quota, alerts_sent
     FROM mw_users
 """
 
@@ -496,14 +522,16 @@ def _row_to_user_dict(row) -> Optional[Dict[str, Any]]:
         return None
     return {
         "user_id": row[0],
-        "subkey": row[1],
-        "subkey_hash": row[2],
-        "active": row[3],
-        "allowed_models": row[4] if row[4] else ["*"],
-        "used_tokens": row[5] or 0,
-        "used_cost_usd": row[6] or 0.0,
-        "quota": row[7] if row[7] else {},
-        "alerts_sent": row[8] if row[8] else {},
+        "role": row[1] or "user",
+        "openwebui_user_id": row[2],
+        "subkey": row[3],
+        "subkey_hash": row[4],
+        "active": row[5],
+        "allowed_models": row[6] if row[6] else ["*"],
+        "used_tokens": row[7] or 0,
+        "used_cost_usd": row[8] or 0.0,
+        "quota": row[9] if row[9] else {},
+        "alerts_sent": row[10] if row[10] else {},
     }
 
 
@@ -521,6 +549,20 @@ def get_user_by_id_db(user_id: str) -> Optional[Dict[str, Any]]:
         return _row_to_user_dict(row)
     except Exception as e:
         logger.error("get_user_by_id_db failed user=%s: %s", user_id, str(e))
+        return None
+
+
+def get_user_by_openwebui_id_db(openwebui_user_id: str) -> Optional[Dict[str, Any]]:
+    """Get one middleware user by unique Open WebUI UUID mapping."""
+    try:
+        with db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(_USER_SELECT + " WHERE openwebui_user_id = %s", (openwebui_user_id,))
+            row = cur.fetchone()
+            cur.close()
+        return _row_to_user_dict(row)
+    except Exception as e:
+        logger.error("get_user_by_openwebui_id_db failed openwebui_user=%s: %s", openwebui_user_id, str(e))
         return None
 
 
@@ -627,8 +669,8 @@ def reset_user_quota_period_db(user_id: str, period_start: int) -> Optional[Dict
                     updated_at = now()
                 WHERE user_id = %s
                   AND COALESCE((quota->>'period_start')::bigint, 0) < %s
-                RETURNING user_id, subkey, subkey_hash, active, allowed_models,
-                          used_tokens, used_cost_usd, quota, alerts_sent
+                RETURNING user_id, role, openwebui_user_id, subkey, subkey_hash,
+                          active, allowed_models, used_tokens, used_cost_usd, quota, alerts_sent
             """, (period_start, user_id, period_start))
             row = cur.fetchone()
             if not row:
@@ -660,8 +702,8 @@ def clear_user_quota_usage_db(user_id: str) -> Optional[Dict[str, Any]]:
                     ),
                     updated_at = now()
                 WHERE user_id = %s
-                RETURNING user_id, subkey, subkey_hash, active, allowed_models,
-                          used_tokens, used_cost_usd, quota, alerts_sent
+                RETURNING user_id, role, openwebui_user_id, subkey, subkey_hash,
+                          active, allowed_models, used_tokens, used_cost_usd, quota, alerts_sent
             """, (user_id,))
             row = cur.fetchone()
             cur.close()
@@ -679,6 +721,9 @@ def update_user_admin_fields_db(
     quota_limits: Optional[Dict[str, Any]] = None,
     subkey_hash=None,
     clear_subkey: bool = False,
+    role=None,
+    openwebui_user_id=None,
+    update_openwebui_mapping: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Targeted admin update that never replaces quota usage counters."""
     sets = []
@@ -686,6 +731,12 @@ def update_user_admin_fields_db(
     if active is not None:
         sets.append("active = %s")
         params.append(active)
+    if role is not None:
+        sets.append("role = %s")
+        params.append(role)
+    if update_openwebui_mapping:
+        sets.append("openwebui_user_id = %s")
+        params.append(openwebui_user_id)
     if allowed_models is not None:
         sets.append("allowed_models = %s")
         params.append(json.dumps(allowed_models))
@@ -710,8 +761,8 @@ def update_user_admin_fields_db(
             cur = conn.cursor()
             cur.execute(
                 f"UPDATE mw_users SET {', '.join(sets)} WHERE user_id = %s "
-                "RETURNING user_id, subkey, subkey_hash, active, allowed_models, "
-                "used_tokens, used_cost_usd, quota, alerts_sent",
+                "RETURNING user_id, role, openwebui_user_id, subkey, subkey_hash, "
+                "active, allowed_models, used_tokens, used_cost_usd, quota, alerts_sent",
                 (*params, user_id),
             )
             row = cur.fetchone()
@@ -729,14 +780,15 @@ def create_user_db(user: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO mw_users
-                    (user_id, subkey, subkey_hash, active, allowed_models,
+                    (user_id, role, openwebui_user_id, subkey, subkey_hash, active, allowed_models,
                      used_tokens, used_cost_usd, quota, alerts_sent)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (user_id) DO NOTHING
-                RETURNING user_id, subkey, subkey_hash, active, allowed_models,
-                          used_tokens, used_cost_usd, quota, alerts_sent
+                RETURNING user_id, role, openwebui_user_id, subkey, subkey_hash,
+                          active, allowed_models, used_tokens, used_cost_usd, quota, alerts_sent
             """, (
-                user.get("user_id"), user.get("subkey"), user.get("subkey_hash"),
+                user.get("user_id"), user.get("role", "user"), user.get("openwebui_user_id"),
+                user.get("subkey"), user.get("subkey_hash"),
                 user.get("active", True), json.dumps(user.get("allowed_models", ["*"])),
                 user.get("used_tokens", 0), user.get("used_cost_usd", 0.0),
                 json.dumps(user.get("quota", {})), json.dumps(user.get("alerts_sent", {})),

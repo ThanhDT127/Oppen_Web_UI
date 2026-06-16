@@ -78,7 +78,7 @@ def _scrub_user(user: Dict[str, Any]) -> Dict[str, Any]:
 # Request/Response models
 class CreateUserRequest(BaseModel):
     user_id: str
-    role: str = "user"  # admin | manager | user
+    role: str = "user"  # admin | user
     allowed_models: List[str] = ["*"]
     limit_tokens: int = 0  # 0 = unlimited
     limit_cost_usd: float = 0.0
@@ -94,6 +94,10 @@ class UpdateUserRequest(BaseModel):
     limit_tokens: Optional[int] = None
     limit_cost_usd: Optional[float] = None
     limit_image_requests: Optional[int] = None
+
+
+class MapOpenWebUIUserRequest(BaseModel):
+    openwebui_user_id: Optional[str] = None
 
 
 # ============================================================================
@@ -132,8 +136,8 @@ async def create_user(request: Request):
         raise HTTPException(400, f"Invalid request: {e}")
     
     # Validate role
-    if req.role not in ["admin", "manager", "user"]:
-        raise HTTPException(400, "Invalid role. Must be: admin, manager, or user")
+    if req.role not in ["admin", "user"]:
+        raise HTTPException(400, "Invalid role. Must be: admin or user")
     
     with _user_lock:
         # Generate subkey
@@ -201,7 +205,7 @@ async def update_user(request: Request, user_id: str):
     except Exception as e:
         raise HTTPException(400, f"Invalid request: {e}")
 
-    if req.role is not None and req.role not in ["admin", "manager", "user"]:
+    if req.role is not None and req.role not in ["admin", "user"]:
         raise HTTPException(400, "Invalid role")
 
     quota_limits = {
@@ -228,13 +232,10 @@ async def update_user(request: Request, user_id: str):
         active=req.active,
         allowed_models=req.allowed_models,
         quota_limits=quota_limits,
+        role=req.role,
     )
     if not committed_user:
         raise HTTPException(404, f"User {user_id} not found")
-    if req.role is not None:
-        # Role persistence is handled by the separate unified-user change.
-        committed_user["role"] = req.role
-
     _write_admin_audit(
         actor="admin_session", action="update_user", target_user=user_id,
         changes=changes, status="ok", request=request,
@@ -245,6 +246,38 @@ async def update_user(request: Request, user_id: str):
         "user": _scrub_user(committed_user),
         "changes": changes,
     }
+
+
+def reconciliation_report(request: Request):
+    """Return a read-only identity reconciliation report."""
+    from utils.auth_guard import require_admin_or_session
+    from core.identity import build_reconciliation_report
+    require_admin_or_session(request)
+    return build_reconciliation_report()
+
+
+async def map_openwebui_user(request: Request, user_id: str):
+    """Explicitly confirm, change, or clear an Open WebUI identity mapping."""
+    from utils.auth_guard import require_admin_or_session
+    from core.identity import set_user_mapping
+    require_admin_or_session(request)
+    try:
+        req = MapOpenWebUIUserRequest(**(await request.json()))
+        if req.openwebui_user_id:
+            user = set_user_mapping(user_id, req.openwebui_user_id)
+        else:
+            user = update_user_admin_fields(
+                user_id, openwebui_user_id=None, update_openwebui_mapping=True,
+            )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    if not user:
+        raise HTTPException(404, f"User {user_id} not found")
+    _write_admin_audit(
+        actor="admin_session", action="map_openwebui_user", target_user=user_id,
+        changes={"openwebui_user_id": req.openwebui_user_id}, status="ok", request=request,
+    )
+    return {"message": "Mapping updated", "user": _scrub_user(user)}
     
     with _user_lock:
         users = load_users()
@@ -258,7 +291,7 @@ async def update_user(request: Request, user_id: str):
         
         # Update role
         if req.role is not None:
-            if req.role not in ["admin", "manager", "user"]:
+            if req.role not in ["admin", "user"]:
                 raise HTTPException(400, "Invalid role")
             user["role"] = req.role
             changes["role"] = req.role

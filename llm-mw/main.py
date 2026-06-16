@@ -30,7 +30,7 @@ from api.audit_query import parse_audit_filters
 from api.user_admin import (
     list_users, create_user, update_user, 
     rotate_user_key, disable_user, enable_user, get_admin_audit,
-    delete_user_endpoint
+    delete_user_endpoint, reconciliation_report, map_openwebui_user
 )
 from api.dashboard_login import dashboard_login, dashboard_logout
 from api.auth_check import get_auth_check
@@ -190,6 +190,8 @@ app.add_api_route("/v1/_mw/admin/users/{user_id}/rotate_key", rotate_user_key, m
 app.add_api_route("/v1/_mw/admin/users/{user_id}/disable", disable_user, methods=["POST"])
 app.add_api_route("/v1/_mw/admin/users/{user_id}/enable", enable_user, methods=["POST"])
 app.add_api_route("/v1/_mw/admin/audit", get_admin_audit, methods=["GET"])
+app.add_api_route("/v1/_mw/admin/users/reconciliation", reconciliation_report, methods=["GET"])
+app.add_api_route("/v1/_mw/admin/users/{user_id}/openwebui-mapping", map_openwebui_user, methods=["PUT"])
 
 # Quota status & Alert endpoints
 app.add_api_route("/v1/_mw/quota-status", get_quota_status, methods=["GET"])

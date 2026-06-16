@@ -90,6 +90,7 @@ services:
       - ADMIN_KEY=${ADMIN_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - MW_SECRET=${MW_SECRET}
+      - OPENWEBUI_SERVICE_KEY=${SUBKEY_ADMIN}
       - MW_PUBLIC_URL=https://openwebui.example.com:51122
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - DATABASE_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:-YOUR_DB_PASSWORD}@postgres:5432/middleware
@@ -240,6 +241,7 @@ services:
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
       - ENABLE_SIGNUP=true
       - DEFAULT_USER_ROLE=pending
+      - ENABLE_FORWARD_USER_INFO_HEADERS=true
       - PORT=8080
 
       # WebSocket Manager — required for UVICORN_WORKERS > 1 (Socket.IO state sync via Redis)
