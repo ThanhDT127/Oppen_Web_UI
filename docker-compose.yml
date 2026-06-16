@@ -100,6 +100,7 @@ services:
       - ./llm-mw/prices.json:/app/data/prices.json:ro
       - ./llm-mw/data/alert_config.json:/app/data/alert_config.json
       - ./llm-mw/data/system_alerts.json:/app/data/system_alerts.json
+      - ./llm-mw/dashboard:/app/dashboard
       - ./logs:/app/../logs
     # Port closed — accessed through Nginx
     # ports:
