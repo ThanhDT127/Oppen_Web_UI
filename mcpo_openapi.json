@@ -1,0 +1,9 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MCP OpenAPI Proxy",
+    "description": "Automatically generated API from MCP Tool Schemas\n\n- **available tools**\uff1a\n    - [figma](/figma/docs)\n    - [gmail](/gmail/docs)\n    - [office365](/office365/docs)\n    - [google-calendar](/google-calendar/docs)\n    - [google-drive](/google-drive/docs)\n    - [github](/github/docs)\n    - [playwright](/playwright/docs)\n    - [gitlab](/gitlab/docs)\n    - [notion](/notion/docs)\n    - [fetch](/fetch/docs)\n    - [postgres](/postgres/docs)\n    - [sequential-thinking](/sequential-thinking/docs)",
+    "version": "1.0"
+  },
+  "paths": {}
+}

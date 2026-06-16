@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@modelcontextprotocol/server-gitlab": "^2025.4.25"
+  }
+}
