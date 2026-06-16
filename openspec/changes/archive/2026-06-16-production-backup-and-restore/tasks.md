@@ -38,8 +38,8 @@
 
 ## 6. Restore Drill and Documentation
 
-- [/] 6.1 Run a complete manual backup and verify its manifest and checksums
-- [ ] 6.2 Restore the package into a non-production target
-- [ ] 6.3 Record measured recovery time, restored components, verification results, and discovered issues
+- [x] 6.1 Run a complete manual backup and verify its manifest and checksums
+- [x] 6.2 Restore the package into a non-production target
+- [x] 6.3 Record measured recovery time, restored components, verification results, and discovered issues
 - [x] 6.4 Update the operations runbook with backup, restore, retention, secondary copy, RPO, and RTO procedures
-- [ ] 6.5 Enable the production daily schedule only after the restore drill passes
+- [x] 6.5 Enable the production daily schedule only after the restore drill passes
