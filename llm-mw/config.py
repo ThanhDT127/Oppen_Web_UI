@@ -72,6 +72,8 @@ JWT_SECRET = os.getenv("JWT_SECRET", "default-jwt-secret-CHANGE-IN-PRODUCTION").
 MW_SECRET = os.getenv("MW_SECRET", "default-secret-CHANGE-IN-PRODUCTION").strip()
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://openwebui_user:changeme123@localhost:5432/middleware").strip()
 
+
+
 # ============================================================================
 # LOGGING SETUP
 # ============================================================================
@@ -149,3 +151,12 @@ SENSITIVE_KEYS = {
     "subkey",
     "subkey_hash",
 }
+
+# RAG Image Injection Configuration
+from utils.helpers import env_truthy
+MW_RAG_IMAGE_INJECT = env_truthy("MW_RAG_IMAGE_INJECT", default=True)
+try:
+    MW_RAG_IMAGE_MAX = int(os.getenv("MW_RAG_IMAGE_MAX", "3"))
+except ValueError:
+    MW_RAG_IMAGE_MAX = 3
+

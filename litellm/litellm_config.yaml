@@ -151,18 +151,15 @@ model_list:
 # EMBEDDING MODELS
 # ============================================================
 
-  # Gemini Embedding 2 via OpenRouter
+  # Gemini Embedding 2 via Vertex AI
   - model_name: gemini-embedding-2
     litellm_params:
-      model: openrouter/google/gemini-embedding-2
-      api_key: os.environ/OPENROUTER_API_KEY
+      model: vertex_ai/gemini-embedding-2
 
-
-  # Gemini Embedding 1 (legacy)
+  # Gemini Embedding 001 via OpenRouter
   - model_name: gemini-embedding-001
     litellm_params:
-      model: gemini/gemini-embedding-001
-      api_key: os.environ/OPENROUTER_API_KEY
+      model: openrouter/gemini-embedding-001
 
 # ============================================================
 # RERANK MODELS

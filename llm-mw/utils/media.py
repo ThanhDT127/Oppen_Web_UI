@@ -312,3 +312,34 @@ def get_allowed_extensions_pattern() -> str:
         "zip|rar|7z|"  # Archives
         "bin"  # Binary fallback
     )
+
+
+def convert_bytes_to_webp(image_bytes: bytes, quality: int = 80) -> bytes:
+    """
+    Convert raw image bytes to WebP format using Pillow.
+    
+    Args:
+        image_bytes: Source image bytes (PNG, JPEG, etc.)
+        quality: Compression quality (1-100), default 80
+        
+    Returns:
+        WebP image bytes
+    """
+    import io
+    from PIL import Image
+    import logging
+    
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        
+        # Convert P/1 modes to RGBA to avoid issues with WebP export
+        if img.mode in ("P", "1"):
+            img = img.convert("RGBA")
+            
+        output = io.BytesIO()
+        img.save(output, format="WEBP", quality=quality, method=4)
+        return output.getvalue()
+    except Exception as e:
+        logging.getLogger("llm_mw").error(f"Failed to convert image to WebP: {e}. Returning original bytes.")
+        return image_bytes
+
