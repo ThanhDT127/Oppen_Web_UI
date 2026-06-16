@@ -60,3 +60,13 @@ test_tts.mp3
 docker-compose.override.yml
 docker-compose.override.yaml
 
+# npm cache (local tooling)
+.npm-cache/
+
+# Generated / temp config dumps
+config_dump.json
+mcp_config.json.bak
+mcpo_openapi.json
+
+# SearXNG local overrides
+searxng/settings.yml.new
