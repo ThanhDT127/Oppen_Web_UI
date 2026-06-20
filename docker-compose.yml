@@ -7,7 +7,7 @@ services:
     container_name: openwebui-postgres
     environment:
       POSTGRES_USER: openwebui_user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-YOUR_DB_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Required}
       POSTGRES_DB: openwebui
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
       TZ: Asia/Ho_Chi_Minh
@@ -93,7 +93,9 @@ services:
       - OPENWEBUI_SERVICE_KEY=${SUBKEY_ADMIN}
       - MW_PUBLIC_URL=https://openwebui.example.com:51122
       - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - DATABASE_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:-YOUR_DB_PASSWORD}@postgres:5432/middleware
+      - DATABASE_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:?Required}@postgres:5432/middleware
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Required}
+      - MCP_DATABASE_PASSWORD=${MCP_DATABASE_PASSWORD:-}
       - TZ=Asia/Ho_Chi_Minh
     volumes:
       - ./llm-mw/users.json:/app/data/users.json
@@ -192,11 +194,11 @@ services:
     container_name: openwebui-app
     environment:
       # Database Configuration - PostgreSQL
-      - DATABASE_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:-YOUR_DB_PASSWORD}@postgres:5432/openwebui
+      - DATABASE_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:?Required}@postgres:5432/openwebui
 
       # PGVector Configuration
       - VECTOR_DB=pgvector
-      - PGVECTOR_DB_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:-YOUR_DB_PASSWORD}@postgres:5432/openwebui
+      - PGVECTOR_DB_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:?Required}@postgres:5432/openwebui
       - PGVECTOR_CREATE_EXTENSION=true
       - PGVECTOR_INDEX_METHOD=hnsw
 
@@ -213,7 +215,7 @@ services:
       - CHUNK_OVERLAP=100
       - RAG_TEXT_SPLITTER=character
       - ENABLE_RAG_HYBRID_SEARCH=true
-      - RAG_FILE_MAX_SIZE=2048
+      - RAG_FILE_MAX_SIZE=500
       - RAG_FILE_MAX_COUNT=20
 
       # Embedding batch size (reduced for Gemini API rate limits)

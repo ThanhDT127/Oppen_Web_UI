@@ -133,10 +133,9 @@ CREATE TABLE IF NOT EXISTS mw_users (
     user_id        TEXT PRIMARY KEY,
     role           TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
     openwebui_user_id TEXT UNIQUE,
-    subkey         TEXT,
     subkey_hash    TEXT,
     active         BOOLEAN DEFAULT true,
-    allowed_models JSONB DEFAULT '["*"]'::jsonb,
+    allowed_models JSONB DEFAULT '["openai-auto", "gemini-auto", "grok-auto", "claude-auto", "deepseek-auto"]'::jsonb,
     used_tokens    BIGINT DEFAULT 0,
     used_cost_usd  DOUBLE PRECISION DEFAULT 0.0,
     quota          JSONB DEFAULT '{}'::jsonb,
@@ -256,6 +255,36 @@ def _create_tables():
     with db_conn() as conn:
         cur = conn.cursor()
         cur.execute(_SCHEMA_SQL)
+        
+        # Setup mcp_readonly_user dynamically
+        mcp_password = os.getenv("MCP_DATABASE_PASSWORD") or os.getenv("POSTGRES_PASSWORD")
+        if mcp_password:
+            try:
+                cur.execute(
+                    sql.SQL("""
+                        DO $$
+                        BEGIN
+                            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'mcp_readonly_user') THEN
+                                CREATE ROLE mcp_readonly_user WITH LOGIN PASSWORD {};
+                            ELSE
+                                ALTER ROLE mcp_readonly_user WITH PASSWORD {};
+                            END IF;
+                        END
+                        $$;
+                    """).format(sql.Literal(mcp_password), sql.Literal(mcp_password))
+                )
+                cur.execute("""
+                    GRANT CONNECT ON DATABASE middleware TO mcp_readonly_user;
+                    GRANT USAGE ON SCHEMA public TO mcp_readonly_user;
+                    GRANT SELECT ON ALL TABLES IN SCHEMA public TO mcp_readonly_user;
+                    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO mcp_readonly_user;
+                """)
+                logger.info("Successfully created/updated 'mcp_readonly_user' role with read-only privileges")
+            except Exception as e:
+                logger.error("Failed to setup mcp_readonly_user role: %s", str(e))
+        else:
+            logger.warning("MCP_DATABASE_PASSWORD is not set - skipping mcp_readonly_user setup")
+
         cur.close()
     logger.info("Database schema verified/created")
 
@@ -295,23 +324,39 @@ def _auto_migrate_if_empty():
 
 
 def _backfill_subkey_hashes(conn, cur):
-    """Generate subkey_hash for users who have plaintext subkey but NULL hash."""
+    """Generate subkey_hash for users who have plaintext subkey but NULL hash, then drop subkey column."""
+    # Check if 'subkey' column exists
+    cur.execute("""
+        SELECT EXISTS (
+            SELECT 1 
+            FROM information_schema.columns 
+            WHERE table_name='mw_users' AND column_name='subkey'
+        )
+    """)
+    subkey_exists = cur.fetchone()[0]
+    if not subkey_exists:
+        return
+
     # Use centralized hash_subkey() to avoid duplicating MW_SECRET logic
     from core.auth import hash_subkey
 
     cur.execute("SELECT user_id, subkey FROM mw_users WHERE subkey IS NOT NULL AND subkey != '' AND subkey_hash IS NULL")
     rows = cur.fetchall()
 
-    if not rows:
-        return
+    if rows:
+        for user_id, subkey in rows:
+            subkey_hash = hash_subkey(subkey)
+            cur.execute("UPDATE mw_users SET subkey_hash = %s WHERE user_id = %s", (subkey_hash, user_id))
+            logger.info("Backfilled subkey_hash for user: %s", user_id)
+        conn.commit()
+        logger.info("Backfilled subkey_hash for %d users", len(rows))
 
-    for user_id, subkey in rows:
-        subkey_hash = hash_subkey(subkey)
-        cur.execute("UPDATE mw_users SET subkey_hash = %s WHERE user_id = %s", (subkey_hash, user_id))
-        logger.info("Backfilled subkey_hash for user: %s", user_id)
-
+    # Safely drop the subkey column now
+    cur.execute("ALTER TABLE mw_users DROP COLUMN IF EXISTS subkey")
     conn.commit()
-    logger.info("Backfilled subkey_hash for %d users", len(rows))
+    logger.info("Dropped plaintext 'subkey' column from mw_users table")
+
+
 
 
 def _import_users(conn, cur, data_dir: str, fallback_dir: str = None):
@@ -323,23 +368,34 @@ def _import_users(conn, cur, data_dir: str, fallback_dir: str = None):
         logger.warning("users.json not found — skipping")
         return
 
+    from config import DEFAULT_ALLOWED_MODELS
+    from core.auth import hash_subkey
+
     with open(users_file, "r", encoding="utf-8-sig") as f:
         users = json.load(f)
 
     for u in users:
+        subkey = u.get("subkey")
+        subkey_hash = u.get("subkey_hash")
+        if not subkey_hash and subkey:
+            subkey_hash = hash_subkey(subkey)
+
+        allowed_models = u.get("allowed_models")
+        if not allowed_models or allowed_models == ["*"]:
+            allowed_models = DEFAULT_ALLOWED_MODELS
+
         cur.execute("""
-            INSERT INTO mw_users (user_id, role, openwebui_user_id, subkey, subkey_hash,
+            INSERT INTO mw_users (user_id, role, openwebui_user_id, subkey_hash,
                                   active, allowed_models, used_tokens, used_cost_usd, quota, alerts_sent)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (user_id) DO NOTHING
         """, (
             u.get("user_id"),
             "user" if u.get("role") == "manager" else u.get("role", "user"),
             u.get("openwebui_user_id"),
-            u.get("subkey"),
-            u.get("subkey_hash"),
+            subkey_hash,
             u.get("active", True),
-            json.dumps(u.get("allowed_models", ["*"])),
+            json.dumps(allowed_models),
             u.get("used_tokens", 0),
             u.get("used_cost_usd", 0.0),
             json.dumps(u.get("quota", {})),
@@ -505,12 +561,12 @@ def insert_request_log(payload: dict):
 # ─── Single-user query functions (O(1) indexed) ─────────────
 
 _USER_COLUMNS = (
-    "user_id", "role", "openwebui_user_id", "subkey", "subkey_hash", "active",
+    "user_id", "role", "openwebui_user_id", "subkey_hash", "active",
     "allowed_models", "used_tokens", "used_cost_usd", "quota", "alerts_sent"
 )
 
 _USER_SELECT = """
-    SELECT user_id, role, openwebui_user_id, subkey, subkey_hash, active,
+    SELECT user_id, role, openwebui_user_id, subkey_hash, active,
            allowed_models, used_tokens, used_cost_usd, quota, alerts_sent
     FROM mw_users
 """
@@ -524,14 +580,14 @@ def _row_to_user_dict(row) -> Optional[Dict[str, Any]]:
         "user_id": row[0],
         "role": row[1] or "user",
         "openwebui_user_id": row[2],
-        "subkey": row[3],
-        "subkey_hash": row[4],
-        "active": row[5],
-        "allowed_models": row[6] if row[6] else ["*"],
-        "used_tokens": row[7] or 0,
-        "used_cost_usd": row[8] or 0.0,
-        "quota": row[9] if row[9] else {},
-        "alerts_sent": row[10] if row[10] else {},
+        "subkey": None,
+        "subkey_hash": row[3],
+        "active": row[4],
+        "allowed_models": row[5] if row[5] else ["*"],
+        "used_tokens": row[6] or 0,
+        "used_cost_usd": row[7] or 0.0,
+        "quota": row[8] if row[8] else {},
+        "alerts_sent": row[9] if row[9] else {},
     }
 
 
@@ -669,7 +725,7 @@ def reset_user_quota_period_db(user_id: str, period_start: int) -> Optional[Dict
                     updated_at = now()
                 WHERE user_id = %s
                   AND COALESCE((quota->>'period_start')::bigint, 0) < %s
-                RETURNING user_id, role, openwebui_user_id, subkey, subkey_hash,
+                RETURNING user_id, role, openwebui_user_id, subkey_hash,
                           active, allowed_models, used_tokens, used_cost_usd, quota, alerts_sent
             """, (period_start, user_id, period_start))
             row = cur.fetchone()
@@ -702,7 +758,7 @@ def clear_user_quota_usage_db(user_id: str) -> Optional[Dict[str, Any]]:
                     ),
                     updated_at = now()
                 WHERE user_id = %s
-                RETURNING user_id, role, openwebui_user_id, subkey, subkey_hash,
+                RETURNING user_id, role, openwebui_user_id, subkey_hash,
                           active, allowed_models, used_tokens, used_cost_usd, quota, alerts_sent
             """, (user_id,))
             row = cur.fetchone()
@@ -720,7 +776,6 @@ def update_user_admin_fields_db(
     allowed_models=None,
     quota_limits: Optional[Dict[str, Any]] = None,
     subkey_hash=None,
-    clear_subkey: bool = False,
     role=None,
     openwebui_user_id=None,
     update_openwebui_mapping: bool = False,
@@ -743,8 +798,6 @@ def update_user_admin_fields_db(
     if subkey_hash is not None:
         sets.append("subkey_hash = %s")
         params.append(subkey_hash)
-    if clear_subkey:
-        sets.append("subkey = NULL")
     quota_expr = "COALESCE(quota, '{}'::jsonb)"
     quota_params = []
     for key, value in (quota_limits or {}).items():
@@ -761,7 +814,7 @@ def update_user_admin_fields_db(
             cur = conn.cursor()
             cur.execute(
                 f"UPDATE mw_users SET {', '.join(sets)} WHERE user_id = %s "
-                "RETURNING user_id, role, openwebui_user_id, subkey, subkey_hash, "
+                "RETURNING user_id, role, openwebui_user_id, subkey_hash, "
                 "active, allowed_models, used_tokens, used_cost_usd, quota, alerts_sent",
                 (*params, user_id),
             )
@@ -776,20 +829,25 @@ def update_user_admin_fields_db(
 def create_user_db(user: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Insert one user without reading or rewriting other user records."""
     try:
+        from config import DEFAULT_ALLOWED_MODELS
+        allowed_models = user.get("allowed_models")
+        if not allowed_models or allowed_models == ["*"]:
+            allowed_models = DEFAULT_ALLOWED_MODELS
+
         with db_conn() as conn:
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO mw_users
-                    (user_id, role, openwebui_user_id, subkey, subkey_hash, active, allowed_models,
+                    (user_id, role, openwebui_user_id, subkey_hash, active, allowed_models,
                      used_tokens, used_cost_usd, quota, alerts_sent)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (user_id) DO NOTHING
-                RETURNING user_id, role, openwebui_user_id, subkey, subkey_hash,
+                RETURNING user_id, role, openwebui_user_id, subkey_hash,
                           active, allowed_models, used_tokens, used_cost_usd, quota, alerts_sent
             """, (
                 user.get("user_id"), user.get("role", "user"), user.get("openwebui_user_id"),
-                user.get("subkey"), user.get("subkey_hash"),
-                user.get("active", True), json.dumps(user.get("allowed_models", ["*"])),
+                user.get("subkey_hash"),
+                user.get("active", True), json.dumps(allowed_models),
                 user.get("used_tokens", 0), user.get("used_cost_usd", 0.0),
                 json.dumps(user.get("quota", {})), json.dumps(user.get("alerts_sent", {})),
             ))

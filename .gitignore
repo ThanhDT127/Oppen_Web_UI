@@ -11,7 +11,9 @@ vertex.json
 
 # Middleware user registry (local)
 llm-mw/users.json
-llm-mw/users.local.json
+llm-mw/data/users.json
+llm-mw/data/users.local.json
+llm-mw/data/backup/
 
 # Runtime data
 openwebui_data/
@@ -65,8 +67,12 @@ docker-compose.override.yaml
 
 # Generated / temp config dumps
 config_dump.json
+mcp_config.json
 mcp_config.json.bak
 mcpo_openapi.json
 
 # SearXNG local overrides
 searxng/settings.yml.new
+
+# Codegraph server index
+.codegraph/

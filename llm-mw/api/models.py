@@ -46,7 +46,8 @@ async def list_models(request: Request):
             data = payload.get("data")
             if isinstance(data, list):
                 # Get user's allowed models
-                allowed_models = user.get("allowed_models", ["*"])
+                from config import DEFAULT_ALLOWED_MODELS
+                allowed_models = user.get("allowed_models") or DEFAULT_ALLOWED_MODELS
                 allow_all = allowed_models == ["*"]
                 
                 filtered = []
