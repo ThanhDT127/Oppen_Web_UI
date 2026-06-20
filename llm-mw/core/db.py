@@ -576,6 +576,7 @@ def _row_to_user_dict(row) -> Optional[Dict[str, Any]]:
     """Convert a DB row tuple to user dict. Returns None if row is None."""
     if not row:
         return None
+    from config import DEFAULT_ALLOWED_MODELS
     return {
         "user_id": row[0],
         "role": row[1] or "user",
@@ -583,7 +584,7 @@ def _row_to_user_dict(row) -> Optional[Dict[str, Any]]:
         "subkey": None,
         "subkey_hash": row[3],
         "active": row[4],
-        "allowed_models": row[5] if row[5] else ["*"],
+        "allowed_models": row[5] if (row[5] and row[5] != ["*"]) else DEFAULT_ALLOWED_MODELS,
         "used_tokens": row[6] or 0,
         "used_cost_usd": row[7] or 0.0,
         "quota": row[8] if row[8] else {},

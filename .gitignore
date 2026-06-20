@@ -61,6 +61,8 @@ test_tts.mp3
 # Local Docker compose overrides
 docker-compose.override.yml
 docker-compose.override.yaml
+*.bak
+*.bak-*
 
 # npm cache (local tooling)
 .npm-cache/
