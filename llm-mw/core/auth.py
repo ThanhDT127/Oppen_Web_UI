@@ -354,6 +354,10 @@ def assert_model_allowed(user: Dict[str, Any], model: str):
     if allowed_models == ["*"]:
         return  # Wildcard: all models allowed
 
+    # If the model itself is explicitly allowed, let it pass
+    if model in allowed_models:
+        return
+
     # Auto-model check: allow if user has access to any model in that provider's tiers
     from core.smart_routing import PROVIDER_TIERS
     if model in PROVIDER_TIERS:

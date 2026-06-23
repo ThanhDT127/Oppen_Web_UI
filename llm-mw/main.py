@@ -37,6 +37,9 @@ from api.auth_check import get_auth_check
 from api.auth_test import auth_test
 from api.quota_status import get_quota_status, get_alert_config, update_alert_config, test_alert_email
 from api.notifications import list_notifications, unread_count, mark_notification_read, mark_all_read
+from api.oauth import router as oauth_router
+from api.integrations import router as integrations_router
+from api.approvals import router as approvals_router
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -212,6 +215,11 @@ app.add_api_route("/v1/_mw/auth_check", get_auth_check, methods=["GET"])
 
 # Auth diagnostic endpoint (any user with valid Bearer token)
 app.add_api_route("/v1/_mw/auth-test", auth_test, methods=["GET"])
+
+# Include OAuth, integrations and approvals routers (added for Phase 2)
+app.include_router(oauth_router, prefix="/v1")
+app.include_router(integrations_router, prefix="/v1")
+app.include_router(approvals_router, prefix="/v1")
 
 # Mount static files for dashboard (css, js, vendor)
 import os

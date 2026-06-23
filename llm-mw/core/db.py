@@ -247,6 +247,29 @@ ALTER TABLE mw_users ADD CONSTRAINT mw_users_role_check CHECK (role IN ('admin',
 INSERT INTO mw_migrations (migration_key, details)
 VALUES ('2026-06-10-manager-role-to-user', '{"manager_role_migrated_to":"user"}'::jsonb)
 ON CONFLICT (migration_key) DO NOTHING;
+
+-- User OAuth Integrations table (added for Phase 2)
+CREATE TABLE IF NOT EXISTS mw_user_integrations (
+    id SERIAL PRIMARY KEY,
+    user_id_hash VARCHAR(64) NOT NULL,
+    provider VARCHAR(50) NOT NULL,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    expires_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT unique_user_provider UNIQUE (user_id_hash, provider)
+);
+
+-- Tool approvals table (added for Phase 2 Change 4)
+CREATE TABLE IF NOT EXISTS mw_tool_approvals (
+    id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL,
+    tool_name   TEXT NOT NULL,
+    status      TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
+    payload     JSONB NOT NULL,
+    created_at  TIMESTAMPTZ DEFAULT now(),
+    updated_at  TIMESTAMPTZ DEFAULT now()
+);
 """
 
 
@@ -894,3 +917,70 @@ def claim_quota_alert_db(
     except Exception as e:
         logger.error("claim_quota_alert_db failed user=%s threshold=%s: %s", user_id, threshold, str(e))
         return False
+
+
+def save_tool_approval_db(approval_id: str, user_id: str, tool_name: str, payload: dict) -> bool:
+    """Save or update a tool approval request."""
+    try:
+        with db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO mw_tool_approvals (id, user_id, tool_name, status, payload)
+                VALUES (%s, %s, %s, 'pending', %s)
+                ON CONFLICT (id) DO UPDATE SET
+                    status = 'pending',
+                    payload = %s,
+                    updated_at = now()
+            """, (approval_id, user_id, tool_name, json.dumps(payload), json.dumps(payload)))
+            cur.close()
+        return True
+    except Exception as e:
+        logger.error("save_tool_approval_db failed id=%s: %s", approval_id, str(e))
+        return False
+
+
+def get_tool_approval_db(approval_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieve details of a tool approval request."""
+    try:
+        with db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT id, user_id, tool_name, status, payload, created_at, updated_at
+                FROM mw_tool_approvals
+                WHERE id = %s
+            """, (approval_id,))
+            row = cur.fetchone()
+            cur.close()
+        if row:
+            return {
+                "id": row[0],
+                "user_id": row[1],
+                "tool_name": row[2],
+                "status": row[3],
+                "payload": row[4],
+                "created_at": row[5].isoformat() if row[5] else None,
+                "updated_at": row[6].isoformat() if row[6] else None
+            }
+        return None
+    except Exception as e:
+        logger.error("get_tool_approval_db failed id=%s: %s", approval_id, str(e))
+        return None
+
+
+def update_tool_approval_status_db(approval_id: str, status: str) -> bool:
+    """Update status of a tool approval request."""
+    try:
+        with db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE mw_tool_approvals
+                SET status = %s, updated_at = now()
+                WHERE id = %s
+            """, (status, approval_id))
+            updated = cur.rowcount > 0
+            cur.close()
+        return updated
+    except Exception as e:
+        logger.error("update_tool_approval_status_db failed id=%s status=%s: %s", approval_id, status, str(e))
+        return False
+

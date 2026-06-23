@@ -255,6 +255,7 @@ services:
       - UVICORN_WORKERS=6
     volumes:
       - openwebui_data:/app/backend/data
+      - sandbox_outputs:/app/backend/data/static/outputs:rw
     # Port closed — accessed through Nginx
     # ports:
     #   - "3000:8080"
@@ -277,6 +278,33 @@ services:
         reservations: { memory: 4G }
     networks:
       - openwebui-network
+      - openwebui-sandbox-network
+
+  # Code Sandbox for secure Python execution
+  code-sandbox:
+    build:
+      context: ./code-sandbox
+      dockerfile: Dockerfile
+    container_name: openwebui-sandbox
+    command: jupyter kernelgateway --KernelGatewayApp.ip=0.0.0.0 --KernelGatewayApp.port=8888 --KernelGatewayApp.allow_origin="*" --JupyterWebsocketPersonality.list_kernels=True
+    environment:
+      - JUPYTER_RUNTIME_DIR=/tmp/jupyter_runtime
+      - KG_AUTH_TOKEN=
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M
+      - /run:size=10M
+      - /home/jovyan:size=10M
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    volumes:
+      - sandbox_outputs:/tmp/outputs:rw
+    networks:
+      - openwebui-sandbox-network
+    restart: unless-stopped
 
   # MCP-to-OpenAPI Proxy (MCPO)
   mcpo:
@@ -320,7 +348,11 @@ volumes:
     driver: local
   searxng_data:
     driver: local
+  sandbox_outputs:
+    driver: local
 
 networks:
   openwebui-network:
+    driver: bridge
+  openwebui-sandbox-network:
     driver: bridge
