@@ -64,7 +64,7 @@ class Pipe:
         }
 
         try:
-            res = requests.post(url, headers=headers, json=body, timeout=15)
+            res = requests.post(url, headers=headers, json=body, timeout=30)
             if res.status_code == 200:
                 content = res.json()["choices"][0]["message"]["content"].strip()
                 queries = [q.strip().strip('"').strip("'") for q in content.split("\n") if q.strip()]
@@ -147,7 +147,7 @@ class Pipe:
         }
 
         try:
-            res = requests.post(url, headers=headers, json=body, timeout=15)
+            res = requests.post(url, headers=headers, json=body, timeout=30)
             if res.status_code == 200:
                 content = res.json()["choices"][0]["message"]["content"].strip()
                 if "COMPLETED" in content:
@@ -192,7 +192,7 @@ class Pipe:
         }
 
         try:
-            res = requests.post(url, headers=headers, json=body, stream=True, timeout=30)
+            res = requests.post(url, headers=headers, json=body, stream=True, timeout=60)
             if res.status_code == 200:
                 for line in res.iter_lines():
                     if line:
