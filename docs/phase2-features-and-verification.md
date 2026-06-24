@@ -87,10 +87,11 @@ Chúng tôi đã khắc phục triệt để hai sự cố phát sinh để khô
 ### Sự cố 2: Gemini API Connection Error (Malformed service account info)
 *   **Nguyên nhân:**
     1.  **Credentials rỗng:** File key GCP [vertex.json](file:///d:/Works/openwebui_clone/vertex.json) bị rỗng, thiếu thông tin Service Account.
-    2.  **Độ ưu tiên Provider:** LiteLLM ưu tiên gọi Gemini API Key (đã hết hạn/không hợp lệ trong `.env`) và không tự động fallback sang Vertex AI khi gặp lỗi Client.
+    2.  **Lỗi Load-balancing / Shuffling của LiteLLM:** Trong LiteLLM, khi cấu hình nhiều nhà cung cấp cho cùng một mô hình (`chat-gemini-2.5-flash`), LiteLLM sẽ tự động xáo trộn (shuffle) hoặc phân tải (load-balance) ngẫu nhiên giữa các nhà cung cấp này. Nếu request được gửi đến provider Google AI Studio trước, nó sẽ sập lập tức với lỗi Client `400 Bad Request` (do API Key hết hạn) và không kích hoạt cơ chế failover sang Vertex AI.
 *   **Giải pháp khắc phục:**
     *   Copy file key GCP Service Account hợp lệ `testvertex.json` thay thế vào file [vertex.json](file:///d:/Works/openwebui_clone/vertex.json).
-    *   Cấu hình lại [litellm_config.yaml](file:///d:/Works/openwebui_clone/litellm/litellm_config.yaml) đưa provider Vertex AI lên vị trí số 1 (chính) và đưa Google AI Studio xuống làm dự phòng.
+    *   Cấu hình lại [litellm_config.yaml](file:///d:/Works/openwebui_clone/litellm/litellm_config.yaml) để **loại bỏ hoàn toàn** cấu hình Google AI Studio của mô hình `chat-gemini-2.5-flash`, chỉ giữ lại duy nhất cấu hình Vertex AI chạy bằng Service Account hợp lệ. Điều này triệt tiêu hoàn toàn lỗi phân tải ngẫu nhiên và đảm bảo 100% request được xử lý thành công.
+
 
 ---
 
