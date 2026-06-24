@@ -146,7 +146,7 @@ async def create_user(request: Request):
         
         from config import DEFAULT_ALLOWED_MODELS
         allowed = req.allowed_models
-        if not allowed or allowed == ["*"]:
+        if not allowed:
             allowed = DEFAULT_ALLOWED_MODELS
 
         # Create user object (do NOT save raw subkey in DB/JSON)

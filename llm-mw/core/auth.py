@@ -199,7 +199,7 @@ def _find_user_file(subkey: str) -> Optional[Dict[str, Any]]:
             break
 
     if matched_user:
-        if not matched_user.get("allowed_models") or matched_user.get("allowed_models") == ["*"]:
+        if not matched_user.get("allowed_models"):
             matched_user["allowed_models"] = DEFAULT_ALLOWED_MODELS
         matched_user["subkey"] = None
         if updated:
