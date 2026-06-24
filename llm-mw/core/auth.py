@@ -63,7 +63,7 @@ def _load_users_db() -> List[Dict[str, Any]]:
             "subkey": None,
             "subkey_hash": row[3],
             "active": row[4],
-            "allowed_models": row[5] if (row[5] and row[5] != ["*"]) else DEFAULT_ALLOWED_MODELS,
+            "allowed_models": row[5] if row[5] else DEFAULT_ALLOWED_MODELS,
             "used_tokens": row[6] or 0,
             "used_cost_usd": row[7] or 0.0,
             "quota": row[8] if row[8] else {},
@@ -86,7 +86,7 @@ def _save_users_db(users: List[Dict[str, Any]]):
                 subkey_hash = hash_subkey(subkey)
 
             allowed_models = u.get("allowed_models")
-            if not allowed_models or allowed_models == ["*"]:
+            if not allowed_models:
                 allowed_models = DEFAULT_ALLOWED_MODELS
 
             cur.execute("""
@@ -147,7 +147,7 @@ def _find_user_db(subkey: str) -> Optional[Dict[str, Any]]:
         "subkey": None,
         "subkey_hash": row[3],
         "active": row[4],
-        "allowed_models": row[5] if (row[5] and row[5] != ["*"]) else DEFAULT_ALLOWED_MODELS,
+        "allowed_models": row[5] if row[5] else DEFAULT_ALLOWED_MODELS,
         "used_tokens": row[6] or 0,
         "used_cost_usd": row[7] or 0.0,
         "quota": row[8] if row[8] else {},

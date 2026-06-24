@@ -75,9 +75,9 @@ async def list_models(request: Request):
                     for item in filtered if isinstance(item, dict)
                 }
                 for auto_name, tiers in PROVIDER_TIERS.items():
-                    # User can use auto model if they have access to any tier model
+                    # User can use auto model if they have access to any tier model or if the auto model itself is explicitly allowed
                     tier_models = set(tiers.values())
-                    if allow_all or any(m in allowed_models for m in tier_models):
+                    if allow_all or auto_name in allowed_models or any(m in allowed_models for m in tier_models):
                         # Only add if at least one tier model exists in LiteLLM
                         if tier_models & filtered_ids:
                             filtered.insert(0, {
