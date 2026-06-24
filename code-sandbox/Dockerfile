@@ -16,11 +16,12 @@ RUN pip install --no-cache-dir \
     pandas \
     scipy
 
+# Create a non-root user for sandbox isolation
+RUN useradd -u 1000 -m jovyan
+
 # Create shared output directory and set ownership to jovyan
 RUN mkdir -p /tmp/outputs && chown -R jovyan:jovyan /tmp/outputs
 
-# Create a non-root user for sandbox isolation
-RUN useradd -u 1000 -m jovyan
 USER jovyan
 
 # Register the python3 kernel spec for the jovyan user
