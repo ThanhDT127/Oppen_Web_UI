@@ -3,8 +3,8 @@ FROM ghcr.io/open-webui/open-webui:v0.9.5
 USER root
 
 # 1. Cài đầy đủ font DejaVu (core = Regular+Bold, extra = Oblique+BoldOblique)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && \
+    apt-get install -y --allow-unauthenticated --no-install-recommends \
     fonts-dejavu-core \
     fonts-dejavu-extra && \
     rm -rf /var/lib/apt/lists/*
