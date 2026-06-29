@@ -78,3 +78,20 @@ searxng/settings.yml.new
 
 # Codegraph server index
 .codegraph/
+
+# Generated runtime configs
+current_config.json
+test-results/
+bench_results.txt
+docker_status.txt
+
+# Build / cache
+.uv-cache/
+.pytest_cache/
+
+# AI coding agent configs
+.claude/
+.codex/
+
+# git-filter-repo working file
+expressions.txt

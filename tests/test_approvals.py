@@ -12,8 +12,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "llm-mw"))
 
 # Setup environment variables for testing database
-os.environ["DATABASE_URL"] = os.getenv("DATABASE_URL", "postgresql://openwebui_user:openwebui_password@postgres:5432/middleware")
-os.environ["SUBKEY_ADMIN"] = "YOUR_SUBKEY_ADMIN"
+os.environ["DATABASE_URL"] = os.getenv("DATABASE_URL", "postgresql://openwebui_user:YOUR_DB_PASSWORD@postgres:5432/middleware")
+os.environ["SUBKEY_ADMIN"] = os.getenv("SUBKEY_ADMIN", "YOUR_SUBKEY_ADMIN")
 
 from core.db import (
     init_pool, save_tool_approval_db, get_tool_approval_db, 

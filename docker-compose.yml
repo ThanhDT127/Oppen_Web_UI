@@ -57,7 +57,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - GOOGLE_APPLICATION_CREDENTIALS=/app/vertex.json
-      - VERTEX_PROJECT=YOUR_GCP_PROJECT_ID
+      - VERTEX_PROJECT=${VERTEX_PROJECT:-your-gcp-project-id}
       - VERTEX_LOCATION=us-central1
       - TZ=Asia/Ho_Chi_Minh
     volumes:
@@ -91,12 +91,18 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - MW_SECRET=${MW_SECRET}
       - OPENWEBUI_SERVICE_KEY=${SUBKEY_ADMIN}
-      - MW_PUBLIC_URL=https://openwebui.example.com:51122
+      - MW_PUBLIC_URL=${MW_PUBLIC_URL:-https://your-domain.example.com}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - DATABASE_URL=postgresql://openwebui_user:${POSTGRES_PASSWORD:?Required}@postgres:5432/middleware
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Required}
       - MCP_DATABASE_PASSWORD=${MCP_DATABASE_PASSWORD:-}
       - TZ=Asia/Ho_Chi_Minh
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - OFFICE365_CLIENT_ID=${OFFICE365_CLIENT_ID:-}
+      - OFFICE365_CLIENT_SECRET=${OFFICE365_CLIENT_SECRET:-}
     volumes:
       - ./llm-mw/users.json:/app/data/users.json
       - ./llm-mw/prices.json:/app/data/prices.json:ro
